@@ -1,0 +1,28 @@
+name: "Factory 0: router"
+
+# Turns owner labels into factory runs. Agents always run under workflow_dispatch or schedule,
+# so the Claude action never applies its own issue-branch logic.
+#   needs-spec -> Factory 1 (write spec)
+#   build-now  -> Factory 3 (build this issue now instead of waiting for the night)
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  actions: write
+  issues: read
+
+jobs:
+  route:
+    if: github.actor == github.repository_owner && contains(fromJson('["needs-spec","build-now"]'), github.event.label.name)
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      LABEL: ${{ github.event.label.name }}
+      ISSUE: ${{ github.event.issue.number }}
+    steps:
+      - run: |
+          if [ "$LABEL" = "needs-spec" ]; then WF=factory-spec.yml; else WF=factory-build.yml; fi
+          gh workflow run "$WF" --repo "$GITHUB_REPOSITORY" --ref main -f issue="$ISSUE"
+          echo "Dispatched $WF for #$ISSUE"

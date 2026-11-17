@@ -1,0 +1,162 @@
+name: "Factory 3: build"
+
+# Nightly (or on label `build-now`): take the oldest `ready` issues, write tests first (test-writer),
+# implement (developer), run the gates, open a PR with evidence. A human merges (gate 2).
+
+on:
+  schedule:
+    - cron: "0 15 * * *" # 22:00 Asia/Ho_Chi_Minh
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: Issue number (empty = take the ready queue)
+        required: false
+
+concurrency:
+  group: factory
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  select:
+    runs-on: ubuntu-latest
+    outputs:
+      issues: ${{ steps.pick.outputs.issues }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      INPUT_ISSUE: ${{ inputs.issue }}
+      MAX: ${{ vars.FACTORY_MAX_PER_NIGHT || 3 }}
+    steps:
+      - id: pick
+        run: |
+          if [ -n "$INPUT_ISSUE" ]; then LIST="[$INPUT_ISSUE]"
+          else
+            LIST=$(gh issue list --repo "$GITHUB_REPOSITORY" --label ready --state open --limit 50 \
+              --json number,createdAt | jq -c "sort_by(.createdAt) | map(.number) | .[:$MAX]")
+          fi
+          echo "issues=$LIST" >> "$GITHUB_OUTPUT"
+          echo "Selected: $LIST"
+
+  build:
+    needs: select
+    if: needs.select.outputs.issues != '[]' && needs.select.outputs.issues != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        issue: ${{ fromJson(needs.select.outputs.issues) }}
+    env:
+      ISSUE: ${{ matrix.issue }}
+      GH_TOKEN: ${{ secrets.FACTORY_TOKEN || github.token }}
+      MODEL: ${{ vars.FACTORY_BUILD_MODEL || 'claude-sonnet-5-5' }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.FACTORY_TOKEN || github.token }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci && echo "$PWD/node_modules/.bin" >> "$GITHUB_PATH"
+
+      - name: Find the approved change
+        id: change
+        run: |
+          git config user.name "family-guardian-factory"
+          git config user.email "factory@users.noreply.github.com"
+          CHANGE=$(grep -rlE "#${ISSUE}([^0-9]|$)" openspec/changes --include=proposal.md | grep -v /archive/ | head -1 | xargs -r dirname | xargs -r basename || true)
+          if [ -z "$CHANGE" ]; then
+            gh issue comment "$ISSUE" --body "Factory: no approved OpenSpec change references #${ISSUE}. Label it \`needs-spec\` first."
+            gh issue edit "$ISSUE" --remove-label ready --remove-label build-now --add-label needs-human
+            exit 1
+          fi
+          echo "name=$CHANGE" >> "$GITHUB_OUTPUT"
+          echo "started=$(date +%s)" >> "$GITHUB_OUTPUT"
+          git checkout -b "factory/${ISSUE}"
+          gh issue edit "$ISSUE" --remove-label ready --remove-label build-now --add-label in-progress
+
+      - name: Test writer agent
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.CLAUDE_API_KEY }}
+          github_token: ${{ secrets.FACTORY_TOKEN || github.token }}
+          prompt: |
+            Follow .claude/agents/test-writer.md exactly.
+            OpenSpec change: ${{ steps.change.outputs.name }}. Issue: #${{ matrix.issue }}.
+          claude_args: |
+            --model ${{ env.MODEL }}
+            --max-turns 40
+            --permission-mode default
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(npx vitest:*),Bash(npm run typecheck:*),Bash(npm test:*),Bash(ls:*)"
+
+      - name: Commit tests
+        id: tests
+        run: |
+          git checkout -B "factory/${ISSUE}"
+          git add -A
+          if git diff --cached --quiet; then echo "::error::Test writer produced no tests"; exit 1; fi
+          git commit -m "test: scenarios for ${{ steps.change.outputs.name }} (#${ISSUE})"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          git diff --name-only HEAD~1 | grep -E '\.(test|spec)\.tsx?$' > /tmp/test-files.txt || true
+
+      - name: Developer agent
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.CLAUDE_API_KEY }}
+          github_token: ${{ secrets.FACTORY_TOKEN || github.token }}
+          prompt: |
+            Follow .claude/agents/developer.md exactly.
+            OpenSpec change: ${{ steps.change.outputs.name }}. Issue: #${{ matrix.issue }}.
+          claude_args: |
+            --model ${{ env.MODEL }}
+            --max-turns ${{ vars.FACTORY_DEV_MAX_TURNS || 80 }}
+            --permission-mode default
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(npm run:*),Bash(npm test:*),Bash(npx vitest:*),Bash(npx openspec:*),Bash(npm install:*),Bash(ls:*),Bash(git status:*),Bash(git diff:*)"
+
+      - name: "Gate: tests not weakened"
+        id: guard
+        if: always() && steps.tests.outcome == 'success'
+        run: |
+          git checkout -B "factory/${ISSUE}"
+          git add -A
+          CHANGED=""
+          while read -r f; do
+            [ -z "$f" ] && continue
+            git diff --cached --quiet "${{ steps.tests.outputs.sha }}" -- "$f" || CHANGED="$CHANGED $f"
+          done < /tmp/test-files.txt
+          if [ -n "$CHANGED" ]; then echo "result=fail (changed:$CHANGED)" >> "$GITHUB_OUTPUT"; else echo "result=pass" >> "$GITHUB_OUTPUT"; fi
+
+      - name: "Gate: check and build"
+        id: gate
+        if: always() && steps.tests.outcome == 'success'
+        run: |
+          if npm run check > /tmp/check.log 2>&1 && npm run build > /tmp/build.log 2>&1; then
+            echo "result=pass" >> "$GITHUB_OUTPUT"
+          else
+            echo "result=fail" >> "$GITHUB_OUTPUT"
+          fi
+          tail -n 40 /tmp/check.log /tmp/build.log > /tmp/gate-tail.txt 2>/dev/null || true
+
+      - name: Open PR with evidence
+        if: always() && steps.tests.outcome == 'success'
+        env:
+          CHANGE: ${{ steps.change.outputs.name }}
+          STARTED: ${{ steps.change.outputs.started }}
+          TESTS_SHA: ${{ steps.tests.outputs.sha }}
+          GUARD: ${{ steps.guard.outputs.result }}
+          GATE: ${{ steps.gate.outputs.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: bash .github/scripts/open-factory-pr.sh
+
+      - name: Flag failure on the issue
+        if: failure() && steps.tests.outcome != 'success' && steps.change.outputs.name != ''
+        run: |
+          gh issue comment "$ISSUE" --body "Factory run failed before tests were written: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          gh issue edit "$ISSUE" --remove-label in-progress --add-label needs-human

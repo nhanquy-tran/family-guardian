@@ -1,0 +1,29 @@
+schema: spec-driven
+
+context: |
+  Family Guardian: parental monitoring for kids' Windows laptops (Chrome, Edge, Brave extension + Next.js dashboard on Vercel + Supabase).
+  Read CLAUDE.md, docs/architecture.md and docs/decisions/ before writing any artifact.
+  Privacy rule (ADR 0005): only registrable domain + seconds are collected. Never URLs, titles, content, keystrokes or screenshots.
+  MVP scale: 20 families. Prefer the simplest design that works; no new infrastructure without an ADR.
+  Parents sign in with Google only (ADR 0004).
+
+rules:
+  proposal:
+    - Keep proposals under 400 words
+    - Always state what is out of scope
+    - Link the GitHub issue number the change implements
+  specs:
+    - Every requirement has at least one scenario written as GIVEN/WHEN/THEN that a test can verify
+  tasks:
+    - Tasks are small enough for one agent run (max about 1 hour each)
+    - The first task of every change writes or updates the tests for the scenarios
+    - The last task runs npm run check and fixes all failures
+
+operations:
+  apply:
+    guidance:
+      - Work test-first; do not weaken or delete tests written by the test-writer agent
+      - Keep the PR focused on the change; no drive-by refactors
+  archive:
+    guidance:
+      - Summarize the archive outcome in one paragraph

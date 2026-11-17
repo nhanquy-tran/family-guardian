@@ -1,0 +1,45 @@
+name: "Factory 4: AI review"
+
+# CI runs the deterministic checks; this adds AI judgement as a PR comment. The reviewer never approves.
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: PR number
+        required: true
+
+concurrency:
+  group: review-${{ github.event.pull_request.number || inputs.pr }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  review:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.actor == github.repository_owner && !github.event.pull_request.draft)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.CLAUDE_API_KEY }}
+          github_token: ${{ github.token }}
+          prompt: |
+            Follow .claude/agents/reviewer.md exactly.
+            Repository: ${{ github.repository }}. PR number: ${{ github.event.pull_request.number || inputs.pr }}.
+          claude_args: |
+            --model ${{ vars.FACTORY_REVIEW_MODEL || 'claude-sonnet-5-5' }}
+            --max-turns 30
+            --permission-mode default
+            --allowedTools "Read,Glob,Grep,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*)"

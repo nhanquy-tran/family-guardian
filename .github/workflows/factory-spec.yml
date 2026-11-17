@@ -1,0 +1,79 @@
+name: "Factory 1: write spec"
+
+# Trigger: dispatched by the router when the owner labels an issue `needs-spec`. Dispatch requires write access.
+# Output: a PR labelled `spec` with an OpenSpec change. Merging it is the human spec approval (gate 1).
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: Issue number
+        required: true
+
+concurrency:
+  group: factory
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  spec:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ISSUE: ${{ inputs.issue }}
+      GH_TOKEN: ${{ secrets.FACTORY_TOKEN || github.token }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.FACTORY_TOKEN || github.token }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci && echo "$PWD/node_modules/.bin" >> "$GITHUB_PATH"
+      - name: Branch
+        run: |
+          git config user.name "family-guardian-factory"
+          git config user.email "factory@users.noreply.github.com"
+          git checkout -b "spec/${ISSUE}"
+          gh issue edit "$ISSUE" --remove-label needs-spec --add-label spec-in-progress
+      - name: Spec writer agent
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.CLAUDE_API_KEY }}
+          github_token: ${{ secrets.FACTORY_TOKEN || github.token }}
+          prompt: |
+            Follow .claude/agents/spec-writer.md exactly.
+            Repository: ${{ github.repository }}. Issue number: ${{ env.ISSUE }}.
+          claude_args: |
+            --model ${{ vars.FACTORY_SPEC_MODEL || 'claude-opus-5-5' }}
+            --max-turns 40
+            --permission-mode default
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(gh issue view:*),Bash(npx openspec:*),Bash(openspec:*),Bash(ls:*)"
+      - name: Commit and open PR
+        run: |
+          git checkout -B "spec/${ISSUE}"
+          git add -A openspec docs/decisions
+          if git diff --cached --quiet; then
+            gh issue comment "$ISSUE" --body "Factory: the spec writer produced no change. Needs a human look."
+            gh issue edit "$ISSUE" --remove-label spec-in-progress --add-label needs-human
+            exit 1
+          fi
+          TITLE=$(gh issue view "$ISSUE" --json title -q .title)
+          git commit -m "spec: ${TITLE} (#${ISSUE})"
+          git push -u origin "spec/${ISSUE}"
+          {
+            echo "Spec for #${ISSUE}."
+            echo
+            echo "Review the proposal and scenarios. **Merging this PR approves the spec** and moves the issue to \`ready\` for the nightly build."
+            if git diff --name-only HEAD~1 | grep -q QUESTIONS.md; then
+              echo
+              echo "**The agent has open questions** in \`QUESTIONS.md\`. Answer on the issue, close this PR and label the issue \`needs-spec\` again."
+            fi
+          } > /tmp/body.md
+          gh pr create --title "spec: ${TITLE} (#${ISSUE})" --body-file /tmp/body.md --label spec --base main
+          gh issue edit "$ISSUE" --remove-label spec-in-progress --add-label spec-review

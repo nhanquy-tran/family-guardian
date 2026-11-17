@@ -1,0 +1,31 @@
+name: Claude on demand
+
+# Mention @claude in an issue or PR comment for ad-hoc help. Owner only (public repo).
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  claude:
+    if: contains(github.event.comment.body, '@claude') && github.event.comment.user.login == github.repository_owner
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.CLAUDE_API_KEY }}
+          github_token: ${{ secrets.FACTORY_TOKEN || github.token }}
+          claude_args: |
+            --model ${{ vars.FACTORY_BUILD_MODEL || 'claude-sonnet-5-5' }}
+            --max-turns 40
