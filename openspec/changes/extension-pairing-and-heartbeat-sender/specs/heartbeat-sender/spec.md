@@ -6,7 +6,7 @@ The extension's background turns browser events into tracked minutes, keeps them
 
 Test files:
 - `apps/extension/lib/queue.test.ts`: `enqueue`, `pruneQueue`, `parseQueue`.
-- `apps/extension/lib/sender.test.ts`: `flushQueue` with an in-memory `KeyValueStore` fake and a `post` fake that records calls and answers from a script. Unless stated: now `2026-11-17T10:05:30Z`, token `tok-1`, base URL `https://fg.example`, browser `edge`, extensionVersion `0.2.0`, currentDomain `null`, `200` body `{ rulesVersion: 3 }`. "Entry n" is `{ minuteUtc: <2026-11-17T00:00:00Z + n minutes>, domain: "example.com", seconds: 30 }`, so a higher n is newer.
+- `apps/extension/lib/sender.test.ts`: `flushQueue` with an in-memory `KeyValueStore` fake and a `post` fake that records calls and answers from a script. Unless stated: now `2026-11-17T10:05:30Z`, token `tok-1`, base URL `https://fg.example`, browser `edge` (stored under `browser` in controller tests), extensionVersion `0.2.0`, currentDomain `null`, `200` body `{ rulesVersion: 3 }`. "Entry n" is `{ minuteUtc: <2026-11-17T00:00:00Z + n minutes>, domain: "example.com", seconds: 30 }`, so a higher n is newer.
 - `apps/extension/lib/controller.test.ts`: `createController` and `registerSchedule` with the same fakes, fake `alarms` and `idle` objects, and a fixed browser info.
 - `apps/extension/lib/browser-info.test.ts`: `detectBrowser`, `osName`.
 
@@ -71,13 +71,18 @@ Each heartbeat SHALL be one `POST` to `<baseUrl>/api/device/heartbeat` with head
 - **THEN** the only request contains just the `2026-11-17T10:04:00Z` entry
 
 ### Requirement: Too many entries splits the batch
-On `413` `flushQueue` SHALL halve the chunk size and resend from the same oldest entry, keeping the queue unchanged; when the size would reach 0 it SHALL stop with `{ kind: "failed" }`.
+On `413` `flushQueue` SHALL set the next chunk size to `floor(sent.length / 2)`, where `sent` is the chunk just sent, and resend from the same oldest entry, keeping the queue unchanged; when that size is 0 it SHALL stop with `{ kind: "failed" }`.
 
 #### Scenario: Split after 413
 - **GIVEN** a queue of entries 1 to 1440 and `post` answering `413 { error: "too_many_entries" }` once, then `200`
 - **WHEN** `flushQueue` runs (`sender.test.ts`)
 - **THEN** the requests contain 1440, then 720 (entries 1-720), then 720 (entries 721-1440) entries
 - **AND** the stored queue is `[]`
+
+#### Scenario: Split uses the length actually sent
+- **GIVEN** a queue of entries 1 to 3 and `post` answering `413` once, then `200`
+- **WHEN** `flushQueue` runs (`sender.test.ts`)
+- **THEN** the requests contain 3 entries, then 1 entry (entry 1), then 1 entry (entry 2), then 1 entry (entry 3)
 
 #### Scenario: 413 for a single entry stops
 - **GIVEN** a queue of entry 1 and `post` always answering `413`
@@ -97,14 +102,47 @@ For `400`, `500`, any other non-`200` status except `401` and `413`, a `200` bod
 - **WHEN** `flushQueue` runs (`sender.test.ts`)
 - **THEN** `post` was called once, the result is `{ kind: "failed" }`, and it does not throw
 
-### Requirement: Unauthorized unpairs the device
-On `401` `flushQueue` SHALL stop and return `{ kind: "unauthorized" }`. The controller SHALL then remove `deviceToken`, `queue` and `trackerState` from the store and send nothing more until the extension is paired again.
+### Requirement: Unauthorized marks the device rejected
+On `401` `flushQueue` SHALL stop and return `{ kind: "unauthorized" }`. The controller SHALL then keep `deviceToken` and `queue`, set `authState` to `"rejected"`, and stop tracking new minutes. Local data SHALL be replaced only by a successful re-pair.
 
-#### Scenario: Revoked device
+#### Scenario: First 401
 - **GIVEN** a paired controller with 2 queued entries and `post` answering `401 { error: "unauthorized" }`
-- **WHEN** the alarm fires twice (`controller.test.ts`)
-- **THEN** `post` was called exactly once
-- **AND** the store has no `deviceToken`, `queue` or `trackerState` key, and `connectionStatus(store)` is `"not_connected"`
+- **WHEN** the alarm fires (`controller.test.ts`)
+- **THEN** `post` was called once
+- **AND** the store still holds `deviceToken` `"tok-1"` and the 2 queued entries, and `authState` is `"rejected"`
+- **AND** `connectionStatus(store)` returns `"rejected"`
+
+### Requirement: Rejected device retries every 15 minutes
+While rejected, `onAlarm(now)` SHALL prune the queue, SHALL NOT tick the tracker or enqueue entries, and SHALL send a heartbeat with `entries: []` and `currentDomain: null` only when `floor(now / 60000) % 15 === 0`. On a `200` it SHALL remove `authState` and `trackerState`; on `401` or any failure it SHALL stay rejected.
+
+#### Scenario: Rejected device stops tracking
+- **GIVEN** a rejected controller and a tab event for `https://www.youtube.com/` with focus and idle `active`
+- **WHEN** the alarms fire at `10:01:05Z` and `10:02:05Z` (not 15-minute boundaries) (`controller.test.ts`)
+- **THEN** `post` was not called and nothing was added to the queue
+- **AND** the stored `trackerState` is unchanged by the events
+
+#### Scenario: Retry every 15 minutes with an empty body
+- **GIVEN** a rejected controller with 2 queued entries and `post` answering `401`
+- **WHEN** the alarm fires at `10:14:05Z`, `10:15:05Z`, `10:16:05Z` and `10:30:05Z` (`controller.test.ts`)
+- **THEN** `post` was called at `10:15:05Z` and `10:30:05Z` only, each with `entries: []` and `currentDomain: null`
+- **AND** the store still holds `deviceToken`, the 2 queued entries and `authState` `"rejected"`
+
+#### Scenario: Recovery on 200
+- **GIVEN** a rejected controller with 2 queued entries and a `trackerState`, and `post` answering `200`
+- **WHEN** the alarm fires at `10:15:05Z`, then at `10:16:05Z` (`controller.test.ts`)
+- **THEN** after the first alarm the store has no `authState` and no `trackerState` key and still holds `deviceToken`
+- **AND** the request at `10:16:05Z` contains the 2 queued entries and the queue is then `[]`
+
+#### Scenario: Pruning continues while rejected
+- **GIVEN** a rejected controller with an entry for `2026-11-10T10:04:00Z` and one for `2026-11-17T10:04:00Z`
+- **WHEN** the alarm fires at `10:01:05Z` on `2026-11-17` (`controller.test.ts`)
+- **THEN** the stored queue contains only the `2026-11-17T10:04:00Z` entry
+
+#### Scenario: Re-pair while rejected
+- **GIVEN** a rejected controller with `deviceToken` `"old"`, queued entries, and a `post` answering the pair request with `200 { deviceToken: "tok-2" }`
+- **WHEN** `controller.pair("AB2CD3", "edge")` completes and the alarm fires (`controller.test.ts`)
+- **THEN** the store has `deviceToken` `"tok-2"` and no `authState`, and the old queue is gone
+- **AND** tracking works again: events are applied and the next heartbeat uses `Bearer tok-2`
 
 ### Requirement: Minute alarm and idle threshold
 `registerSchedule` SHALL create alarm `heartbeat` with `periodInMinutes: 1` and set the idle detection interval to 60 seconds.
@@ -115,7 +153,7 @@ On `401` `flushQueue` SHALL stop and return `{ kind: "unauthorized" }`. The cont
 - **THEN** `alarms.create` was called with `("heartbeat", { periodInMinutes: 1 })` and `idle.setDetectionInterval` with `60`
 
 ### Requirement: Background tracks and sends while paired
-While paired, `handleEvent` SHALL apply the event to the stored tracker state and save it; `onAlarm(now)` SHALL apply a tick, move completed minutes into the queue, and call `flushQueue` with `currentDomain` set to the tracker's domain when focused and `active`, else `null`. While not paired, both SHALL do nothing and store nothing. Calls SHALL run one at a time in call order, and SHALL NOT reject.
+While paired and not rejected, `handleEvent` SHALL apply the event to the stored tracker state and save it; `onAlarm(now)` SHALL apply a tick, move completed minutes into the queue, and call `flushQueue` with `currentDomain` set to the tracker's domain when focused and `active`, else `null`. While not paired, both SHALL do nothing and store nothing.
 
 #### Scenario: Completed minute is sent
 - **GIVEN** a paired controller, `post` answering `200`, and events focus `true`, idle `active`, tab `https://www.youtube.com/` at `10:03:00Z`
@@ -144,10 +182,24 @@ While paired, `handleEvent` SHALL apply the event to the stored tracker state an
 - **WHEN** a new controller is created on the same store and its alarm fires at `10:04:05Z` (`controller.test.ts`)
 - **THEN** the request includes `{ minuteUtc: "2026-11-17T10:03:00.000Z", domain: "khanacademy.org", seconds: 60 }`
 
+### Requirement: Serialized calls and stored browser
+Heartbeats SHALL send the stored `browser`, or `other` if missing or invalid. `handleEvent`, `onAlarm` and `pair(code, browser)` SHALL run one at a time in call order, so a re-pair never interleaves with a flush, and SHALL NOT reject.
+
 #### Scenario: No overlapping runs
 - **GIVEN** a paired controller with 2 queued entries and a `post` fake that resolves `200` only when the test releases it
 - **WHEN** `onAlarm` is called twice without awaiting, then the first `post` is released (`controller.test.ts`)
 - **THEN** the second `post` starts only after the first resolved, and no entry appears in two requests
+
+#### Scenario: Stored browser is sent
+- **GIVEN** a paired controller with `browser` `"brave"` in the store, then one with no `browser` key and one with `browser` `"netscape"`
+- **WHEN** the alarm fires on each (`controller.test.ts`)
+- **THEN** the request bodies contain `browser` `"brave"`, `"other"` and `"other"`
+
+#### Scenario: Pairing is serialized with a flush
+- **GIVEN** a paired controller with `deviceToken` `"old"` and 2 queued entries, a `post` fake whose heartbeat call resolves `200` only when the test releases it, and a pair request answered `200 { deviceToken: "tok-2" }`
+- **WHEN** `onAlarm` is called, then `pair("AB2CD3", "edge")` without awaiting either, then the heartbeat is released (`controller.test.ts`)
+- **THEN** the pair request is sent only after the heartbeat resolved
+- **AND** the final store holds `deviceToken` `"tok-2"` and no queue entries from the old pairing (the old minutes are not written back after the token change)
 
 #### Scenario: Storage failure does not crash
 - **GIVEN** a store whose `get` rejects
@@ -155,7 +207,7 @@ While paired, `handleEvent` SHALL apply the event to the stored tracker state an
 - **THEN** both promises resolve, `post` was never called, and the logged message contains no domain, token or URL
 
 ### Requirement: Browser and OS detection
-`detectBrowser({ brands, userAgent, isBrave })` SHALL return `brave` when `isBrave`, else `edge` for the `Microsoft Edge` brand or `Edg/` in the user agent, else `other` for `OPR/`, else `chrome` for the `Google Chrome` brand or `Chrome/`, else `other`. `osName` SHALL map `win`, `mac`, `linux`, `cros` to `Windows`, `macOS`, `Linux`, `ChromeOS`, and anything else to `other`.
+`detectBrowser({ brands, userAgent, isBrave })`, called by the options page at pairing time, SHALL return `brave` when `isBrave`, else `edge` for the `Microsoft Edge` brand or `Edg/` in the user agent, else `other` for `OPR/`, else `chrome` for the `Google Chrome` brand or `Chrome/`, else `other`. `osName` SHALL map `win`, `mac`, `linux`, `cros` to `Windows`, `macOS`, `Linux`, `ChromeOS`, and anything else to `other`.
 
 #### Scenario: Browsers
 - **GIVEN** the inputs below (`browser-info.test.ts`)
