@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import { createController, registerSchedule } from "./controller";
 import { connectionStatus } from "./pairing";
+import { buildRules } from "./rules";
 import {
   always,
   at,
   type Call,
+  createDnr,
+  createGet,
   createPost,
   createStore,
   deferred,
@@ -17,12 +20,20 @@ const ok: Reply = { status: 200, body: { rulesVersion: 3 } };
 const unauthorized: Reply = { status: 401, body: { error: "unauthorized" } };
 const paired = { deviceToken: "tok-1" };
 
-function setup(initial: Record<string, unknown>, post: ReturnType<typeof createPost>["post"]) {
+const noRules = () => createGet(() => "network");
+
+function setup(
+  initial: Record<string, unknown>,
+  post: ReturnType<typeof createPost>["post"],
+  rules: { get?: ReturnType<typeof createGet>["get"]; dnr?: ReturnType<typeof createDnr>["dnr"] } = {},
+) {
   const fake = createStore(initial);
   const log = vi.fn<(message: string) => void>();
   const controller = createController({
     store: fake.store,
     post,
+    get: rules.get ?? noRules().get,
+    dnr: rules.dnr ?? createDnr().dnr,
     baseUrl: "https://fg.example",
     extensionVersion: "0.2.0",
     os: "Windows",
@@ -116,6 +127,8 @@ describe("controller while paired", () => {
     const second = createController({
       store: first.store,
       post,
+      get: noRules().get,
+      dnr: createDnr().dnr,
       baseUrl: "https://fg.example",
       extensionVersion: "0.2.0",
       os: "Windows",
@@ -230,6 +243,136 @@ describe("controller rejected (401)", () => {
   });
 });
 
+const goodRules: Reply = { status: 200, body: { rulesVersion: 3, domains: ["a.com"], truncated: false } };
+const blockedAttempt = { at: "2026-11-17T10:00:00.000Z", domain: "tiktok.com" };
+
+describe("controller rules sync", () => {
+  it("Newer version fetched and applied", async () => {
+    const { post } = always(ok);
+    const { get, calls } = createGet(() => goodRules);
+    const { dnr, rules } = createDnr([7]);
+    const { controller, data } = setup({ ...paired, rulesVersion: 2 }, post, { get, dnr });
+    await controller.onAlarm(at("10:04:05"));
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.url).toBe("https://fg.example/api/device/rules");
+    expect(calls[0]?.headers).toEqual({ Authorization: "Bearer tok-1" });
+    expect(rules()).toEqual(buildRules(["a.com"]));
+    expect(data.get("rulesVersion")).toBe(3);
+    expect(data.get("rulesDomains")).toEqual(["a.com"]);
+  });
+
+  it("Same version, no fetch", async () => {
+    const { post } = always(ok);
+    const { get, calls } = createGet(() => goodRules);
+    const { dnr, updates } = createDnr();
+    const { controller } = setup({ ...paired, rulesVersion: 3 }, post, { get, dnr });
+    await controller.onAlarm(at("10:04:05"));
+    expect(calls).toHaveLength(0);
+    expect(updates).toHaveLength(0);
+  });
+
+  it("First run without stored version", async () => {
+    const { post } = always({ status: 200, body: { rulesVersion: 0 } });
+    const { get, calls } = createGet(() => ({
+      status: 200,
+      body: { rulesVersion: 0, domains: [], truncated: false },
+    }));
+    const { controller } = setup(paired, post, { get, dnr: createDnr().dnr });
+    await controller.onAlarm(at("10:04:05"));
+    expect(calls).toHaveLength(1);
+  });
+
+  it("No fetch after a failed heartbeat or while rejected", async () => {
+    const heartbeatReplies: Reply[] = [{ status: 500, body: { error: "server_error" } }, "network"];
+    for (const reply of heartbeatReplies) {
+      const { get, calls } = createGet(() => goodRules);
+      const { controller } = setup(paired, always(reply).post, { get });
+      await controller.onAlarm(at("10:04:05"));
+      expect(calls).toHaveLength(0);
+    }
+    // rejected: 10:15 is a retry minute (615 min since midnight, 615 % 15 = 0), so a keep-alive is sent
+    const rejectedRuns: Reply[] = [unauthorized, ok];
+    for (const reply of rejectedRuns) {
+      const { get, calls } = createGet(() => goodRules);
+      const { controller } = setup({ ...paired, authState: "rejected" }, always(reply).post, { get });
+      await controller.onAlarm(at("10:15:05"));
+      expect(calls).toHaveLength(0);
+    }
+  });
+
+  it("Retry on the next alarm", async () => {
+    const { post } = always(ok);
+    const { get, calls } = createGet((_call, index) => (index === 0 ? { status: 500 } : goodRules));
+    const { dnr, rules } = createDnr();
+    const { controller, data } = setup({ ...paired, rulesVersion: 2 }, post, { get, dnr });
+    await controller.onAlarm(at("10:04:05"));
+    expect(data.get("rulesVersion")).toBe(2);
+    expect(rules()).toEqual([]);
+    await controller.onAlarm(at("10:05:05"));
+    expect(calls).toHaveLength(2);
+    expect(rules()).toEqual(buildRules(["a.com"]));
+    expect(data.get("rulesVersion")).toBe(3);
+  });
+
+  it("Offline alarm leaves rules alone", async () => {
+    const { post } = always("network");
+    const { get } = createGet(() => goodRules);
+    const { dnr, updates } = createDnr([1]);
+    const state = { ...paired, rulesVersion: 3, rulesDomains: ["a.com"] };
+    const { controller, data } = setup(state, post, { get, dnr });
+    await controller.onAlarm(at("10:04:05"));
+    expect(updates).toHaveLength(0);
+    expect(data.get("rulesVersion")).toBe(3);
+    expect(data.get("rulesDomains")).toEqual(["a.com"]);
+  });
+
+  it("Rejection leaves rules alone", async () => {
+    const { post } = always(unauthorized);
+    const { get } = createGet(() => goodRules);
+    const { dnr, updates } = createDnr([1]);
+    const state = { ...paired, rulesVersion: 3, rulesDomains: ["a.com"] };
+    const { controller, data } = setup(state, post, { get, dnr });
+    await controller.onAlarm(at("10:04:05"));
+    expect(data.get("authState")).toBe("rejected");
+    expect(updates).toHaveLength(0);
+    expect(data.get("rulesDomains")).toEqual(["a.com"]);
+  });
+});
+
+describe("controller recordBlocked", () => {
+  const now = at("10:05:30");
+
+  it("Known domain recorded", async () => {
+    const { controller, data } = setup({ ...paired, rulesDomains: ["tiktok.com"] }, always(ok).post);
+    await controller.recordBlocked("tiktok.com", now);
+    expect(data.get("blockedQueue")).toEqual([{ at: "2026-11-17T10:05:30.000Z", domain: "tiktok.com" }]);
+  });
+
+  it("Unknown domain ignored", async () => {
+    const { controller, data } = setup(
+      { ...paired, rulesDomains: ["tiktok.com"], blockedQueue: [blockedAttempt] },
+      always(ok).post,
+    );
+    await controller.recordBlocked("evil.com", now);
+    await controller.recordBlocked("https://tiktok.com/x", now);
+    expect(data.get("blockedQueue")).toEqual([blockedAttempt]);
+  });
+
+  it("Unpaired device records nothing", async () => {
+    const { controller, data } = setup({ rulesDomains: ["tiktok.com"] }, always(ok).post);
+    await controller.recordBlocked("tiktok.com", now);
+    expect(data.has("blockedQueue")).toBe(false);
+    expect(data.size).toBe(1);
+  });
+
+  it("recorded attempt carries domain and time only", async () => {
+    const { controller, data } = setup({ ...paired, rulesDomains: ["tiktok.com"] }, always(ok).post);
+    await controller.recordBlocked("tiktok.com", now);
+    const queue = data.get("blockedQueue") as Record<string, unknown>[];
+    expect(Object.keys(queue[0] ?? {}).sort()).toEqual(["at", "domain"]);
+  });
+});
+
 describe("controller serialization", () => {
   it("no overlapping runs", async () => {
     const gate = deferred<Reply>();
@@ -284,6 +427,8 @@ describe("controller serialization", () => {
     const controller = createController({
       store: fake.store,
       post,
+      get: noRules().get,
+      dnr: createDnr().dnr,
       baseUrl: "https://fg.example",
       extensionVersion: "0.2.0",
       os: "Windows",

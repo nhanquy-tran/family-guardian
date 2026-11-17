@@ -1,4 +1,5 @@
-import type { KeyValueStore, Post } from "./storage";
+import type { Dnr, Rule } from "./rules";
+import type { Get, KeyValueStore, Post } from "./storage";
 
 export function createStore(
   initial: Record<string, unknown> = {},
@@ -35,6 +36,11 @@ export interface Call {
   body: Record<string, unknown>;
 }
 
+export interface GetCall {
+  url: string;
+  headers: Record<string, string>;
+}
+
 export function createPost(handler: (call: Call, index: number) => Reply | Promise<Reply>) {
   const calls: Call[] = [];
   const post: Post = async (url, init) => {
@@ -51,6 +57,40 @@ export function createPost(handler: (call: Call, index: number) => Reply | Promi
     };
   };
   return { post, calls };
+}
+
+export function createGet(handler: (call: GetCall, index: number) => Reply | Promise<Reply>) {
+  const calls: GetCall[] = [];
+  const get: Get = async (url, init) => {
+    const call: GetCall = { url, headers: init.headers };
+    calls.push(call);
+    const reply = await handler(call, calls.length - 1);
+    if (reply === "network") throw new TypeError("Failed to fetch");
+    return {
+      status: reply.status,
+      json: async () => {
+        if (reply.nonJson) throw new SyntaxError("Unexpected token");
+        return reply.body;
+      },
+    };
+  };
+  return { get, calls };
+}
+
+export function createDnr(existingIds: number[] = [], opts: { failUpdate?: boolean } = {}) {
+  const updates: { removeRuleIds: number[]; addRules: Rule[] }[] = [];
+  let rules: Rule[] = existingIds.map((id) => ({ id }) as unknown as Rule);
+  const dnr: Dnr = {
+    async getDynamicRules() {
+      return rules.map((r) => ({ id: r.id }));
+    },
+    async updateDynamicRules(options) {
+      if (opts.failUpdate) throw new Error("update failed");
+      updates.push(structuredClone(options));
+      rules = rules.filter((r) => !options.removeRuleIds.includes(r.id)).concat(structuredClone(options.addRules));
+    },
+  };
+  return { dnr, updates, rules: () => rules };
 }
 
 export function always(reply: Reply) {

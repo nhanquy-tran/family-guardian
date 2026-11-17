@@ -2,7 +2,8 @@ import type { BrowserName } from "./browser-info";
 import { type PairResult, pairWithCode, readToken } from "./pairing";
 import { enqueue, parseQueue, pruneQueue } from "./queue";
 import { flushQueue } from "./sender";
-import type { KeyValueStore, Post } from "./storage";
+import type { Dnr } from "./rules";
+import type { Get, KeyValueStore, Post } from "./storage";
 import {
   applyEvent,
   createTracker,
@@ -14,6 +15,8 @@ import {
 export interface ControllerDeps {
   store: KeyValueStore;
   post: Post;
+  get?: Get;
+  dnr?: Dnr;
   baseUrl: string;
   extensionVersion: string;
   os: string;
@@ -24,6 +27,7 @@ export interface Controller {
   handleEvent(event: TrackerEvent): Promise<void>;
   onAlarm(now: number): Promise<void>;
   pair(code: string, browser: BrowserName): Promise<PairResult>;
+  recordBlocked(domain: string, now: number): Promise<void>;
 }
 
 const MINUTE_MS = 60_000;
@@ -129,6 +133,9 @@ export function createController(deps: ControllerDeps): Controller {
         if (await isRejected()) await alarmWhileRejected(token, now);
         else await alarmNormal(token, now);
       }, undefined);
+    },
+    recordBlocked() {
+      return Promise.reject(new Error("not implemented"));
     },
     pair(code, browser) {
       return serialize(

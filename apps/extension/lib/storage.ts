@@ -9,6 +9,11 @@ export type Post = (
   init: { headers: Record<string, string>; body: string },
 ) => Promise<{ status: number; json(): Promise<unknown> }>;
 
+export type Get = (
+  url: string,
+  init: { headers: Record<string, string> },
+) => Promise<{ status: number; json(): Promise<unknown> }>;
+
 export function browserStore(area: {
   get(key: string): Promise<Record<string, unknown>>;
   set(items: Record<string, unknown>): Promise<void>;
