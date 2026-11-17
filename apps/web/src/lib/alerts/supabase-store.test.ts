@@ -90,68 +90,34 @@ function fakeClient(opts: { tables?: Tables; rpc?: Record<string, Result>; users
   return { client: client as unknown as SupabaseClient, calls, raw: client };
 }
 
-const flat = (calls: Call[] | undefined) => (calls ?? []).map((c) => `${c.method}:${JSON.stringify(c.args)}`);
-
 describe("createOfflineAlertStore", () => {
-  it("Claim and release", async () => {
+  it("Claim without e-mail", async () => {
     const f = fakeClient();
     const store = createOfflineAlertStore(f.client);
-    const emailedAt = "2026-11-17T12:00:00.000Z";
     const lastSeen = "2026-11-17T11:40:00.000Z";
 
-    expect(await store.claimAlert("dev-1", lastSeen, emailedAt)).toBe(true);
+    expect(await store.claimAlert("dev-1", lastSeen, null)).toBe(true);
     const write = (f.calls.alerts ?? []).find((c) => c.method === "insert" || c.method === "upsert");
     expect(write).toBeDefined();
-    expect(write!.args[0]).toEqual({ device_id: "dev-1", kind: "offline", incident_last_seen_at: lastSeen, emailed_at: emailedAt });
+    expect(write!.args[0]).toEqual({ device_id: "dev-1", kind: "offline", incident_last_seen_at: lastSeen, emailed_at: null });
     expect(JSON.stringify(write!.args[1] ?? {})).toContain("ignoreDuplicates");
 
     const lost = fakeClient({ inserted: false });
     expect(await createOfflineAlertStore(lost.client).claimAlert("dev-1", lastSeen, null)).toBe(false);
-
-    await store.releaseAlert("dev-1", lastSeen);
-    const calls = flat(f.calls.alerts);
-    expect(calls.some((c) => c.startsWith("delete:"))).toBe(true);
-    expect(calls).toContain('eq:["device_id","dev-1"]');
-    expect(calls).toContain(`eq:["incident_last_seen_at","${lastSeen}"]`);
   });
 
-  it("Recent e-mail lookup", async () => {
-    const f = fakeClient({
-      tables: {
-        alerts: [
-          { device_id: "dev-1", kind: "offline", emailed_at: "2026-11-17T08:00:00.000Z" },
-          { device_id: "dev-2", kind: "offline", emailed_at: null },
-        ],
-      },
-    });
-    const store = createOfflineAlertStore(f.client);
-    const since = "2026-11-16T12:00:00.000Z";
-    expect(await store.hasRecentEmail("dev-1", since)).toBe(true);
-    expect(await store.hasRecentEmail("dev-2", since)).toBe(false);
-  });
-
-  it("Parent addresses", async () => {
-    const f = fakeClient({
-      tables: {
-        parents: [
-          { user_id: "u1", family_id: "fam-1" },
-          { user_id: "u2", family_id: "fam-1" },
-          { user_id: "u3", family_id: "fam-2" },
-        ],
-      },
-      users: { u1: "a@x.test", u2: null, u3: "other@x.test" },
-    });
-    expect(await createOfflineAlertStore(f.client).listParentEmails("fam-1")).toEqual(["a@x.test"]);
+  it("Resolving returned devices calls resolve_offline_alerts with the given time", async () => {
+    const f = fakeClient();
+    await createOfflineAlertStore(f.client).resolveReturned("2026-11-17T12:00:00.000Z");
+    expect(f.raw.rpc).toHaveBeenCalledWith("resolve_offline_alerts", { p_now: "2026-11-17T12:00:00.000Z" });
   });
 
   it("Client error", async () => {
     const f = fakeClient({ error: true });
     const store = createOfflineAlertStore(f.client);
     await expect(store.findOfflineDevices("2026-11-17T12:00:00.000Z")).rejects.toBeDefined();
-    await expect(store.hasRecentEmail("dev-1", "2026-11-16T12:00:00.000Z")).rejects.toBeDefined();
     await expect(store.claimAlert("dev-1", "2026-11-17T11:40:00.000Z", null)).rejects.toBeDefined();
-    await expect(store.releaseAlert("dev-1", "2026-11-17T11:40:00.000Z")).rejects.toBeDefined();
-    await expect(store.listParentEmails("fam-1")).rejects.toBeDefined();
+    await expect(store.resolveReturned("2026-11-17T12:00:00.000Z")).rejects.toBeDefined();
   });
 
   it("Device search calls find_offline_devices with the given time", async () => {
