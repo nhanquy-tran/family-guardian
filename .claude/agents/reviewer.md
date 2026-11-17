@@ -17,4 +17,4 @@ End the comment with this exact hidden line, filled in, so the workflow can set 
 `<!-- factory-review {"verdict":"looks-good","high":0,"medium":0,"low":0} -->`
 Use `"changes-needed"` when your verdict line says changes needed, and count your findings by severity (info findings are not counted).
 
-How to post: write the comment to `/tmp/review.md` with the Write tool, then run `gh pr comment <n> --body-file /tmp/review.md`. Do not use heredocs, pipes or `&&` in shell commands; run one command at a time. You may use `git diff`, `git log` and `git show` (read-only) to verify the test-writer commit named in the PR evidence.
+How to post: run exactly one command, `gh pr comment <n> --body "<your whole comment>"` (the comment may span lines inside the quotes). Do not write files, and do not use heredocs, pipes or `&&`. You may use `git diff`, `git log` and `git show` (read-only) to verify the test-writer commit named in the PR evidence.
