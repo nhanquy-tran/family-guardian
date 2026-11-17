@@ -11,6 +11,7 @@ Read before any change: `docs/architecture.md`, `docs/decisions/` (ADRs), `docs/
 - `packages/shared`: zod API contracts, domain helpers, focus score. Shared by web and extension.
 - `supabase/migrations`: SQL migrations, including RLS policies. Never edit an applied migration; add a new one.
 - `openspec/`: specs and change proposals. `docs/`: architecture, roadmap, plan, factory, ADRs.
+- `docs/design/`: style guide, design tokens and icon. Every UI (intro page, parent web app, control pane) uses them.
 
 ## Commands
 
