@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import type { ChildRow } from "../lib/children";
 import { PAIRING_ERROR_MESSAGES, type PairingErrorReason } from "../lib/pairing/create-code";
+import { pageTitle } from "./ui";
 
 type FormAction = (formData: FormData) => void | Promise<void>;
 
@@ -34,7 +35,7 @@ export function ChildrenList({
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Children</h1>
+      <h1 className={pageTitle}>Children</h1>
       {error ? <p role="alert" className="text-red-700">{error}</p> : null}
 
       <form action={actions.addChildAction} className="flex gap-2">

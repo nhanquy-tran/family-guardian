@@ -1,4 +1,5 @@
 import { DeviceList } from "../../../components/device-list";
+import { pageTitle } from "../../../components/ui";
 import { listDevicesByChild } from "../../../lib/devices/devices";
 import { createClient } from "../../../lib/supabase/server";
 import { removeDeviceAction, renameDeviceAction } from "./actions";
@@ -13,7 +14,7 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
   const groups = await listDevicesByChild(client);
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Devices</h1>
+      <h1 className={pageTitle}>Devices</h1>
       <DeviceList
         groups={groups ?? []}
         now={new Date()}

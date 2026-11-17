@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { buttonPrimary, container } from "./ui";
 
 export const DASHBOARD_NAV: { label: string; href: string }[] = [
   { label: "Overview", href: "/dashboard" },
@@ -10,18 +11,18 @@ export const DASHBOARD_NAV: { label: string; href: string }[] = [
 
 export function DashboardShell({ familyName, children }: { familyName: string; children?: ReactNode }) {
   return (
-    <div className="mx-auto min-h-screen max-w-4xl p-6">
-      <header className="flex items-center justify-between">
+    <div className={container}>
+      <header className="flex items-center justify-between gap-4">
         <span className="text-xl font-semibold">{familyName}</span>
         <form method="post" action="/auth/sign-out">
-          <button type="submit" className="text-sm underline">
+          <button type="submit" className={buttonPrimary}>
             Sign out
           </button>
         </form>
       </header>
-      <nav className="my-4 flex gap-4">
+      <nav className="my-4 flex flex-wrap gap-x-4 gap-y-2">
         {DASHBOARD_NAV.map((item) => (
-          <Link key={item.href} href={item.href}>
+          <Link key={item.href} href={item.href} className="px-2 py-2 text-sm font-medium">
             {item.label}
           </Link>
         ))}

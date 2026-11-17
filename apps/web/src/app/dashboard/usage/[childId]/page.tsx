@@ -2,6 +2,7 @@ import { localDay, resolveTimezone } from "@fg/shared";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { pageTitle } from "../../../../components/ui";
 import { createClient } from "../../../../lib/supabase/server";
 import { loadUsage, type UsageView as View } from "../../../../lib/usage";
 import { TimezoneSync } from "./timezone-sync";
@@ -42,7 +43,7 @@ export default async function Page({
       <Suspense>
         <TimezoneSync />
       </Suspense>
-      <h1 className="text-2xl font-semibold">Usage</h1>
+      <h1 className={pageTitle}>Usage</h1>
       <nav className="flex gap-2">
         {tab("today", "Today")}
         {tab("week", "Week")}

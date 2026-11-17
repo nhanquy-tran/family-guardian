@@ -1,6 +1,7 @@
 import { CATEGORIES } from "@fg/shared";
 import type { ReactElement } from "react";
 import type { BlockRule } from "../lib/block-rules";
+import { pageTitle } from "./ui";
 
 type FormAction = (formData: FormData) => void | Promise<void>;
 
@@ -26,7 +27,7 @@ const BUTTON = "rounded bg-gray-900 px-3 py-1 text-white";
 export function BlockRulesView({ childId, childName, rules, error, actions }: BlockRulesViewProps): ReactElement {
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Block sites for {childName}</h1>
+      <h1 className={pageTitle}>Block sites for {childName}</h1>
       <a href="/dashboard/children" className="text-sm underline">Back to children</a>
       {error ? <p role="alert" className="text-red-700">{MESSAGES[error] ?? MESSAGES.failed}</p> : null}
 
