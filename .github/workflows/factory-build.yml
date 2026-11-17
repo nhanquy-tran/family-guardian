@@ -362,7 +362,7 @@ jobs:
           cp "$N" /tmp/notes-keep.md 2>/dev/null || true
           git checkout -- . && git clean -fdq -- .
           if [ -f /tmp/notes-keep.md ]; then cp /tmp/notes-keep.md "$N" && git add "$N"; fi
-          V=$(grep -m1 -o "HIDDEN VERDICT: [a-z]*" "$N" 2>/dev/null | cut -d' ' -f3)
+          V=$(grep -m1 -oE "^HIDDEN VERDICT: [a-z]+" "$N" 2>/dev/null | cut -d' ' -f3)
           echo "result=${V:-none}" >> "$GITHUB_OUTPUT"
 
       - name: Transcript (hidden verdict)

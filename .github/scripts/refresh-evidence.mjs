@@ -2,7 +2,7 @@
 // as "## Evidence (latest push)", above the build-time table. Reviewers and the gate read this one.
 // Env: GH_TOKEN, GITHUB_REPOSITORY, PR, HEAD_SHA. Runs in a checkout of the PR head with deps installed.
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -39,7 +39,8 @@ if (testsSha) {
 if (changeDir && testFiles.length) {
   const cov = run("node", [".github/scripts/factory-eval.mjs", "coverage", changeRef, ...testFiles]);
   const summary = /<summary>(.+?)<\/summary>/.exec(cov.stdout)?.[1] ?? "not run";
-  add("Eval: every scenario has a test with its title", `${/(\d+)\/\1 /.test(summary) ? "pass" : "fail"} (${summary})`);
+  const [covered, total] = (/(\d+)\/(\d+)/.exec(summary) ?? []).slice(1).map(Number);
+  add("Eval: every scenario has a test with its title", `${total > 0 && covered === total ? "pass" : "fail"} (${summary})`);
 }
 
 if (testFiles.length) {
@@ -79,7 +80,7 @@ if (marked.test(body)) next = body.replace(marked, () => section);
 else if (/^## Evidence/m.test(body)) next = body.replace(/^## Evidence/m, () => `${section}\n## Evidence`);
 else next = `${body}\n\n${section}`;
 
-const out = join(tmpdir(), "pr-body.md");
+const out = join(mkdtempSync(join(tmpdir(), "evidence-")), "pr-body.md");
 writeFileSync(out, next);
 console.log(section);
 if (process.env.DRY_RUN !== "1") sh("gh", ["pr", "edit", pr, "--repo", repo, "--body-file", out]);
