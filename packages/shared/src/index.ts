@@ -5,3 +5,4 @@ export * from "./domain";
 export * from "./focus";
 export * from "./extension";
 export * from "./pairing";
+export * from "./usage-summary";
