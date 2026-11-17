@@ -138,6 +138,10 @@ When a gate or the human catches something an earlier step should have caught, a
 
 The reviewer can always find something. A PR is ready for the human gate when it has **no high or medium findings**; low and info findings are optional and may be fixed later. At most two fix rounds per PR; after that the human decides.
 
+## Schedules
+
+GitHub's `schedule` event is best effort: runs can be delayed or dropped, most often at :00 and :30 (none fired at all in the factory's first day). So the crons sit off those minutes (scheduler :11/:41, watchdog :26/:56, nightly build 15:13 UTC, docs 02:47 UTC), and both the scheduler and the watchdog run `.github/scripts/revive-schedules.mjs`. It reads each workflow's cron line and starts any time-based workflow that missed its last slot by more than 30 minutes. The scheduler also runs on every issue and PR event, so any activity revives the watchdog, the nightly build and the docs job.
+
 ## Watchdog
 
 `Factory 5: watchdog` runs every 30 minutes: restarts stalled agent runs (max 2 restarts, then `needs-human`) and unblocks factory/spec PRs that conflict with main. Its run summary lists every action.
