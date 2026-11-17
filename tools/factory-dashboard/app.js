@@ -299,7 +299,8 @@ async function readTasks(folder, sha, archived) {
 }
 
 async function renderSpecs() {
-  const specPrs = state.pulls.filter((p) => p.labels.some((l) => l.name === "spec") && (p.state === "open" || p.merged_at)).slice(0, 15);
+  const allSpecPrs = state.pulls.filter((p) => p.labels.some((l) => l.name === "spec") && (p.state === "open" || p.merged_at));
+  const { items: specPrs, pager } = pageOf("specs", allSpecPrs);
   const [active, archive] = await Promise.all([
     gh(`/repos/${REPO}/contents/openspec/changes`).catch(() => []),
     gh(`/repos/${REPO}/contents/openspec/changes/archive`).catch(() => []),
@@ -327,14 +328,9 @@ async function renderSpecs() {
     return { pr, folder, issueNo, where, progress };
   }));
 
-  const linkedFolders = new Set(rows.map((r) => r.folder));
-  for (const name of activeNames.filter((n) => !linkedFolders.has(n))) {
-    rows.push({ pr: null, folder: name, issueNo: null, where: "main", progress: await readTasks(name, null) });
-  }
-
   put("specs-body", rows.length ? html`<table>
     <thead><tr><th>PR</th><th>Issue</th><th>Change</th><th>Tasks</th><th>Read from</th><th></th></tr></thead>
-    <tbody>${rows.map(specRow)}</tbody></table>` : html`<p class="muted">No spec PRs yet.</p>`);
+    <tbody>${rows.map(specRow)}</tbody></table>${pager}` : html`<p class="muted">No spec PRs yet.</p>`);
 }
 
 function specRow({ pr, folder, issueNo, where, progress }) {
@@ -374,9 +370,10 @@ function renderRuns() {
   const costByRun = new Map();
   for (const m of state.metrics) costByRun.set(m.run_id, (costByRun.get(m.run_id) || 0) + (m.cost_usd || 0));
   const canAct = !!getToken();
+  const { items, pager } = pageOf("runs", state.runs);
   put("runs-body", html`<table>
     <thead><tr><th>Workflow</th><th>Branch</th><th>Event</th><th>Result</th><th>Started</th><th class="num">Duration</th><th class="num">Cost</th><th></th></tr></thead>
-    <tbody>${state.runs.slice(0, 40).map((r) => {
+    <tbody>${items.map((r) => {
       const st = r.status === "completed" ? r.conclusion : r.status;
       const failed = ["failure", "cancelled", "timed_out"].includes(r.conclusion);
       return html`<tr>
@@ -389,7 +386,25 @@ function renderRuns() {
         <td class="num">${costByRun.has(r.id) ? money(costByRun.get(r.id)) : ""}</td>
         <td>${failed && canAct ? html`<button class="small" data-act="rerun" data-run="${r.id}" data-name="${r.name}">Re-run failed</button>` : ""}</td>
       </tr>`;
-    })}</tbody></table>`);
+    })}</tbody></table>${pager}`);
+}
+
+const PAGE_SIZE = 20;
+const pages = { specs: 0, runs: 0, cost: 0, health: 0 };
+
+// Returns the current page of a list (newest first) and the pager controls for it.
+function pageOf(key, list) {
+  const count = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+  pages[key] = Math.min(pages[key], count - 1);
+  const start = pages[key] * PAGE_SIZE;
+  const end = Math.min(list.length, start + PAGE_SIZE);
+  const pager = list.length > PAGE_SIZE ? html`<div class="pager">
+    <span class="muted">${start + 1}–${end} of ${list.length}</span>
+    <button type="button" class="small" data-act="page" data-key="${key}" data-to="${pages[key] - 1}"${pages[key] === 0 ? html` disabled` : ""}>Previous</button>
+    <span>Page ${pages[key] + 1} of ${count}</span>
+    <button type="button" class="small" data-act="page" data-key="${key}" data-to="${pages[key] + 1}"${pages[key] >= count - 1 ? html` disabled` : ""}>Next</button>
+  </div>` : "";
+  return { items: list.slice(start, end), pager };
 }
 
 function tile(value, label) {
@@ -586,14 +601,19 @@ function renderCost() {
     put("cost-issues", html`<p class="muted">No metrics yet. They appear after the next factory run that includes the metrics step.</p>`);
     return;
   }
+  const { items, pager } = pageOf("cost", rows);
+  const stepTotal = (key) => sumOf(rows, (m) => m.stepCost[key]);
   put("cost-issues", html`<table class="steps">
     <thead>${phaseHeader(AGENT_STEPS, 1)}
       <tr><th>Issue</th>${AGENT_STEPS.map((s) => html`<th class="num ${s.phase}">${s.label}</th>`)}<th class="num">Total</th></tr></thead>
-    <tbody>${rows.map((m) => html`<tr data-issue="${m.n}">
+    <tbody>${items.map((m) => html`<tr data-issue="${m.n}">
       <td class="wrap">${issueButton(m)}</td>
       ${AGENT_STEPS.map((s) => html`<td class="num ${s.phase}">${m.stepCost[s.key] === null ? (m.stepCount[s.key] ? html`<span class="muted" title="Ran before its cost was measured">n/a</span>` : "") : money(m.stepCost[s.key])}</td>`)}
       <td class="num"><strong>${money(m.cost)}</strong></td>
-    </tr>`)}</tbody></table>`);
+    </tr>`)}</tbody>
+    <tfoot><tr><td>Total, all ${rows.length} issues</td>
+      ${AGENT_STEPS.map((s) => html`<td class="num ${s.phase}">${money(stepTotal(s.key))}</td>`)}
+      <td class="num">${money(sumOf(rows, (m) => m.cost))}</td></tr></tfoot></table>${pager}`);
 }
 
 // ---------- factory health ----------
@@ -625,16 +645,23 @@ function renderHealth() {
     const open = s.kind === "wait" && m.waits[s.key]?.open;
     return html`<td class="num ${s.phase}${s.kind === "wait" ? " wait" : ""}" title="${open ? "still waiting" : ""}">${short(v)}${open ? "…" : ""}${count > 1 ? html` <span class="muted">×${count}</span>` : ""}</td>`;
   };
+  const { items, pager } = pageOf("health", rows);
+  const total = (f) => sumOf(rows, f);
   put("health-issues", rows.length ? html`<table class="steps">
     <thead>${phaseHeader(STEPS, 3)}
       <tr><th>Issue</th>${STEPS.map((s) => html`<th class="num ${s.phase}">${s.label}</th>`)}<th class="num">Claude time</th><th class="num">Retries</th><th class="num">End to end</th></tr></thead>
-    <tbody>${rows.map((m) => html`<tr data-issue="${m.n}">
+    <tbody>${items.map((m) => html`<tr data-issue="${m.n}">
       <td class="wrap">${issueButton(m)}</td>
       ${STEPS.map((s) => cell(m, s))}
       <td class="num">${short(m.claudeMs)}</td>
       <td class="num">${m.retries || ""}</td>
       <td class="num"><strong>${m.e2e === null ? "" : short(m.e2e)}</strong>${m.done ? "" : html` <span class="muted" title="Not merged yet: time so far">running</span>`}</td>
-    </tr>`)}</tbody></table>` : html`<p class="muted">No issue has gone through the factory yet.</p>`);
+    </tr>`)}</tbody>
+    <tfoot><tr><td>Total, all ${rows.length} issues</td>
+      ${STEPS.map((s) => html`<td class="num ${s.phase}">${total((m) => m.stepMs[s.key]) ? short(total((m) => m.stepMs[s.key])) : "—"}</td>`)}
+      <td class="num">${short(total((m) => m.claudeMs))}</td>
+      <td class="num">${total((m) => m.retries)}</td>
+      <td class="num" title="Includes the time so far of issues not merged yet">${short(total((m) => m.e2e))}</td></tr></tfoot></table>${pager}` : html`<p class="muted">No issue has gone through the factory yet.</p>`);
 }
 
 // ---------- issue timeline ----------
@@ -734,6 +761,12 @@ function issueDetail(n) {
       </tbody></table></div>
     <p class="small muted">Agent times are the Claude Code run time from each step's metrics comment. Runs without one (older @claude fix rounds, factory runs that failed early) use the GitHub run time and have no cost. Waits run from the last agent activity of a phase to the merge.</p>`);
   if (!$("issue-dialog").open) $("issue-dialog").showModal();
+}
+
+function turnPage(key, to) {
+  pages[key] = Math.max(0, to);
+  const render = { specs: renderSpecs, runs: renderRuns, cost: renderCost, health: renderHealth }[key];
+  Promise.resolve(render()).catch((e) => showBanner(`Could not load: ${e.message}`));
 }
 
 // ---------- dialogs and actions ----------
@@ -908,6 +941,7 @@ document.addEventListener("click", (ev) => {
   else if (btn.dataset.act === "comment") commentAction(n);
   else if (btn.dataset.act === "merge") mergeAction(n);
   else if (btn.dataset.act === "issue") issueDetail(n);
+  else if (btn.dataset.act === "page") turnPage(btn.dataset.key, Number(btn.dataset.to));
   else if (btn.dataset.act === "rerun") rerunAction(Number(btn.dataset.run), btn.dataset.name);
 });
 document.addEventListener("click", (ev) => {
