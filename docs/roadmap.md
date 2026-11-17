@@ -13,7 +13,7 @@ Status 2026-11-17 (end of day 1): about one day ahead. Scope unchanged; the gain
 - Site blocking by domain and category
 - Daily focus score
 - `.reg` installer: force-install and no incognito
-- E-mail alert when a device goes silent
+- Offline incidents on the dashboard banner, delivered by e-mail as a digest: daily at 08:00 by default, or weekly on Monday; parent chooses frequency and time (#58, owner decision 2026-11-18)
 
 ## v0.2 Limits (next 2-3 weeks)
 
