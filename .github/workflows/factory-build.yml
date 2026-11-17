@@ -71,7 +71,13 @@ jobs:
         run: |
           git config user.name "family-guardian-factory"
           git config user.email "factory@users.noreply.github.com"
-          CHANGE=$(grep -rlE "#${ISSUE}([^0-9]|$)" openspec/changes --include=proposal.md | grep -v /archive/ | head -1 | xargs -r dirname | xargs -r basename || true)
+          # The change folder is the one added by the spec commit for this issue ("spec: ... (#N)").
+          # Searching proposal text is a fallback only: other proposals mention #N as a dependency.
+          CHANGE=$(git log -E --grep "^spec: .*\(#${ISSUE}\)( \(#[0-9]+\))?$" --format= --name-only -- openspec/changes             | grep -oE '^openspec/changes/[^/]+' | grep -v '/archive$' | sed 's#.*/##' | sort | uniq -c | sort -rn | head -1 | awk '{print $2}' || true)
+          if [ -z "$CHANGE" ]; then
+            CHANGE=$(grep -rlE "^(Implements|Issue).*#${ISSUE}([^0-9]|$)" openspec/changes --include=proposal.md | grep -v /archive/ | head -1 | xargs -r dirname | xargs -r basename || true)
+          fi
+          echo "Change for #${ISSUE}: ${CHANGE:-none}"
           if [ -z "$CHANGE" ]; then
             gh issue comment "$ISSUE" --body "Factory: no approved OpenSpec change references #${ISSUE}. Label it \`needs-spec\` first."
             gh issue edit "$ISSUE" --remove-label ready --remove-label build-now --add-label needs-human
