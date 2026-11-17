@@ -60,6 +60,12 @@ When Claude stops, it posts the same summary on the issue and in chat:
 - the options and Claude's recommendation;
 - cost and time spent.
 
+## Long-running and stuck work
+
+- **Factory watchdog** (`factory-watchdog.yml`, every 30 minutes): an agent run older than 60 minutes that finished no step for 30 minutes is cancelled and restarted; after 2 restarts the issue gets `needs-human`. A factory or spec PR that conflicts with main (GitHub then runs no PR checks at all) gets main merged automatically when clean, otherwise one `@claude` request to resolve it.
+- **Claude's own waits** never wait on a single condition without a limit: every wait ends after at most 60 minutes, then Claude checks progress (run steps, PR head commit, mergeability, check list) and either continues, restarts the task, or reports. Waits poll at most once a minute (GitHub API budget).
+- A PR whose head commit has no CI run after 15 minutes is treated as stuck: check mergeability first (conflict = no checks).
+
 ## Cost rules (ADR 0014)
 
 - Spec writer on Sonnet; Claude's spec gate compensates.
