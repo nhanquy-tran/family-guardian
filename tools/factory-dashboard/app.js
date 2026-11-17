@@ -70,7 +70,12 @@ async function gh(path, { method = "GET", body, raw = false } = {}) {
   if (body) headers["Content-Type"] = "application/json";
   const res = await fetch(API + path, { method, headers, body: body ? JSON.stringify(body) : undefined, cache: "no-cache" });
   const left = res.headers.get("x-ratelimit-remaining");
-  if (left !== null) $("rate").textContent = `API ${left}/${res.headers.get("x-ratelimit-limit")}`;
+  if (left !== null) {
+    const reset = new Date(Number(res.headers.get("x-ratelimit-reset")) * 1000);
+    const at = reset.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    $("rate").textContent = `GitHub API: ${left} left (resets ${at})`;
+    $("rate").title = `${left} of ${res.headers.get("x-ratelimit-limit")} GitHub API requests left this hour`;
+  }
   if (!res.ok) {
     let msg = res.statusText;
     try { msg = (await res.json()).message || msg; } catch { /* not json */ }
