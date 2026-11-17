@@ -9,14 +9,23 @@ export interface AuthClient {
   };
 }
 
-export async function startGoogleSignIn(_client: AuthClient, _origin: string): Promise<string> {
-  throw new Error("not implemented");
+const AUTH_ERROR = "/login?error=auth";
+
+export async function startGoogleSignIn(client: AuthClient, origin: string): Promise<string> {
+  const { data, error } = await client.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: `${origin}/auth/callback` },
+  });
+  return error || !data.url ? AUTH_ERROR : data.url;
 }
 
-export async function completeSignIn(_client: AuthClient, _code: string | null): Promise<string> {
-  throw new Error("not implemented");
+export async function completeSignIn(client: AuthClient, code: string | null): Promise<string> {
+  if (!code) return AUTH_ERROR;
+  const { error } = await client.auth.exchangeCodeForSession(code);
+  return error ? AUTH_ERROR : "/dashboard";
 }
 
-export async function signOut(_client: AuthClient): Promise<string> {
-  throw new Error("not implemented");
+export async function signOut(client: AuthClient): Promise<string> {
+  await client.auth.signOut();
+  return "/login";
 }
