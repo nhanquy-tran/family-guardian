@@ -1,0 +1,37 @@
+name: "Factory 8: evidence"
+
+# Recomputes the deterministic evidence of a factory PR on every later push (gate fixes, @claude rounds),
+# so reviewers and the gate never judge the stale build-time table.
+
+on:
+  pull_request:
+    types: [synchronize]
+    branches: [main]
+
+concurrency:
+  group: evidence-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  evidence:
+    if: startsWith(github.head_ref, 'factory/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+        with:
+          ignore-scripts: "true"
+      - name: Refresh evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node .github/scripts/refresh-evidence.mjs | tee -a "$GITHUB_STEP_SUMMARY"

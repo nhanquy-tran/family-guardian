@@ -1004,11 +1004,14 @@ function rerunAction(id, name) {
   });
 }
 
-// Renders the PR body's markdown evidence table (or the first lines of the body) as escaped HTML.
+// Renders the PR body's newest markdown evidence table (or the first lines of the body) as escaped HTML.
 function evidence(body) {
   const lines = (body || "").split("\n");
   const start = lines.findIndex((l) => /^##\s+Evidence/i.test(l));
-  const table = (start >= 0 ? lines.slice(start + 1) : lines).filter((l) => l.trim().startsWith("|"));
+  // The first evidence section is the newest ("latest push" above "at build time"); stop at the next heading.
+  const after = start >= 0 ? lines.slice(start + 1) : lines;
+  const end = after.findIndex((l) => /^##\s/.test(l));
+  const table = (end >= 0 ? after.slice(0, end) : after).filter((l) => l.trim().startsWith("|"));
   if (start >= 0 && table.length) {
     const rows = table.filter((l) => !/^\|\s*-/.test(l.trim())).map((l) => l.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim()));
     const cell = (c) => new Raw(esc(c).replace(/https:\/\/github\.com\/[^\s<]+/g, (u) => `<a href="${u}" target="_blank" rel="noopener">${u.split("/").pop()}</a>`));

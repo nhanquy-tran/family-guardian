@@ -24,12 +24,17 @@ jobs:
       - name: Migration versions unique and newer than main
         if: github.event_name == 'pull_request'
         run: bash .github/scripts/check-migrations.sh
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
+      - uses: ./.github/actions/setup
       - run: npm run check
+
+  # Runs next to `check` to cut wall time; both are required on main. The name avoids clashing with the
+  # factory's matrix job `build (<issue>)`.
+  ci-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
       - run: npm run build
 
   secrets-scan:

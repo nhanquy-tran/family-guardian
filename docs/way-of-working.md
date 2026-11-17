@@ -79,13 +79,15 @@ When Claude stops, it posts the same summary on the issue and in chat:
 - PR mergeable (a conflict means no checks ran).
 - Test diff against the test-writer commit; `test-arbitrated` changes (made by the debugger) reviewed line by line against the scenario, with its `## Debugging` notes.
 - Hidden acceptance tests pass and `VERIFY.md` says `VERIFY: PASS`; the change is archived into `openspec/specs/` in the same PR.
+- Failing hidden tests: read `## Hidden test verdict` in NOTES.md. Verdict `test` or `spec`: fix the hidden test or the spec on the branch by the spec, label `test-arbitrated`, then archive. Verdict `code`: `@claude` fix on the PR (the hidden test stays as it is).
+- After a gate fix or `@claude` round, wait for "Evidence (latest push)" to update before adding `re-review`.
 - `## Test concerns` in NOTES.md (the developer's STOP rule) answered before merging.
 - Live check where possible (preview, or production after merge for migration PRs).
 - After merge: the nightly docs job (`factory-docs.yml`) applies `## Docs to update`; Claude reviews and merges its PR like any other.
 
 ## Where Claude works locally
 
-- Never on the main checkout's `main`: every local change goes in a worktree under `.worktrees/<branch>` and reaches `main` through a PR (branch protection requires the CI `check` job).
+- Never on the main checkout's `main`: every local change goes in a worktree under `.worktrees/<branch>` and reaches `main` through a PR (branch protection requires the CI `check` and `ci-build` jobs).
 - Read the `Factory state` issue first in a new session: it lists every `autopilot` issue, its state and what it waits for.
 
 ## Records

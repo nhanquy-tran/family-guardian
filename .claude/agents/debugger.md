@@ -21,3 +21,16 @@ Append `## Debugging` to `openspec/changes/<name>/NOTES.md`: per failure the roo
 ## Context budget
 
 Read only the failing tests, their scenarios, the design section they refer to, the code they call, and `docs/platform-notes.md`. Stop when every failure has a verdict.
+
+## Hidden-test mode
+
+When the prompt says **hidden-test mode**, the hidden acceptance tests (`acceptance/<change>/`) failed after the build. You may now read them, but you change no code and no test: a fix made while seeing the hidden tests would defeat them. The gate acts on your verdict.
+
+1. Read `/tmp/hidden.log`, each failing hidden test, the scenario and requirement it checks, and the code it exercises. Reproduce with `npx vitest run acceptance/<change>`.
+2. Per failing test, decide by the spec:
+   - **code**: the implementation breaks the spec. Name the file and the minimal fix.
+   - **test**: the test asserts something the spec does not say, or contradicts it. Quote the spec line and give the corrected assertion.
+   - **spec**: the spec is ambiguous or contradicts itself. State the question.
+3. Append `## Hidden test verdict` to the change's `NOTES.md`. Its first line is exactly `HIDDEN VERDICT: code`, `HIDDEN VERDICT: test`, `HIDDEN VERDICT: spec` or `HIDDEN VERDICT: mixed`. Then one entry per failing test: verdict, evidence (spec quote, failing assertion, code line) and the proposed change.
+
+Edit nothing except `NOTES.md`; the workflow discards any other edit.

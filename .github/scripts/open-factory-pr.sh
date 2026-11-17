@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Commits remaining work, pushes the factory branch and opens or updates the PR with the gate evidence.
-# Env: ISSUE CHANGE STARTED TESTS_SHA GUARD GATE RED GREEN COVERAGE HIDDEN_RED HIDDEN VERIFY ARCHIVE MODEL RUN_URL
+# Env: ISSUE CHANGE STARTED TESTS_SHA GUARD GATE RED GREEN COVERAGE HIDDEN_RED HIDDEN HIDDEN_VERDICT VERIFY ARCHIVE MODEL RUN_URL
 set -euo pipefail
 
 git add -A
@@ -29,7 +29,10 @@ NOTES_FILE="openspec/changes/${CHANGE}/NOTES.md"
   echo
   echo "OpenSpec change: \`openspec/changes/${CHANGE}\`"
   echo
-  echo "## Evidence"
+  echo "## Evidence (at build time)"
+  echo
+  echo "Later pushes add an \"Evidence (latest push)\" section above this one (\`factory-evidence.yml\`)."
+  echo
   echo "| Gate | Result |"
   echo "|---|---|"
   echo "| Tests written first by a separate agent | commit ${TESTS_SHA:-none} |"
@@ -40,6 +43,7 @@ NOTES_FILE="openspec/changes/${CHANGE}/NOTES.md"
   echo "| npm run check + build | ${GATE:-not run} |"
   echo "| Hidden acceptance tests fail before, unseen by the developer | ${HIDDEN_RED:-not run} |"
   echo "| Hidden acceptance tests pass after implementation | ${HIDDEN:-not run} |"
+  echo "| Hidden test verdict (debugger proposal, see NOTES) | ${HIDDEN_VERDICT:-not needed} |"
   echo "| OpenSpec verify (completeness, correctness, coherence) | ${VERIFY:-not run} |"
   echo "| Archive: delta specs merged into openspec/specs | ${ARCHIVE:-not run} |"
   echo "| Model / wall time | ${MODEL} / ${MINUTES} min |"
