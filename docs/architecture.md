@@ -33,7 +33,7 @@ Parent: any browser (phone/PC) ──────────▶  └───�
 | `apps/web` | Next.js (App Router), TypeScript, Tailwind | Parent dashboard, device API, installer generation |
 | `packages/shared` | TypeScript | API contracts (zod schemas), category list, focus-score function |
 | `supabase/` | SQL migrations | Schema, RLS policies, cron jobs |
-| Policy installer | Generated `.reg` file | Force-install extension in Chrome, Edge, Brave; disable incognito |
+| Policy installer | Generated `.reg` file | Force-install extension in Chrome, Edge, Brave; disable private browsing (`InPrivateModeAvailability` in Edge) and guest mode (`BrowserGuestModeEnabled`) |
 
 ## Data model (MVP)
 
