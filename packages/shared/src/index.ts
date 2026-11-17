@@ -1,3 +1,4 @@
+export * from "./block-rules";
 export * from "./categories";
 export * from "./contracts";
 export * from "./domain";

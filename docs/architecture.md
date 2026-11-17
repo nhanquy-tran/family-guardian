@@ -52,14 +52,16 @@ alerts(id, device_id, kind, sent_at)
 ```
 
 - Only the **registrable domain** (e.g. `youtube.com`) and seconds are stored. No URLs, titles, content, keystrokes or screenshots.
-- Retention: 13 months for usage, then deleted by a cron job.
+- Retention: 13 months for usage and for `block_events` (blocked domain plus time), then deleted by a cron job.
+- Block rules: a `domain` rule is a bare hostname kept as typed (blocking `docs.google.com` does not block `google.com`); a `category` rule is one of the 9 categories. Both are checked in the database.
+- A new parent-editable `children` column needs a column grant too (parents have column-level update rights, see the heartbeat migration).
 
 ## Key flows
 
 1. **Sign in**: parent signs in with Google (Supabase Auth). First sign-in creates a family.
 2. **Pair**: parent adds a child and gets a 6-character code (valid 1 hour). The extension options page takes the code, calls `/api/device/pair`, and receives a device token (stored in `chrome.storage.local`; only a hash is stored server-side). A new code deletes the child's earlier code. `redeem_pairing_code` deletes the code and inserts the device in one transaction, so a code works once. `/api/device/pair` allows 10 attempts per IP per 10 minutes (`register_pair_attempt`, service role only) and fails closed if the limiter fails.
 3. **Track**: the extension counts seconds for the focused tab's domain while the user is active (`chrome.idle`, 60 s threshold). Every minute it posts a heartbeat with per-domain seconds for the last minute(s). Failed posts stay in a local queue.
-4. **Block**: the heartbeat response carries a rules version. On change, the extension fetches rules and updates `declarativeNetRequest` dynamic rules. Blocked navigations redirect to an extension page.
+4. **Block**: the heartbeat response carries a rules version. On change, the extension fetches rules and updates `declarativeNetRequest` dynamic rules. Blocked navigations redirect to an extension page. `GET /api/device/rules` (device token) returns `{ rulesVersion, domains, truncated }`: the child's domain rules plus category rules expanded through the seed and overrides, capped at 5000 domains (explicit domains first). The version is read before the rules. The heartbeat may carry `blocked: [{ at, domain }]` (max 1000), stored once per `(device_id, at, domain)` in `block_events`.
 5. **Focus score**: per child per day. `focus = homework_seconds / total_seconds * 100 - switch_penalty`, where a switch is a change between a homework and a non-homework domain within an active session, and `switch_penalty = min(20, switches_per_hour * 2)`. Computed in `packages/shared` and shown on the dashboard.
 6. **Tamper alert**: a `pg_cron` job every 5 minutes marks devices silent for over 15 minutes during the child's usual hours and calls the alert endpoint, which e-mails the parent via Resend once per incident.
 7. **Install**: the dashboard generates a `.reg` file that sets `ExtensionInstallForcelist`, a private-mode policy (`IncognitoModeAvailability=1` for Chrome and Brave, `InPrivateModeAvailability=1` for Edge) and `BrowserGuestModeEnabled=0` (guest windows do not load extensions) for Chrome, Edge and Brave under `HKLM\SOFTWARE\Policies`. The child must use a Standard Windows account.
