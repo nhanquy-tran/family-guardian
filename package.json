@@ -1,7 +1,10 @@
 {
   "name": "family-guardian",
   "private": true,
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev:web": "npm run dev -w web",
     "dev:ext": "npm run dev -w extension",
@@ -12,9 +15,12 @@
     "check": "npm run typecheck && npm run lint && npm run test"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.16",
     "@fission-ai/openspec": "2.1.0",
     "typescript": "^5",
     "vitest": "^4"
   },
-  "engines": { "node": ">=22" }
+  "engines": {
+    "node": ">=22"
+  }
 }
