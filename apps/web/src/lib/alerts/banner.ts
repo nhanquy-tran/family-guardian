@@ -12,10 +12,25 @@ export type BannerAlert = {
   } | null;
 };
 
-export function activeOfflineAlerts(_rows: BannerAlert[]): BannerAlert[] {
-  throw new Error("not implemented");
+export function activeOfflineAlerts(rows: BannerAlert[]): BannerAlert[] {
+  return rows
+    .filter(
+      (a) =>
+        a.devices?.last_seen_at != null &&
+        Date.parse(a.devices.last_seen_at) === Date.parse(a.incident_last_seen_at),
+    )
+    .sort((a, b) => Date.parse(b.sent_at) - Date.parse(a.sent_at));
 }
 
-export async function loadActiveOfflineAlerts(_client: SupabaseClient): Promise<BannerAlert[]> {
-  throw new Error("not implemented");
+export async function loadActiveOfflineAlerts(client: SupabaseClient): Promise<BannerAlert[]> {
+  try {
+    const { data, error } = await client
+      .from("alerts")
+      .select("id, sent_at, incident_last_seen_at, devices(last_seen_at, browser, os, children(name))")
+      .eq("kind", "offline");
+    if (error || !data) return [];
+    return activeOfflineAlerts(data as unknown as BannerAlert[]);
+  } catch {
+    return [];
+  }
 }
