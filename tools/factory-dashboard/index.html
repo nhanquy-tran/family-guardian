@@ -22,6 +22,7 @@
         <a href="#runs">Runs</a>
         <a href="#cost">Cost</a>
         <a href="#health">Health</a>
+        <a href="#workflow">Workflow</a>
       </nav>
       <div class="top-actions">
         <span class="meta-line"><a id="repo-link" href="#"></a> <span id="status"></span> <span id="rate"></span></span>
@@ -64,6 +65,14 @@
       <h3>Time per issue and step</h3>
       <div id="health-issues" class="table-wrap"></div>
       <p class="muted small">Agent steps: Claude Code run time, summed over retries (×n). Gates: from the last agent activity of the phase to the merge. Queue: spec merged to the first build activity. Retries: extra spec or build runs, @claude fix rounds and job re-runs. Click an issue for its timeline.</p>
+    </section>
+
+    <section id="workflow">
+      <h2>Factory workflow</h2>
+      <p class="muted small">How one issue goes through the factory today. Click a step for what it does, when it passes and what happens otherwise. Numbers show open issues at that step now; ↺ marks a retry loop.</p>
+      <div id="workflow-filter" class="filter-row"></div>
+      <div id="workflow-flow" class="flow"></div>
+      <div id="workflow-detail" class="flow-detail" aria-live="polite"></div>
     </section>
   </main>
 
