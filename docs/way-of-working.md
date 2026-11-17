@@ -44,7 +44,7 @@ BUILD GATE (Claude)                                         max 2 build attempts
 ## Limits (when Claude stops and hands back)
 
 1. **Spec:** 3 fix rounds without reaching "no high/medium findings".
-2. **Build:** the 2nd build attempt still fails a gate or Claude's review.
+2. **Build:** the 2nd build attempt still fails a gate or Claude's review. Failures caused by the factory itself (infrastructure, workflow bugs) are fixed in the factory and do not count as an attempt.
 3. **Always escalate**, regardless of rounds:
    - a new ADR or an ADR amendment that changes privacy or security (ADR 0005, 0012-style decisions); Claude may draft it, the owner approves;
    - destructive database migrations (drop, rename, data deletion);

@@ -91,6 +91,8 @@ jobs:
 
       - name: Test writer agent
         id: test_writer
+        # The gates below decide; a turn-cap or action error must not discard finished work.
+        continue-on-error: true
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.CLAUDE_API_KEY }}
@@ -101,7 +103,7 @@ jobs:
             OpenSpec change: ${{ steps.change.outputs.name }}. Issue: #${{ matrix.issue }}.
           claude_args: |
             --model ${{ env.MODEL }}
-            --max-turns 30
+            --max-turns ${{ vars.FACTORY_TEST_MAX_TURNS || 45 }}
             --permission-mode default
             --allowedTools "Read,Write,Edit,Glob,Grep,Bash(npx vitest:*),Bash(npm run typecheck:*),Bash(npm test:*),Bash(ls:*)"
 
@@ -141,6 +143,8 @@ jobs:
 
       - name: Developer agent
         id: developer
+        # The gates below decide; a turn-cap or action error must not discard finished work.
+        continue-on-error: true
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.CLAUDE_API_KEY }}
@@ -151,7 +155,7 @@ jobs:
             OpenSpec change: ${{ steps.change.outputs.name }}. Issue: #${{ matrix.issue }}.
           claude_args: |
             --model ${{ env.MODEL }}
-            --max-turns ${{ vars.FACTORY_DEV_MAX_TURNS || 60 }}
+            --max-turns ${{ vars.FACTORY_DEV_MAX_TURNS || 70 }}
             --permission-mode default
             --allowedTools "Read,Write,Edit,Glob,Grep,Bash(npm run:*),Bash(npm test:*),Bash(npx vitest:*),Bash(npx openspec:*),Bash(npm install:*),Bash(ls:*),Bash(git status:*),Bash(git diff:*)"
 
