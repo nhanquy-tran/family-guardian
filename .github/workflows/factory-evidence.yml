@@ -26,11 +26,9 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
-      - uses: actions/setup-node@v5
+      - uses: ./.github/actions/setup
         with:
-          node-version: 22
-          cache: npm
-      - run: npm ci --ignore-scripts
+          ignore-scripts: "true"
       - name: Refresh evidence
         env:
           GH_TOKEN: ${{ github.token }}

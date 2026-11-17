@@ -24,11 +24,7 @@ jobs:
       - name: Migration versions unique and newer than main
         if: github.event_name == 'pull_request'
         run: bash .github/scripts/check-migrations.sh
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
+      - uses: ./.github/actions/setup
       - run: npm run check
       - run: npm run build
 

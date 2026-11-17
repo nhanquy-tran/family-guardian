@@ -1,0 +1,28 @@
+name: Setup Node and dependencies
+description: Node 22 plus node_modules restored from cache (keyed on the lockfile); npm ci only on a cache miss.
+
+inputs:
+  ignore-scripts:
+    description: Pass --ignore-scripts to npm ci
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v5
+      with:
+        node-version: 22
+    # Restoring node_modules takes a few seconds; npm ci took about 55 s even with a warm npm cache.
+    - id: modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          node_modules
+          apps/*/node_modules
+          packages/*/node_modules
+        key: node-modules-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
+    - if: steps.modules.outputs.cache-hit != 'true'
+      shell: bash
+      run: npm ci --no-audit --no-fund ${{ inputs.ignore-scripts == 'true' && '--ignore-scripts' || '' }}
+    - shell: bash
+      run: echo "$PWD/node_modules/.bin" >> "$GITHUB_PATH"

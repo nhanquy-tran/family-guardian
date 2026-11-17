@@ -61,11 +61,7 @@ jobs:
         with:
           token: ${{ secrets.FACTORY_TOKEN || github.token }}
           fetch-depth: 0
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci && echo "$PWD/node_modules/.bin" >> "$GITHUB_PATH"
+      - uses: ./.github/actions/setup
 
       - name: Find the approved change
         id: change
