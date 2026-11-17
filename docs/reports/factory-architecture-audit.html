@@ -1,0 +1,217 @@
+<title>Factory Architecture Audit</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* Layout: one reading column, audit ledger tables, a scorecard grid; same visual family as the day-2 review. */
+:root {
+  --bg: #f6f7f9; --surface: #ffffff; --fg: #1b2230; --muted: #5b6577; --line: #dde2ea;
+  --accent: #2457d6; --accent-soft: #e6edfd;
+  --ok: #1d7a4a; --ok-soft: #e3f4ea; --warn: #9a6200; --warn-soft: #fbf0d9; --bad: #b3261e; --bad-soft: #fbe5e3;
+  --display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11151c; --surface: #181d26; --fg: #e5e9f0; --muted: #9aa4b5; --line: #2a3140; --accent: #7ea2ff; --accent-soft: #1e2a47;
+  --ok: #6fd39b; --ok-soft: #173326; --warn: #f2c063; --warn-soft: #3a2e14; --bad: #ff8a80; --bad-soft: #3c1d1b; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #11151c; --surface: #181d26; --fg: #e5e9f0; --muted: #9aa4b5; --line: #2a3140; --accent: #7ea2ff; --accent-soft: #1e2a47;
+  --ok: #6fd39b; --ok-soft: #173326; --warn: #f2c063; --warn-soft: #3a2e14; --bad: #ff8a80; --bad-soft: #3c1d1b; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font: 15px/1.6 var(--body); }
+.wrap { max-width: 980px; margin: 0 auto; padding-block: 40px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 40px; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.2; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(28px, 4vw, 38px); } h2 { font-size: 22px; } h3 { font-size: 16px; }
+p { margin: 0; max-width: 72ch; }
+.eyebrow { font: 600 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.lede { color: var(--muted); font-size: 16px; }
+header, section { display: grid; gap: 14px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: grid; gap: 6px; min-width: 0; }
+.card b.big { font: 700 24px var(--display); font-variant-numeric: tabular-nums; }
+.card span { color: var(--muted); font-size: 13px; }
+.meter { display: flex; gap: 3px; } .meter i { flex: 1; height: 6px; border-radius: 2px; background: var(--line); } .meter i.on { background: var(--accent); }
+.table { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+table { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 14px; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 12px var(--mono); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); background: var(--bg); }
+tr:last-child td { border-bottom: 0; }
+td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+code { font: 13px var(--mono); background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; }
+.pill { display: inline-block; font: 600 11px var(--mono); padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.ok { background: var(--ok-soft); color: var(--ok); } .warn { background: var(--warn-soft); color: var(--warn); } .bad { background: var(--bad-soft); color: var(--bad); } .info { background: var(--accent-soft); color: var(--accent); }
+ul.plain { margin: 0; padding-left: 18px; display: grid; gap: 6px; max-width: 76ch; }
+.step { border-left: 3px solid var(--accent); padding-left: 14px; display: grid; gap: 10px; }
+.callout { background: var(--accent-soft); border-radius: 8px; padding: 14px 16px; display: grid; gap: 8px; }
+footer { color: var(--muted); font-size: 13px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Family Guardian · AI factory · architecture audit · 2026-11-18</div>
+    <h1>Factory architecture audit</h1>
+    <p class="lede">A principal-architect review of the factory after the MVP build: execution logs since the day-2 review, the Zühlke AI Factory blueprint, and the stacked reference architecture of OpenSpec (what), obra/superpowers (how) and OpenHands (where). Suggestions are costed and prioritised; nothing here has been built yet.</p>
+  </header>
+
+  <section>
+    <h2>Verdict</h2>
+    <p>The factory is strong where it is deterministic: tests-first with red/green evals, a separate test writer and arbiter, evidence per gate, migration dry runs and version checks, a watchdog. It is weak where state and truth live outside versioned artefacts: OpenSpec stops at <em>propose</em> (no verify, no archive, no source-of-truth specs), orchestration lives in one Claude session, and gate fixes often bypass the gates. Since the day-2 review the factory became markedly more reliable; the next gains come from closing the spec lifecycle and moving orchestration state into the repo, not from more agents.</p>
+    <div class="grid">
+      <div class="card"><h3>Context &amp; state</h3><div class="meter"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></div><span>2/5: no source-of-truth specs; orchestration state in a chat session</span></div>
+      <div class="card"><h3>Verification &amp; drift</h3><div class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></div><span>3/5: strong unit gates; no spec verify, no behaviour-level tests</span></div>
+      <div class="card"><h3>Execution discipline</h3><div class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></div><span>3/5: red/green enforced; no refactor, no root-cause debugging, 54 direct commits</span></div>
+      <div class="card"><h3>Parallelism &amp; isolation</h3><div class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></div><span>3/5: sandboxed runners; manual sequencing; shared hot files and one migration timeline</span></div>
+      <div class="card"><h3>Zühlke blueprint fit</h3><div class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></div><span>3/5: 6 of 8 elements, 3 of 5 rules fully met</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What the execution logs show since the day-2 review</h2>
+    <div class="table"><table>
+      <thead><tr><th>Signal</th><th>Day 1–2 (before)</th><th>Since review</th><th>Reading</th></tr></thead>
+      <tbody>
+        <tr><td>Spec gate outcome</td><td class="num">6 of 21 needed fixes</td><td class="num">10 of 10 approved first time</td><td><span class="pill ok">better</span> platform notes and agent rules work</td></tr>
+        <tr><td>Builds blocked by wrong tests</td><td class="num">2 of 5</td><td class="num">0; arbiter ran once (#58, $0.09)</td><td><span class="pill ok">better</span> self-fixing works</td></tr>
+        <tr><td>Agent cost per run</td><td class="num">$0.29</td><td class="num">$0.29 (21 runs, $6.02)</td><td><span class="pill info">flat</span> build agents dominate (test writer $0.52, developer $0.41)</td></tr>
+        <tr><td>Build wall time</td><td class="num">2–6 min</td><td class="num">4–12 min</td><td><span class="pill info">ok</span> larger specs (#58: 29 scenarios)</td></tr>
+        <tr><td>New failure classes</td><td>conflict stall, turn cap, review skip</td><td>migration version collision (#12/#18), PGlite timeout, Vercel quota</td><td><span class="pill warn">shifted to infra</span> all caught by gates or gate review</td></tr>
+        <tr><td>Changes reaching main without a gated PR</td><td colspan="2" class="num">54 direct commits vs 39 merged PRs; 10 of them changed product or test code</td><td><span class="pill bad">gap</span> rule 1 bypassed by the gate itself</td></tr>
+        <tr><td>OpenSpec lifecycle</td><td colspan="2" class="num">18 changes proposed, 0 verified, 0 archived; <code>openspec/specs/</code> empty; 6 merged changes with unticked tasks; 7 "Docs to update" not applied</td><td><span class="pill bad">gap</span> no source of truth</td></tr>
+        <tr><td>Total spend</td><td colspan="2" class="num">$31.75 over 116 agent runs for 19 shipped items (≈ $1.70 per item end to end)</td><td><span class="pill ok">cheap</span> human/gate time is the real cost</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>Findings by dimension</h2>
+    <div class="table"><table>
+      <thead><tr><th>Dimension</th><th>Finding</th><th>Evidence</th><th>Risk</th></tr></thead>
+      <tbody>
+        <tr><td rowspan="4"><b>1. Context &amp; state hygiene</b></td><td>No source of truth: every spec writer reconstructs current behaviour from 18 open delta specs plus code.</td><td><code>openspec/specs/</code> empty; #13, #14 re-created #10's schema</td><td><span class="pill bad">high</span></td></tr>
+        <tr><td>Orchestration state (queue, dependencies, rounds, decisions in flight) lives in one interactive Claude session.</td><td>Factory idled 37 min when a waiter hung; work stops when the laptop closes (Zühlke problem #3)</td><td><span class="pill bad">high</span></td></tr>
+        <tr><td>Agents load ~37 KB of shared context every run, including the learnings <em>log</em> (28 rows, growing) next to the rules distilled from it.</td><td>CLAUDE.md + architecture + learnings + platform notes + 16 ADRs</td><td><span class="pill warn">medium</span> cost and dilution</td></tr>
+        <tr><td>Post-merge state is not written back: unticked tasks, unapplied doc updates.</td><td>#7 has 9 open tasks; 7 NOTES with "Docs to update"</td><td><span class="pill warn">medium</span></td></tr>
+        <tr><td rowspan="4"><b>2. Verification &amp; drift</b></td><td>Scenario coverage is matched by <em>test title</em> only; a weak assertion passes the eval.</td><td>coverage eval in <code>factory-build.yml</code></td><td><span class="pill warn">medium</span></td></tr>
+        <tr><td>No spec verification step (OpenSpec verify: completeness, correctness, coherence) before merge.</td><td>18 changes, 0 verified</td><td><span class="pill warn">medium</span></td></tr>
+        <tr><td>Behaviour is verified only at unit / PGlite level; no end-to-end run of extension → API → database → dashboard; previews share the production DB.</td><td>#10 preview 500 vs prod 401; Vercel quota stopped previews</td><td><span class="pill bad">high</span></td></tr>
+        <tr><td>The developer sees the test writer's tests, so it can overfit them (Zühlke: hidden acceptance tests).</td><td>tests committed before the developer runs</td><td><span class="pill warn">medium</span></td></tr>
+        <tr><td rowspan="4"><b>3. Execution discipline</b></td><td>Red and green are enforced, refactor is not; the developer loops "until <code>npm run check</code> passes" with no root-cause step.</td><td><code>developer.md</code>, 45 turns average</td><td><span class="pill warn">medium</span></td></tr>
+        <tr><td>The gate (Claude) fixes things directly on main or branches: migration renames, conflict resolution, permissions, timeouts.</td><td>54 direct commits; <code>wxt.config.ts</code> permission change had no spec or test</td><td><span class="pill bad">high</span> rule 1, drift</td></tr>
+        <tr><td>The <code>@claude</code> fixer runs with no tool allowlist and no TDD instructions.</td><td><code>claude.yml</code></td><td><span class="pill warn">medium</span></td></tr>
+        <tr><td>Agent steps see <code>GH_TOKEN</code> (owner PAT) in their environment; <code>npm ci</code> runs install scripts.</td><td>job-level env in <code>factory-build.yml</code></td><td><span class="pill warn">medium</span> supply-chain / exfiltration path</td></tr>
+        <tr><td rowspan="3"><b>4. Parallelism &amp; isolation</b></td><td>Sequencing by dependency is done by hand in chat; max 3 is enforced by polling scripts.</td><td>#9→#11, #16→#40→#58 held manually</td><td><span class="pill warn">medium</span> throughput capped by the orchestrator</td></tr>
+        <tr><td>Shared hot spots serialise work: one migration timeline, <code>packages/shared/src/index.ts</code> barrel, dashboard layout/nav, <code>architecture.md</code>.</td><td>#12/#18 version collision; #13 conflict</td><td><span class="pill warn">medium</span></td></tr>
+        <tr><td>Runner sandboxes isolate builds well; the orchestrator's local checkout does not (branch ops in the main checkout).</td><td>stray local commit on main (discarded)</td><td><span class="pill info">low</span></td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>Against the Zühlke AI Factory blueprint</h2>
+    <div class="table"><table>
+      <thead><tr><th>Blueprint element / rule</th><th>Here</th><th>Status</th><th>Gap to close</th></tr></thead>
+      <tbody>
+        <tr><td>Agents, one per role</td><td>spec writer, test writer, developer, arbiter, reviewer, fixer</td><td><span class="pill ok">met</span></td><td>split reviewer into spec-compliance and code-quality</td></tr>
+        <tr><td>Workflows</td><td>router, spec, approval, build, review, watchdog, migrations</td><td><span class="pill ok">met</span></td><td>dependency-aware scheduler</td></tr>
+        <tr><td>Specification</td><td>OpenSpec deltas, SHALL scenarios (354 SHALL, 1 MUST)</td><td><span class="pill warn">partial</span></td><td>verify + archive; source-of-truth specs</td></tr>
+        <tr><td>Knowledge</td><td>CLAUDE.md, ADRs, platform notes, learnings</td><td><span class="pill ok">met</span></td><td>separate log from rules; ADR index</td></tr>
+        <tr><td>Code &amp; Git</td><td>GitHub, branch per change</td><td><span class="pill ok">met</span></td><td>branch protection on main</td></tr>
+        <tr><td>Traceability</td><td>issue → spec PR → change → factory PR</td><td><span class="pill warn">partial</span></td><td>lost after merge without archive; no task-level commits</td></tr>
+        <tr><td>QA &amp; security</td><td>gates, gitleaks, migration dry run + version check</td><td><span class="pill warn">partial</span></td><td>CodeQL and Dependabot (in ADR 0006, never added), e2e, secret scoping</td></tr>
+        <tr><td>Observability &amp; metrics</td><td>cost/turns/time per run, dashboard</td><td><span class="pill ok">met</span></td><td>lead time per item, baseline for −30 %</td></tr>
+        <tr><td>Rule 1: no agent approves its own work</td><td>factory agents never merge; Claude merges</td><td><span class="pill warn">partial</span></td><td>Claude's own commits skip gates</td></tr>
+        <tr><td>Rule 2: checker ≠ producer, hidden tests</td><td>separate test writer + arbiter</td><td><span class="pill warn">partial</span></td><td>tests are visible to the developer</td></tr>
+        <tr><td>Rule 3: evidence at every gate</td><td>evidence table, <code>Gate (Claude):</code> comments</td><td><span class="pill ok">met</span></td><td>—</td></tr>
+        <tr><td>Rule 4: plain versioned files</td><td>agents, workflows, rules, ADRs in repo</td><td><span class="pill warn">partial</span></td><td>orchestration state is not a file</td></tr>
+        <tr><td>Rule 5: model gateway</td><td>direct API (ADR 0007 deviation)</td><td><span class="pill bad">missing</span></td><td>LiteLLM proxy: budgets, routing, audit</td></tr>
+        <tr><td>Maturity step</td><td>04 human above the loop (Claude as delegated gate)</td><td><span class="pill info">04</span></td><td>step 05 needs orchestration out of the chat session</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>Against the stacked reference architecture</h2>
+    <div class="table"><table>
+      <thead><tr><th>Layer</th><th>Reference capability</th><th>Ours today</th><th>Fit</th></tr></thead>
+      <tbody>
+        <tr><td rowspan="4"><b>OpenSpec</b><br><span class="pill info">what</span></td><td>Source of truth in <code>openspec/specs/</code>, deltas ADDED/MODIFIED/REMOVED</td><td>deltas only, nothing merged back</td><td><span class="pill bad">gap</span></td></tr>
+        <tr><td>RFC 2119 requirements + scenarios</td><td>SHALL + GIVEN/WHEN/THEN, validate --strict</td><td><span class="pill ok">met</span></td></tr>
+        <tr><td><code>/opsx:verify</code> (completeness, correctness, coherence)</td><td>not enabled (core profile only)</td><td><span class="pill bad">gap</span></td></tr>
+        <tr><td><code>/opsx:archive</code>, <code>bulk-archive</code> with conflict detection, <code>/opsx:sync</code> for parallel changes</td><td>not used</td><td><span class="pill bad">gap</span></td></tr>
+        <tr><td rowspan="5"><b>Superpowers</b><br><span class="pill info">how</span></td><td>TDD iron law: failing test first, watch it fail, minimal code, refactor</td><td>red/green deterministic at change level; no per-task cycle, no refactor</td><td><span class="pill warn">partial</span></td></tr>
+        <tr><td>Subagent-driven development: fresh implementer per task, review after each task, final branch review</td><td>one developer run per change, one review per PR</td><td><span class="pill warn">partial</span></td></tr>
+        <tr><td>Systematic debugging: root cause before fixes; stop after 3 failed fixes</td><td>none; arbiter covers wrong tests only</td><td><span class="pill bad">gap</span></td></tr>
+        <tr><td>Verification-before-completion: fresh evidence for every claim</td><td>gates produce evidence; agents' NOTES claims are not checked</td><td><span class="pill warn">partial</span></td></tr>
+        <tr><td>Git worktrees with ignore check and baseline test</td><td>runners isolate; orchestrator does not</td><td><span class="pill warn">partial</span></td></tr>
+        <tr><td rowspan="4"><b>OpenHands</b><br><span class="pill info">where</span></td><td>Sandboxed headless runtime per task (Docker)</td><td>GitHub-hosted runner per job (ephemeral VM)</td><td><span class="pill ok">equivalent</span></td></tr>
+        <tr><td>Issue → PR automation, reviewer and watchdog automations</td><td>label router, build, review, watchdog</td><td><span class="pill ok">equivalent</span></td></tr>
+        <tr><td>Deterministic CI verification</td><td>gates + CI + migration checks</td><td><span class="pill ok">met</span></td></tr>
+        <tr><td>Real services in the sandbox, LiteLLM model routing, repo skills in <code>.openhands/</code></td><td>no local Supabase / e2e; no gateway</td><td><span class="pill bad">gap</span></td></tr>
+        <tr><td><b>Anthropic harness pattern</b></td><td>initializer, progress file, feature list JSON, per-session start routine</td><td>none for the orchestrator; state in chat</td><td><span class="pill bad">gap</span></td></tr>
+      </tbody>
+    </table></div>
+    <p>Takeaway: on the "where" layer GitHub Actions already gives most of what OpenHands offers (ephemeral sandboxes, issue-to-PR, watchdog). The real gaps are in the "what" layer (OpenSpec lifecycle) and the "how" layer (per-task discipline, debugging), plus durable orchestration state.</p>
+  </section>
+
+  <section>
+    <h2>Upgrade roadmap, with costs</h2>
+    <p>Effort is Claude working time in this session; agent cost is one-off token spend; run cost is the change per shipped item (today ≈ $1.70).</p>
+
+    <div class="step">
+      <h3>Step 1 · Quick wins (≈ 1 day, ≈ $5 one-off, run cost −$0.10 to +$0.10 per item, $0 infra)</h3>
+      <div class="table"><table>
+        <thead><tr><th>#</th><th>Change</th><th>Concrete files / prompts</th><th>Effort</th><th>Cost</th></tr></thead>
+        <tbody>
+          <tr><td>1.1</td><td><b>Close the OpenSpec loop.</b> Bulk-archive the 18 merged changes into <code>openspec/specs/</code>; on every factory PR merge, archive its change automatically.</td><td><code>openspec config profile</code> (expanded); new <code>factory-archive.yml</code> on merge runs <code>openspec archive &lt;change&gt; -y</code> and commits; <code>spec-writer.md</code>: "read <code>openspec/specs/</code> as current behaviour; write MODIFIED, not ADDED, for existing requirements"</td><td class="num">2–3 h</td><td class="num">≈ $1–2</td></tr>
+          <tr><td>1.2</td><td><b>Verify gate</b> before the PR: OpenSpec verify (completeness, correctness, coherence) plus all tasks ticked; CRITICAL → <code>needs-human</code>.</td><td>new step "Verifier agent" in <code>factory-build.yml</code> using the <code>openspec-verify-change</code> skill; result row in evidence table</td><td class="num">1–2 h</td><td class="num">+$0.10 / build</td></tr>
+          <tr><td>1.3</td><td><b>Durable orchestration state</b> (Anthropic harness pattern): dependencies and queue as files and labels, a scheduler instead of chat memory.</td><td><code>Depends on: #N</code> line in issues; <code>factory-scheduler.yml</code> (on merge + every 30 min) starts specs/builds whose deps are merged, max 3; <code>docs/factory-state.json</code> progress artefact read at the start of every Claude session</td><td class="num">3 h</td><td class="num">$0</td></tr>
+          <tr><td>1.4</td><td><b>Everything through a gated PR</b>, including Claude's fixes; branch protection on main (PR + CI required). Docs-only PRs may auto-merge.</td><td>repo setting (owner approval); <code>way-of-working.md</code>: gate fixes as <code>gatefix/*</code> PRs</td><td class="num">0.5 h</td><td class="num">$0, +5–10 min per fix</td></tr>
+          <tr><td>1.5</td><td><b>Context diet</b>: agents read rules, not the log; ADR index with one line each.</td><td>move learnings out of <code>CLAUDE.md</code> read list; <code>docs/decisions/README.md</code> index; per-role read list in each agent file</td><td class="num">1 h</td><td class="num">−10–20 % tokens</td></tr>
+          <tr><td>1.6</td><td><b>Secret and tool hygiene</b> + missing scanners.</td><td>no <code>GH_TOKEN</code> in agent steps; <code>npm ci --ignore-scripts</code> before agents; allowlist on <code>claude.yml</code>; add CodeQL and <code>.github/dependabot.yml</code></td><td class="num">1 h</td><td class="num">$0</td></tr>
+          <tr><td>1.7</td><td><b>Write-back after merge</b>: tick-check tasks, apply "Docs to update", rename stale migration versions by bot.</td><td>part of <code>factory-archive.yml</code>; watchdog renames out-of-order migrations</td><td class="num">1–2 h</td><td class="num">≈ $0.20 / merge</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="step">
+      <h3>Step 2 · Superpowers skill integration (≈ 1.5 days, ≈ $10 tuning, run cost +$0.30–0.50 per item, $0 infra)</h3>
+      <div class="table"><table>
+        <thead><tr><th>#</th><th>Change</th><th>Concrete files / prompts</th><th>Effort</th><th>Cost</th></tr></thead>
+        <tbody>
+          <tr><td>2.1</td><td><b>Load superpowers in the factory agents</b>, pinned.</td><td><code>claude-code-action</code> inputs <code>plugin_marketplaces: obra/superpowers-marketplace</code>, <code>plugins: superpowers@superpowers-marketplace</code> (or vendor the skills into <code>.claude/skills/</code> at a pinned commit)</td><td class="num">1 h</td><td class="num">$0</td></tr>
+          <tr><td>2.2</td><td><b>Per-task Red-Green-Refactor</b> in the developer: for each <code>tasks.md</code> item, see the test fail, write minimal code, refactor, tick the task, commit <code>task(&lt;n&gt;): …</code>.</td><td><code>developer.md</code> rewritten around <code>test-driven-development</code> and <code>executing-plans</code>; gate checks one commit per task and all ticked</td><td class="num">2–3 h</td><td class="num">+$0.15 / build</td></tr>
+          <tr><td>2.3</td><td><b>Two-stage review</b>: spec-compliance first (scenario → test → code matrix, assertion strength, behaviour not in spec), then code quality.</td><td>split <code>reviewer.md</code> into <code>spec-reviewer.md</code> and <code>quality-reviewer.md</code>; stage 2 runs only if stage 1 has no high/medium</td><td class="num">2 h</td><td class="num">+$0.10 / PR</td></tr>
+          <tr><td>2.4</td><td><b>Systematic debugging</b> when gates fail: root-cause note (4 phases) before any fix, stop after 3 failed fixes.</td><td>new <code>debugger.md</code> using <code>systematic-debugging</code>; arbiter becomes its phase-1 "test vs code vs spec" verdict</td><td class="num">2 h</td><td class="num">+$0.10 when gates fail</td></tr>
+          <tr><td>2.5</td><td><b>Hidden acceptance tests</b> (Zühlke rule 2): the test writer also writes a holdout set the developer never sees; the gate runs it after the build.</td><td>holdout stored on <code>acceptance/&lt;issue&gt;</code> branch; gate step fetches and runs it; evidence row "hidden acceptance"</td><td class="num">3 h</td><td class="num">+$0.15 / build</td></tr>
+          <tr><td>2.6</td><td><b>Worktree discipline for the orchestrator</b>: all branch work in <code>.worktrees/</code> (ignored, baseline test first).</td><td><code>way-of-working.md</code>, <code>.gitignore</code></td><td class="num">0.5 h</td><td class="num">$0</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="step">
+      <h3>Step 3 · Sandbox automation: OpenHands-style (≈ 3–5 days, infra $10–80 / month)</h3>
+      <div class="table"><table>
+        <thead><tr><th>#</th><th>Change</th><th>Concrete files / prompts</th><th>Effort</th><th>Cost</th></tr></thead>
+        <tbody>
+          <tr><td>3.1</td><td><b>Real-services sandbox in CI</b> (highest value of step 3): local Supabase + <code>next start</code> + unpacked extension, Playwright end-to-end for each spec's key scenarios, before merge.</td><td><code>ci.yml</code> job <code>e2e</code>: <code>supabase start</code> (Docker on the runner), <code>playwright test</code>; <code>e2e/</code> suite; test writer adds e2e for flows that cross components</td><td class="num">1 day</td><td class="num">$0, +6–10 CI min per PR</td></tr>
+          <tr><td>3.2</td><td><b>Model gateway</b> (Zühlke rule 5): LiteLLM proxy with per-agent budgets, routing (Haiku for reviewer, arbiter and triage), request logs.</td><td>small VM or container service; <code>ANTHROPIC_BASE_URL</code> in workflows; ADR replacing the ADR 0007 deviation</td><td class="num">0.5–1 day</td><td class="num">$5–10 / month; −30–50 % on routed roles</td></tr>
+          <tr><td>3.3</td><td><b>OpenHands control plane (experiment)</b>: builder agents in OpenHands Docker sandboxes via Agent Server / SDK, one container + worktree per change, skills in <code>.openhands/</code> (OpenSpec + superpowers); GitHub Actions stay the deterministic gate.</td><td><code>.openhands/setup.sh</code>, <code>.openhands/skills/</code>, Agent Canvas automations (developer, reviewer, watchdog); VM 4 vCPU / 16 GB or OpenHands Cloud</td><td class="num">2–3 days</td><td class="num">$40–80 / month self-hosted; Cloud pricing not published</td></tr>
+          <tr><td>3.4</td><td><b>Merge queue with post-deploy smoke and auto-revert</b> (blueprint: "merge queue merges or reverts").</td><td>one-at-a-time merge bot that re-runs CI on latest main; Playwright smoke on production after deploy; revert PR on failure</td><td class="num">0.5 day</td><td class="num">$0</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Recommendation</h2>
+    <div class="callout">
+      <ul class="plain">
+        <li><b>Do step 1 now</b> (1.1, 1.2, 1.3 first). It closes the biggest drift risk (no source of truth), removes the orchestrator as a single point of failure and costs almost nothing.</li>
+        <li><b>Do step 2 selectively</b>: 2.3 two-stage review, 2.4 systematic debugging and 2.5 hidden acceptance tests give the most verification value; 2.2 per-task TDD adds cost and turns on the most expensive agent, so trial it on two items first.</li>
+        <li><b>In step 3, do 3.1 and 3.2</b>; they fix "previews share the production DB" and restore Zühlke rule 5. Treat 3.3 (OpenHands) as a learning experiment: GitHub Actions already provides the sandbox and issue-to-PR loop, so the gain is mainly 24/7 operation without this session and multi-container parallelism.</li>
+        <li>Expected outcome: run cost rises from about $1.70 to $2.20–2.50 per item, while interventions should drop below one per five items and the factory can run at step 05 for low-risk changes.</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>Sources: factory metrics comments and GitHub Actions history (116 agent runs, $31.75), repository state on 2026-11-18, Zühlke AI Factory page (cto-cockpit, updated 2026-11-14), OpenSpec docs (concepts, commands), obra/superpowers skills, OpenHands docs (issue-to-PR, software factory, docker sandbox), Anthropic "Effective harnesses for long-running agents", intent-driven.dev OpenSpec patterns. Estimates are Claude's and should be read as ranges.</footer>
+</div>
