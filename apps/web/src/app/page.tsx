@@ -11,6 +11,9 @@ export default function Home() {
       <Link href="/login" className="text-lg underline">
         Sign in
       </Link>
+      <Link href="/install" className="text-lg underline">
+        Install on your child&apos;s laptop
+      </Link>
     </main>
   );
 }

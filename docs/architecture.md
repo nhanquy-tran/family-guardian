@@ -33,7 +33,7 @@ Parent: any browser (phone/PC) ──────────▶  └───�
 | `apps/web` | Next.js (App Router), TypeScript, Tailwind | Parent dashboard, device API, installer generation |
 | `packages/shared` | TypeScript | API contracts (zod schemas), category list, focus-score function |
 | `supabase/` | SQL migrations | Schema, RLS policies, cron jobs |
-| Policy installer | Generated `.reg` file | Force-install extension in Chrome, Edge, Brave; disable incognito |
+| Policy installer | Generated `.reg` file | Force-install extension in Chrome, Edge, Brave; disable private browsing (`InPrivateModeAvailability` in Edge) and guest mode (`BrowserGuestModeEnabled`) |
 
 ## Data model (MVP)
 
@@ -42,7 +42,8 @@ families(id, name, created_at)
 parents(user_id -> auth.users, family_id)
 children(id, family_id, name, homework_categories[], rules_version, created_at)  -- rules_version bumped by triggers on block_rules and domain_categories
 devices(id, child_id, name, token_hash, browser, os, extension_version, last_seen_at, created_at)
-pairing_codes(code, child_id, expires_at)
+pairing_codes(code, child_id, expires_at)                    -- one active code per child; deleted on redeem
+pair_attempts(id, ip_hash, at)                               -- rate limit: keyed HMAC of the IP, purged after 10 min (ADR 0012)
 usage_minutes(device_id, minute_utc, domain, seconds)        -- PK (device_id, minute_utc, domain)
 block_rules(id, child_id, kind: 'domain'|'category', value)
 domain_categories(domain, category)                          -- global seed + family overrides
@@ -56,7 +57,7 @@ alerts(id, device_id, kind, sent_at)
 ## Key flows
 
 1. **Sign in**: parent signs in with Google (Supabase Auth). First sign-in creates a family.
-2. **Pair**: parent adds a child and gets a 6-character code (valid 1 hour). The extension options page takes the code, calls `/api/device/pair`, and receives a device token (stored in `chrome.storage.local`; only a hash is stored server-side).
+2. **Pair**: parent adds a child and gets a 6-character code (valid 1 hour). The extension options page takes the code, calls `/api/device/pair`, and receives a device token (stored in `chrome.storage.local`; only a hash is stored server-side). A new code deletes the child's earlier code. `redeem_pairing_code` deletes the code and inserts the device in one transaction, so a code works once. `/api/device/pair` allows 10 attempts per IP per 10 minutes (`register_pair_attempt`, service role only) and fails closed if the limiter fails.
 3. **Track**: the extension counts seconds for the focused tab's domain while the user is active (`chrome.idle`, 60 s threshold). Every minute it posts a heartbeat with per-domain seconds for the last minute(s). Failed posts stay in a local queue.
 4. **Block**: the heartbeat response carries a rules version. On change, the extension fetches rules and updates `declarativeNetRequest` dynamic rules. Blocked navigations redirect to an extension page.
 5. **Focus score**: per child per day. `focus = homework_seconds / total_seconds * 100 - switch_penalty`, where a switch is a change between a homework and a non-homework domain within an active session, and `switch_penalty = min(20, switches_per_hour * 2)`. Computed in `packages/shared` and shown on the dashboard.
