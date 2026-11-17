@@ -4,6 +4,7 @@ import { hashDeviceToken } from "./token";
 export interface HeartbeatStore {
   findDevice(tokenHash: string): Promise<{ deviceId: string; rulesVersion: number } | null>;
   upsertUsage(rows: { device_id: string; minute_utc: string; domain: string; seconds: number }[]): Promise<void>;
+  insertBlocked(rows: { device_id: string; at: string; domain: string }[]): Promise<void>;
   updateDevice(deviceId: string, patch: { last_seen_at: string; browser: string; extension_version: string }): Promise<void>;
 }
 

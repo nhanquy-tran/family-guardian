@@ -1,0 +1,136 @@
+import { RulesResponse, SEED_CATEGORIES, type Category } from "@fg/shared";
+import { describe, expect, it, vi } from "vitest";
+import { handleRules, type RulesStore } from "./rules-endpoint";
+import { hashDeviceToken } from "./token";
+
+const MAX_RULE_DOMAINS = 5000;
+
+type Rule = { kind: "domain" | "category"; value: string };
+type Override = { familyId: string | null; domain: string; category: Category };
+
+const CHILD = { childId: "child-1", familyId: "fam-1", rulesVersion: 3 };
+
+function fakeStore(
+  opts: { rules?: Rule[]; overrides?: Override[]; known?: boolean; throwIn?: "findChild" | "listRules" | "listCategoryOverrides" } = {},
+) {
+  const order: string[] = [];
+  const boom = (name: "findChild" | "listRules" | "listCategoryOverrides") => {
+    order.push(name);
+    if (opts.throwIn === name) throw new Error("db down");
+  };
+  const findChild = vi.fn(async (hash: string) => {
+    boom("findChild");
+    return (opts.known ?? true) && hash === hashDeviceToken("tok-1") ? CHILD : null;
+  });
+  const listRules = vi.fn(async (_childId: string) => {
+    boom("listRules");
+    return opts.rules ?? [{ kind: "domain" as const, value: "youtube.com" }, { kind: "category" as const, value: "games" }];
+  });
+  const listCategoryOverrides = vi.fn(async (_familyId: string) => {
+    boom("listCategoryOverrides");
+    return opts.overrides ?? [];
+  });
+  const store: RulesStore = { findChild, listRules, listCategoryOverrides };
+  return { store, findChild, listRules, listCategoryOverrides, order };
+}
+
+type Fake = ReturnType<typeof fakeStore>;
+
+const call = (f: Fake, authorization: string | null = "Bearer tok-1") => handleRules({ authorization, store: f.store });
+
+const domainsOf = (body: unknown) => (body as { domains: string[] }).domains;
+
+describe("rules API for devices", () => {
+  it("Valid token returns version and domains", async () => {
+    const f = fakeStore();
+    const res = await call(f);
+    expect(f.findChild).toHaveBeenCalledWith(hashDeviceToken("tok-1"));
+    expect(f.findChild.mock.calls.flat()).not.toContain("tok-1");
+    expect(res.status).toBe(200);
+    const body = RulesResponse.parse(res.body);
+    expect(body.rulesVersion).toBe(3);
+    expect(body.domains).toContain("youtube.com");
+    expect(body.domains).toContain("roblox.com");
+    expect(body.truncated).toBe(false);
+    const cacheControl = Object.entries(res.headers).find(([k]) => k.toLowerCase() === "cache-control");
+    expect(cacheControl?.[1]).toBe("no-store");
+  });
+
+  it("Family override applies, global row is used", async () => {
+    const overrides: Override[] = [
+      { familyId: "fam-1", domain: "roblox.com", category: "education" },
+      { familyId: null, domain: "kidgame.com", category: "games" },
+      { familyId: null, domain: "roblox.com", category: "games" },
+    ];
+    for (const rows of [overrides, [...overrides].reverse()]) {
+      const f = fakeStore({ rules: [{ kind: "category", value: "games" }], overrides: rows });
+      const res = await call(f);
+      expect(res.status).toBe(200);
+      expect(domainsOf(res.body)).toContain("kidgame.com");
+      expect(domainsOf(res.body)).not.toContain("roblox.com");
+    }
+  });
+
+  it("Bad token", async () => {
+    for (const authorization of [null, "Basic abc", "Bearer tok-unknown"]) {
+      const f = fakeStore();
+      const res = await call(f, authorization);
+      expect(res.status, String(authorization)).toBe(401);
+      expect(res.body).toEqual({ error: "unauthorized" });
+      expect(f.listRules).not.toHaveBeenCalled();
+      expect(f.listCategoryOverrides).not.toHaveBeenCalled();
+    }
+  });
+
+  it("Version read before rules", async () => {
+    const f = fakeStore();
+    await call(f);
+    expect(f.order[0]).toBe("findChild");
+    expect(f.order).toContain("listRules");
+    expect(f.order).toContain("listCategoryOverrides");
+  });
+
+  it("Only the token's child", async () => {
+    const f = fakeStore();
+    await call(f);
+    expect(f.listRules).toHaveBeenCalledWith("child-1");
+    expect(f.listCategoryOverrides).toHaveBeenCalledWith("fam-1");
+  });
+});
+
+describe("rules API fails closed and is capped", () => {
+  it("Store failure fails closed", async () => {
+    for (const throwIn of ["findChild", "listRules", "listCategoryOverrides"] as const) {
+      const f = fakeStore({ throwIn });
+      const res = await call(f);
+      expect(res.status, throwIn).toBe(500);
+      expect(res.body).toEqual({ error: "server_error" });
+    }
+  });
+
+  it("Domain list is capped", async () => {
+    const seedGames = Object.values(SEED_CATEGORIES).filter((c) => c === "games").length;
+    const explicit = Array.from({ length: 10 }, (_, i) => `zz${i}.example.com`);
+    const build = (total: number) => {
+      const extra = total - explicit.length - seedGames;
+      const overrides: Override[] = Array.from({ length: extra }, (_, i) => ({
+        familyId: "fam-1",
+        domain: `g${i}.gamesite.com`,
+        category: "games" as const,
+      }));
+      const rules: Rule[] = [{ kind: "category", value: "games" }, ...explicit.map((value) => ({ kind: "domain" as const, value }))];
+      return fakeStore({ rules, overrides });
+    };
+
+    const over = await call(build(MAX_RULE_DOMAINS + 1));
+    expect(over.status).toBe(200);
+    const domains = domainsOf(over.body);
+    expect(domains).toHaveLength(MAX_RULE_DOMAINS);
+    expect(domains.slice(0, 10)).toEqual(explicit);
+    expect((over.body as { truncated: boolean }).truncated).toBe(true);
+
+    const exact = await call(build(MAX_RULE_DOMAINS));
+    expect(domainsOf(exact.body)).toHaveLength(MAX_RULE_DOMAINS);
+    expect((exact.body as { truncated: boolean }).truncated).toBe(false);
+  });
+});

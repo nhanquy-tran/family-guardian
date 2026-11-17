@@ -19,6 +19,9 @@ export function createHeartbeatStore(client: SupabaseClient): HeartbeatStore {
       const { error } = await client.from("usage_minutes").upsert(rows, { onConflict: "device_id,minute_utc,domain" });
       if (error) throw error;
     },
+    async insertBlocked() {
+      throw new Error("not implemented");
+    },
     async updateDevice(deviceId, patch) {
       const { error } = await client.from("devices").update(patch).eq("id", deviceId);
       if (error) throw error;
