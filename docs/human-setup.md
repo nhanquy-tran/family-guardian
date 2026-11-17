@@ -62,6 +62,7 @@ Project Settings > API (or API Keys):
 
 1. https://chrome.google.com/webstore/devconsole > sign in with the Google account that will own the listing > pay the one-time $5 registration fee > verify the contact e-mail.
 2. Claude prepares the zip (`npm run zip -w extension`) and the listing texts; you upload as **Unlisted** and submit.
+3. Before building the zip, set `WXT_API_BASE_URL` to the production dashboard URL (https, no secret; see `apps/extension/.env.example`). Without it the extension builds but cannot pair or send data.
 
 ## 7. Resend and spend limit (issue #3)
 
