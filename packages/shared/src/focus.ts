@@ -34,9 +34,12 @@ export function computeFocusScore(entries: readonly UsageEntry[], homeworkDomain
   const keys = [...minutes.keys()].sort((a, b) => a - b);
   let switches = 0;
   for (let i = 1; i < keys.length; i++) {
-    if (keys[i] - keys[i - 1] > SESSION_GAP_MINUTES) continue;
-    const prev = minutes.get(keys[i - 1]);
-    const cur = minutes.get(keys[i]);
+    const prevKey = keys[i - 1];
+    const curKey = keys[i];
+    if (prevKey === undefined || curKey === undefined) continue;
+    if (curKey - prevKey > SESSION_GAP_MINUTES) continue;
+    const prev = minutes.get(prevKey);
+    const cur = minutes.get(curKey);
     if (!prev || !cur) continue;
     if (prev.hw >= prev.other !== cur.hw >= cur.other) switches++;
   }
