@@ -124,7 +124,7 @@ function parseMetrics(comments) {
 
 // Reviewer comments, newest first per PR. Verdict from the hidden factory-review marker, else from the text.
 function parseReview(c) {
-  if (c.user?.login !== "github-actions[bot]" || !/Verdict:|factory-review/.test(c.body || "")) return null;
+  if (c.user?.login !== "github-actions[bot]" || /factory-metrics/.test(c.body || "") || !/Verdict:|factory-review/.test(c.body || "")) return null;
   const body = c.body || "";
   let data = null;
   const m = /<!-- factory-review (\{[^}]*\}) -->/.exec(body);
