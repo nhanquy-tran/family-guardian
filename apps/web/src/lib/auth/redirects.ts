@@ -1,5 +1,6 @@
 export function authRedirect(pathname: string, signedIn: boolean): string | null {
-  void pathname;
-  void signedIn;
-  throw new Error("not implemented");
+  const isDashboard = pathname === "/dashboard" || pathname.startsWith("/dashboard/");
+  if (!signedIn && isDashboard) return "/login";
+  if (signedIn && pathname === "/login") return "/dashboard";
+  return null;
 }
