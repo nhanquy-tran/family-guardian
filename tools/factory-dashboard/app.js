@@ -174,52 +174,56 @@ function prLink(kind, pr) {
   return html`<a href="${pr.html_url}" target="_blank" rel="noopener">${kind} #${pr.number}</a> <span class="st-${st}">${st}</span>`;
 }
 
+function prChip(kind, pr) {
+  if (!pr) return "";
+  const st = pr.merged_at ? "merged" : pr.state;
+  return html`<a class="pr st-${st}" href="${pr.html_url}" target="_blank" rel="noopener" title="${kind} PR #${pr.number}: ${st}">${kind[0].toUpperCase()}#${pr.number}</a>`;
+}
+
 function issueCard(issue) {
   const labels = issue.labels.map((l) => l.name);
-  const areas = labels.filter((l) => l.startsWith("area:") || l === "bug");
+  const areas = labels.filter((l) => l.startsWith("area:") || l === "bug").map((l) => l.replace("area:", ""));
   const prs = state.linked.get(issue.number) || {};
-  const canAct = !!getToken();
-  const open = issue.state === "open";
   const acts = [];
-  if (open && canAct) {
+  if (issue.state === "open" && getToken()) {
     if (!labels.some((l) => COLUMNS.includes(l)) && !labels.includes("human-task")) {
-      acts.push(html`<button class="small" data-act="label" data-n="${issue.number}" data-label="needs-spec">needs-spec</button>`);
+      acts.push(html`<button class="small" data-act="label" data-n="${issue.number}" data-label="needs-spec" title="Add label needs-spec">needs-spec</button>`);
     }
     if (labels.includes("ready")) {
-      acts.push(html`<button class="small" data-act="label" data-n="${issue.number}" data-label="build-now">build-now</button>`);
+      acts.push(html`<button class="small" data-act="label" data-n="${issue.number}" data-label="build-now" title="Add label build-now">build-now</button>`);
     }
     for (const pr of [prs.spec, prs.factory]) {
       if (pr && pr.state === "open") acts.push(html`<button class="small primary" data-act="merge" data-n="${pr.number}">Merge #${pr.number}</button>`);
     }
-    acts.push(html`<button class="small" data-act="comment" data-n="${issue.number}">Comment</button>`);
+    acts.push(html`<button class="small icon" data-act="comment" data-n="${issue.number}" title="Comment on #${issue.number}" aria-label="Comment">💬</button>`);
   }
   return html`<div class="card">
-    <div class="title"><a href="${issue.html_url}" target="_blank" rel="noopener">#${issue.number}</a> ${issue.title}</div>
-    <div class="meta">${areas.map((a) => html`<span class="chip">${a}</span>`)}<span title="${issue.created_at}">${age(issue.created_at)} old</span></div>
-    <div class="meta">${prLink("spec", prs.spec)} ${prLink("factory", prs.factory)}</div>
-    ${acts.length ? html`<div class="acts">${acts}</div>` : ""}
+    <div class="title" title="${issue.title}"><a href="${issue.html_url}" target="_blank" rel="noopener">#${issue.number}</a> ${issue.title}</div>
+    <div class="meta">
+      ${areas.map((a) => html`<span class="chip">${a}</span>`)}
+      <span title="Created ${issue.created_at}">${age(issue.created_at)}</span>
+      ${prChip("spec", prs.spec)}${prChip("factory", prs.factory)}
+      ${acts.length ? html`<span class="acts">${acts}</span>` : ""}
+    </div>
   </div>`;
 }
 
 function renderBoard() {
-  const cols = new Map([["backlog", []], ...COLUMNS.map((c) => [c, []]), ["done", []]]);
-  const human = [];
+  const cols = new Map([["backlog", []], ...COLUMNS.map((c) => [c, []]), ["done", []], ["human-task", []]]);
   for (const issue of state.issues) {
     const labels = issue.labels.map((l) => l.name);
-    if (issue.state === "closed") { cols.get("done").push(issue); continue; }
-    if (labels.includes("human-task")) { human.push(issue); continue; }
-    const col = [...COLUMNS].reverse().find((c) => labels.includes(c)) || "backlog";
-    cols.get(col).push(issue);
+    if (issue.state === "closed") cols.get("done").push(issue);
+    else if (labels.includes("human-task")) cols.get("human-task").push(issue);
+    else cols.get([...COLUMNS].reverse().find((c) => labels.includes(c)) || "backlog").push(issue);
   }
   cols.set("done", cols.get("done").sort((a, b) => Date.parse(b.closed_at) - Date.parse(a.closed_at)).slice(0, 15));
-  for (const [name, list] of cols) {
-    if (name !== "done") list.sort((a, b) => a.number - b.number);
-  }
-  put("board-cols", [...cols].map(([name, list]) => html`<div class="col">
-    <h4><span>${name}</span><span>${list.length}</span></h4>
-    ${list.map(issueCard)}
+  for (const [name, list] of cols) if (name !== "done") list.sort((a, b) => a.number - b.number);
+
+  // Empty columns collapse to a thin strip; busy columns get more width so their cards flow into a grid.
+  put("board-cols", [...cols].map(([name, list]) => html`<div class="col${list.length ? "" : " empty"}${name === "human-task" ? " human" : ""}"${list.length ? html` style="flex-grow:${Math.min(3, Math.ceil(list.length / 5))}"` : ""}>
+    <h4><span>${name}</span><span class="count">${list.length}</span></h4>
+    ${list.length ? html`<div class="list">${list.map(issueCard)}</div>` : ""}
   </div>`));
-  put("human-tasks", human.length ? human.map(issueCard) : html`<p class="muted">None open.</p>`);
 }
 
 // ---------- specs ----------
