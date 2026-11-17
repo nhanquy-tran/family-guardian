@@ -2,51 +2,17 @@
 
 ## Purpose
 
-Parents block domains or categories per child; devices fetch the expanded domain list with a version number; blocked attempts are stored and summarized on the child's overview.
+Parents block domains or categories per child; devices fetch a capped, versioned domain list; blocked attempts from heartbeats are stored once. The rules version (`children.rules_version`, bump triggers, parent write protection) already exists from change `add-heartbeat-api` (#10) and is covered by `supabase/tests/heartbeat.test.ts`; it is not specified again here. Extension enforcement is #15; the blocked-today card belongs to #12.
 
 Test files (Vitest, run by `npm run check`):
 - `supabase/tests/site-blocking.test.ts`: database scenarios, on PGlite with the harness from change `add-database-schema` (`asParent`, `asService`, user helper), after applying every migration.
 - `packages/shared/src/block-rules.test.ts` and `packages/shared/src/contracts.test.ts`: expansion and contracts.
-- `apps/web/src/lib/block-rules.test.ts`, `apps/web/src/lib/device/rules-endpoint.test.ts`, `apps/web/src/lib/device/block-events.test.ts`, `apps/web/src/lib/blocked-today.test.ts`: modules with a fake Supabase client.
-- `apps/web/src/components/block-rules-view.test.ts`, `apps/web/src/components/blocked-today-card.test.ts`: `renderToStaticMarkup` with `createElement`.
+- `apps/web/src/lib/block-rules.test.ts`, `apps/web/src/lib/device/rules-endpoint.test.ts`, `apps/web/src/lib/device/heartbeat.test.ts`: modules with fake stores/clients.
+- `apps/web/src/components/block-rules-view.test.ts`: `renderToStaticMarkup` with `createElement`.
 
 Each scenario below names its file.
 
 ## ADDED Requirements
-
-### Requirement: Rules version per child
-Each child SHALL have an integer `rules_version`, starting at 0, that the database increases on every insert, update or delete of that child's `block_rules`. A parent SHALL NOT be able to change `rules_version` directly.
-
-#### Scenario: New child starts at version 0
-File: `supabase/tests/site-blocking.test.ts`
-- **WHEN** parent A inserts a child
-- **THEN** the child's `rules_version` is `0`
-
-#### Scenario: Adding a rule bumps the version
-File: `supabase/tests/site-blocking.test.ts`
-- **GIVEN** a child of family A with `rules_version` `v`
-- **WHEN** parent A inserts a block rule `domain` `youtube.com` for that child
-- **THEN** the child's `rules_version` is greater than `v`
-
-#### Scenario: Removing and updating a rule bump the version
-File: `supabase/tests/site-blocking.test.ts`
-- **GIVEN** a child of family A with one rule and `rules_version` `v`
-- **WHEN** parent A updates the rule's value to `tiktok.com`
-- **THEN** `rules_version` is greater than `v`
-- **AND WHEN** parent A then deletes the rule
-- **THEN** `rules_version` increases again
-
-#### Scenario: Other children are not bumped
-File: `supabase/tests/site-blocking.test.ts`
-- **GIVEN** two children of family A
-- **WHEN** parent A adds a rule for the first child
-- **THEN** the second child's `rules_version` is unchanged
-
-#### Scenario: Parent cannot set the version
-File: `supabase/tests/site-blocking.test.ts`
-- **WHEN** parent A runs `update children set rules_version = 0` on their own child
-- **THEN** it fails with a permission error
-- **AND** parent A can still update the child's `name`
 
 ### Requirement: Block rule values are validated
 The database SHALL reject a `domain` rule whose value is not a bare lowercase hostname, and a `category` rule whose value is not one of the 9 categories.
@@ -120,6 +86,13 @@ File: `supabase/tests/site-blocking.test.ts`
 - **WHEN** parent A selects, deletes and inserts block rules for family B's child
 - **THEN** the select returns no rows, the delete affects zero rows, the insert fails with an RLS violation, and family B's `rules_version` is unchanged
 
+#### Scenario: Store failure returns an error code
+File: `apps/web/src/lib/block-rules.test.ts`
+- **GIVEN** the fake client returns a non-`23505` error on insert, on delete and on select
+- **WHEN** `addDomainRule`, `removeBlockRule` and `listBlockRules` are called
+- **THEN** the first two return `{ ok: false, error: "failed" }` and `listBlockRules` returns a failed result instead of an empty list
+- **AND** none of them throws
+
 ### Requirement: Rules page
 The page `/dashboard/children/[childId]/rules` SHALL render `BlockRulesView`, which shows the child's name, each rule with its kind and value and a remove button, a form to block a domain, a form to block a category offering all 9 categories, an empty-state message when there are no rules, and a readable message for an error code.
 
@@ -132,6 +105,11 @@ File: `apps/web/src/components/block-rules-view.test.ts`
 File: `apps/web/src/components/block-rules-view.test.ts`
 - **WHEN** `BlockRulesView` renders
 - **THEN** the markup contains a text input for a domain and a `<select>` with exactly the 9 categories as option values
+
+#### Scenario: Listing failure is not shown as empty
+File: `apps/web/src/components/block-rules-view.test.ts`
+- **WHEN** `BlockRulesView` renders with error `failed`
+- **THEN** the markup contains a message that rules could not be loaded or saved
 
 #### Scenario: Empty state and error message
 File: `apps/web/src/components/block-rules-view.test.ts`
@@ -170,13 +148,14 @@ File: `packages/shared/src/block-rules.test.ts`
 - **THEN** it returns `[]`
 
 ### Requirement: Rules API for devices
-`GET /api/device/rules` with `Authorization: Bearer <device token>` SHALL return status 200 and a body valid against `RulesResponse` (`{ rulesVersion: integer ≥ 0, domains: string[] }`) for the token's child, with `domains` from `expandBlockRules` using the child's rules and the global plus family `domain_categories` rows (family rows win), and header `Cache-Control: no-store`. It SHALL return 401 for a missing, malformed or unknown token and SHALL read the rules version before the rules.
+`GET /api/device/rules` with a valid `Authorization: Bearer <device token>` SHALL return 200, `Cache-Control: no-store` and a `RulesResponse` for the token's child. `domains` come from `expandBlockRules` over the child's rules and the global plus family `domain_categories` rows (family rows win). The version is read before the rules. A missing, malformed or unknown token gets 401.
 
 #### Scenario: Valid token returns version and domains
 File: `apps/web/src/lib/device/rules-endpoint.test.ts`
-- **GIVEN** a fake service client where the token's device belongs to a child with `rules_version` `3` and rules `domain youtube.com` and `category games`
-- **WHEN** `handleRulesRequest("Bearer <token>", client)` is called
-- **THEN** the status is 200, `rulesVersion` is `3`, `domains` contains `youtube.com` and `roblox.com`
+- **GIVEN** a fake store where the token's hash belongs to a child with `rules_version` `3` and rules `domain youtube.com` and `category games`
+- **WHEN** `handleRules({ authorization: "Bearer <token>", store })` is called
+- **THEN** the store receives `hashDeviceToken(token)`, never the raw token
+- **AND** the status is 200, `rulesVersion` is `3`, `domains` contains `youtube.com` and `roblox.com`, `truncated` is `false`
 - **AND** the body parses with `RulesResponse` and the headers include `Cache-Control: no-store`
 
 #### Scenario: Family override applies, global row is used
@@ -187,65 +166,96 @@ File: `apps/web/src/lib/device/rules-endpoint.test.ts`
 
 #### Scenario: Bad token
 File: `apps/web/src/lib/device/rules-endpoint.test.ts`
-- **WHEN** `handleRulesRequest` is called with `null`, `"Basic abc"` and a bearer token that matches no device
+- **WHEN** `handleRules` is called with `null`, `"Basic abc"` and a bearer token that matches no device
 - **THEN** each returns status 401 with body `{ error: "unauthorized" }` and no rules query is made
 
 #### Scenario: Version read before rules
 File: `apps/web/src/lib/device/rules-endpoint.test.ts`
 - **WHEN** a valid request is handled
-- **THEN** the fake client records the `children` read before the `block_rules` read
+- **THEN** the fake store records `findChild` before `listRules` and `listCategoryOverrides`
 
 #### Scenario: Only the token's child
 File: `apps/web/src/lib/device/rules-endpoint.test.ts`
 - **WHEN** a valid request is handled
-- **THEN** the `block_rules` query filters by the device's `child_id` and the `domain_categories` query is limited to global rows and the child's family
+- **THEN** `listRules` is called with the device's `childId` and `listCategoryOverrides` with the child's `familyId`
+
+### Requirement: Rules API fails closed and is capped
+`GET /api/device/rules` SHALL return `500 { error: "server_error" }` without `rulesVersion` or `domains` when any store call fails, and SHALL return at most `MAX_RULE_DOMAINS` (5000) domains, keeping explicit domain rules first and setting `truncated` to `true` when anything was cut.
+
+#### Scenario: Store failure fails closed
+File: `apps/web/src/lib/device/rules-endpoint.test.ts`
+- **GIVEN** the fake store throws in `findChild`, then in `listRules`, then in `listCategoryOverrides` (one run each)
+- **WHEN** a valid request is handled
+- **THEN** each run returns status 500 with body `{ error: "server_error" }`, no `domains` and no `rulesVersion`
+
+#### Scenario: Domain list is capped
+File: `apps/web/src/lib/device/rules-endpoint.test.ts`
+- **GIVEN** 5001 expanded domains in total, of which 10 are explicit `domain` rules
+- **WHEN** the rules are requested
+- **THEN** `domains` has exactly 5000 entries, includes all 10 explicit domains, and `truncated` is `true`
+- **AND** with 5000 or fewer domains, `truncated` is `false`
+
+#### Scenario: Contract limits
+File: `packages/shared/src/contracts.test.ts`
+- **WHEN** `RulesResponse` parses a body with 5001 domains and one with 5000 domains and `truncated: false`
+- **THEN** the first fails and the second parses
+- **AND** `MAX_RULE_DOMAINS` is `5000`
 
 ### Requirement: Blocked attempts are stored from heartbeats
-`HeartbeatRequest` SHALL accept an optional `blocked` array (max 1000) of `{ at: ISO datetime, domain }` and nothing else per attempt. The heartbeat route SHALL store valid attempts in `block_events` for the device, dropping attempts older than 7 days, more than 5 minutes in the future, or with an invalid domain, and SHALL not store a resent attempt twice.
+`HeartbeatEnvelope` and `HeartbeatRequest` SHALL accept an optional `blocked` array of `{ at: ISO datetime, domain }` and nothing else per attempt. The heartbeat handler SHALL validate each attempt separately, skip invalid ones, and store valid ones in `block_events` for the device. A request without `blocked` SHALL behave exactly as before.
 
 #### Scenario: Contract accepts with and without blocked
 File: `packages/shared/src/contracts.test.ts`
-- **WHEN** a valid heartbeat without `blocked`, and one with `blocked: [{ at: "2026-11-17T10:00:00Z", domain: "tiktok.com" }]` are parsed
+- **WHEN** a valid heartbeat without `blocked`, and one with `blocked: [{ at: "2026-11-17T10:00:00Z", domain: "tiktok.com" }]` are parsed with `HeartbeatRequest` and `HeartbeatEnvelope`
 - **THEN** both parse
-- **AND** an attempt with an extra `url` field is stripped from the parsed output, and 1001 attempts fail to parse
+- **AND** an attempt with an extra `url` field is stripped from the parsed `HeartbeatRequest` output, and 1001 attempts fail to parse
+- **AND** `MAX_BLOCKED_ATTEMPTS` is `1000`
 
-#### Scenario: Valid attempts are upserted
-File: `apps/web/src/lib/device/block-events.test.ts`
-- **WHEN** `recordBlockedAttempts(client, deviceId, [{ at: now - 1 min, domain: "tiktok.com" }], now)` is called
-- **THEN** the fake client receives one upsert into `block_events` with `[{ device_id: deviceId, at, domain: "tiktok.com" }]`, `onConflict` `device_id,at,domain` and `ignoreDuplicates: true`
+#### Scenario: Valid blocked attempt stored
+File: `apps/web/src/lib/device/heartbeat.test.ts`
+- **GIVEN** a valid token and a body with `blocked: [{ at: now - 1 min, domain: "tiktok.com" }]`
+- **WHEN** `handleHeartbeat` runs
+- **THEN** the fake store receives one `insertBlocked` call with `[{ device_id, at, domain: "tiktok.com" }]`, after `upsertUsage` and before `updateDevice`
+- **AND** the status is 200 with the usual `rulesVersion`
 
-#### Scenario: Out-of-window and invalid attempts are dropped
-File: `apps/web/src/lib/device/block-events.test.ts`
-- **WHEN** attempts at `now - 8 days`, `now + 10 min`, and with domain `tiktok.com/@x` are recorded
-- **THEN** no query is made
+#### Scenario: Invalid attempts skipped, valid ones kept
+File: `apps/web/src/lib/device/heartbeat.test.ts`
+- **GIVEN** `blocked` contains attempts at `now - 8 days`, at `now + 10 min`, with domain `tiktok.com/@x`, one that is not an object, and one valid attempt
+- **WHEN** `handleHeartbeat` runs
+- **THEN** `insertBlocked` receives only the valid attempt and the status is 200
+- **AND** the `log` callback reports the four invalid attempts in `skipped`
+- **AND** when no attempt is valid, `insertBlocked` is not called
 
-#### Scenario: Resent attempt stored once
+#### Scenario: Request without blocked unchanged
+File: `apps/web/src/lib/device/heartbeat.test.ts`
+- **WHEN** a heartbeat without `blocked` is handled
+- **THEN** the response and store calls are the same as before this change and `insertBlocked` is not called
+
+#### Scenario: Blocked insert failure
+File: `apps/web/src/lib/device/heartbeat.test.ts`
+- **GIVEN** `insertBlocked` throws
+- **WHEN** a heartbeat with a valid blocked attempt is handled
+- **THEN** the response is `500 { error: "server_error" }`
+
+### Requirement: Blocked attempts are bounded and idempotent
+The handler SHALL reject more than `MAX_BLOCKED_ATTEMPTS` (1000) with `413 { error: "too_many_entries" }` and write nothing. An attempt is valid when it parses, `at` is not older than 7 days or more than 5 minutes in the future (same window as usage), and `domain` matches the domain regex. A resent attempt SHALL NOT be stored twice (`on conflict do nothing`).
+
+#### Scenario: Too many blocked attempts
+File: `apps/web/src/lib/device/heartbeat.test.ts`
+- **WHEN** a valid-envelope request has 1001 `blocked` items
+- **THEN** the response is `413 { error: "too_many_entries" }` and the store receives no writes, not even `updateDevice`
+- **AND** a request with exactly 1000 is accepted
+
+#### Scenario: Duplicate attempts in one request stored once
+File: `apps/web/src/lib/device/heartbeat.test.ts`
+- **WHEN** `blocked` contains the same `{ at, domain }` twice
+- **THEN** `insertBlocked` receives one row
+
+#### Scenario: Resent attempt not double counted
 File: `supabase/tests/site-blocking.test.ts`
 - **WHEN** the service role inserts the same `(device_id, at, domain)` into `block_events` twice with `on conflict do nothing`
 - **THEN** exactly one row exists
-
-### Requirement: Blocked today on the child overview
-The child overview SHALL show a "Blocked today" card with the number of blocked attempts across the child's devices within today's range and the top 5 blocked domains by count (ties by domain ascending), or `No blocked attempts today` when there are none.
-
-#### Scenario: Summary counts and ranks
-File: `apps/web/src/lib/blocked-today.test.ts`
-- **WHEN** `summarizeBlocked(["b.com", "a.com", "b.com", "c.com", "a.com", "b.com", "d.com", "e.com", "f.com"])` is called
-- **THEN** `count` is `9` and `top` is `[b.com 3, a.com 2, c.com 1, d.com 1, e.com 1]`
-
-#### Scenario: Query is scoped to the child and today
-File: `apps/web/src/lib/blocked-today.test.ts`
-- **WHEN** `getBlockedToday(client, childId, { from, to })` is called
-- **THEN** the fake client queries `block_events` joined to `devices` with `child_id = childId`, `at >= from` and `at < to`
-
-#### Scenario: Card renders summary
-File: `apps/web/src/components/blocked-today-card.test.ts`
-- **WHEN** `BlockedTodayCard` renders `{ count: 4, top: [{ domain: "tiktok.com", count: 3 }, { domain: "roblox.com", count: 1 }] }`
-- **THEN** the markup contains `Blocked today`, `4`, `tiktok.com`, `3`, `roblox.com`
-
-#### Scenario: Card empty state
-File: `apps/web/src/components/blocked-today-card.test.ts`
-- **WHEN** `BlockedTodayCard` renders `{ count: 0, top: [] }`
-- **THEN** the markup contains `No blocked attempts today`
+- **AND** the same `(device_id, at)` with another domain, and the same `(at, domain)` for another device, are stored as separate rows
 
 #### Scenario: Parent sees only own family's events
 File: `supabase/tests/site-blocking.test.ts`
