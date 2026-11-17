@@ -2,7 +2,7 @@
 
 ## Purpose
 
-A signed-in parent sees each child's devices with online status, last seen time, browser, OS and extension version, and can rename or remove a device. Removing a device revokes its token.
+A signed-in parent sees each child's devices with online status, last seen time, browser, OS and extension version, and can rename or remove a device. Removing a device asks for confirmation first and then revokes its token.
 
 Test files:
 - `apps/web/src/lib/devices/status.test.ts`
@@ -42,6 +42,10 @@ A fixed `now` of `2026-11-17T10:00:00Z` is used in web tests.
 
 ### Requirement: Device label
 `deviceLabel(device)` SHALL return the trimmed device name when it is not empty, else `"<Browser> on <os>"` where Browser is `Chrome`, `Edge`, `Brave` or `Other browser`.
+
+#### Scenario: Blank name falls back to default
+- **WHEN** `deviceLabel` is called with `{ name: "   ", browser: "brave", os: "Windows" }` (`status.test.ts`)
+- **THEN** the result is `"Brave on Windows"`
 
 #### Scenario: Name or default
 - **WHEN** `deviceLabel` is called with `{ name: "Lan's laptop", browser: "chrome", os: "Windows" }`, `{ name: null, browser: "edge", os: "Windows" }` and `{ name: null, browser: "other", os: "Windows" }` (`status.test.ts`)
@@ -92,8 +96,16 @@ A fixed `now` of `2026-11-17T10:00:00Z` is used in web tests.
 - **WHEN** `removeDevice(client, "d9")` is called for each
 - **THEN** each returns `{ ok: false, error: "failed" }`
 
+### Requirement: Error codes map to messages
+`deviceErrorMessage(code)` SHALL return the message for `invalid-name`, `failed` and `load`, and `null` for any other value, including `undefined`, an empty string and markup such as `<script>`. The page SHALL show only these messages and never the raw `error` value.
+
+#### Scenario: Known and unknown codes
+- **WHEN** `deviceErrorMessage` is called with `"invalid-name"`, `"failed"`, `"load"`, `"nope"`, `"<script>alert(1)</script>"`, `""` and `undefined` (`devices.test.ts`)
+- **THEN** the first three return "Name must be 1 to 40 characters.", "Something went wrong. Please try again." and "Could not load devices. Please reload the page."
+- **AND** the other four return `null`
+
 ### Requirement: Devices page markup
-`DeviceList` SHALL show, per child, the child's name and for each device its label, browser, OS, extension version (`"unknown"` when null), last seen text and a status badge with `data-status` and text `Online` or `Offline`; a rename form and a remove confirmation; and for a child without devices the text "No devices yet" with a link to `/dashboard/children`. It SHALL show the message for a given error code.
+`DeviceList` SHALL show, per child, the child's name and for each device its label, browser, OS, extension version (`"unknown"` when null), last seen text and a status badge with `data-status` and text `Online` or `Offline`; a rename form and a Remove link; a remove confirmation panel only for the device chosen with `confirmRemoveId`; and for a child without devices the text "No devices yet" with a link to `/dashboard/children`. It SHALL show the message for a given error code.
 
 #### Scenario: Online and offline devices rendered
 - **GIVEN** child "Lan" with device A (`name` null, `chrome`, `Windows`, version `0.1.0`, last seen `09:58:00Z`) and device B (`name` "Old PC", `edge`, `Windows`, version null, last seen `09:50:00Z`) (`device-list.test.ts`)
@@ -104,7 +116,20 @@ A fixed `now` of `2026-11-17T10:00:00Z` is used in web tests.
 #### Scenario: Rename and remove controls
 - **WHEN** `DeviceList` is rendered with one device `d1` (`device-list.test.ts`)
 - **THEN** the markup contains a hidden input `name="deviceId"` with `value="d1"`, an input `name="name"` with `maxLength` 40 and a "Rename" button
-- **AND** a `<details>` containing "usage history will be deleted" and a "Yes, remove" button
+- **AND** a link "Remove" with `href="/dashboard/devices?remove=d1"`
+- **AND** it does not contain "Yes, remove" or "usage history will be deleted"
+
+#### Scenario: Remove confirmation names device and child
+- **GIVEN** child "Lan" with device `d1` named "Old PC" and device `d2` named "New PC" (`device-list.test.ts`)
+- **WHEN** `DeviceList` is rendered with `confirmRemoveId` `"d1"`
+- **THEN** the markup contains one panel with "Old PC", "Lan", "delete the device and its usage history" and "cannot be undone"
+- **AND** a "Yes, remove" button inside a form with a hidden input `name="deviceId"` and `value="d1"`
+- **AND** a "Cancel" link with `href="/dashboard/devices"`
+- **AND** "Yes, remove" appears exactly once, and `d2` has only its "Remove" link
+
+#### Scenario: Confirmation for an unknown device
+- **WHEN** `DeviceList` is rendered with `confirmRemoveId` `"zzz"` that matches no device, and with `confirmRemoveId` `null` (`device-list.test.ts`)
+- **THEN** neither markup contains "Yes, remove"
 
 #### Scenario: Child without devices
 - **WHEN** `DeviceList` is rendered with child "Minh" having no devices (`device-list.test.ts`)
@@ -114,13 +139,14 @@ A fixed `now` of `2026-11-17T10:00:00Z` is used in web tests.
 - **WHEN** `DeviceList` is rendered with `error` `"invalid-name"`, then `"failed"`, then `"load"` (`device-list.test.ts`)
 - **THEN** the markup contains "Name must be 1 to 40 characters.", "Something went wrong. Please try again." and "Could not load devices. Please reload the page." respectively
 
-### Requirement: Device name and version columns
-A new migration SHALL add nullable `devices.name` (1..40 characters) and `devices.extension_version` (at most 32 characters). Parents SHALL be able to select both columns for their own family's devices.
+### Requirement: Device name column
+A new migration `20261117120000_devices_name.sql`, built on `20261117000000_initial_schema.sql` and `20261117100000_heartbeat.sql`, SHALL add only the nullable column `devices.name` (1..40 characters). It SHALL NOT create or alter `devices.extension_version`, which already exists with its own check and select grant. Parents SHALL be able to select `name` and `extension_version` for their own family's devices.
 
 #### Scenario: Columns and limits
-- **WHEN** the service role updates a device's `name` to `""` and to a 41-character string, and `extension_version` to a 33-character string (`devices.test.ts`)
+- **WHEN** the service role updates a device's `name` to `""` and to a 41-character string (`devices.test.ts`)
 - **THEN** each update fails with a check violation
-- **AND** setting `name` `"Laptop"` and `extension_version` `"0.1.0"` succeeds
+- **AND** setting `name` `"Laptop"` succeeds and a new device row without a name has `name` null
+- **AND** applying all migrations in order succeeds (the new migration does not conflict with `20261117100000_heartbeat.sql`)
 
 #### Scenario: Parent reads the new columns
 - **WHEN** parent A runs `select id, name, extension_version, last_seen_at from devices` (`devices.test.ts`)
@@ -140,6 +166,20 @@ A parent SHALL be able to update `name` of their own family's devices. Updating 
 #### Scenario: Cannot change other columns
 - **WHEN** parent A updates, one statement each, `token_hash`, `child_id`, `last_seen_at`, `browser`, `os` and `extension_version` of family A's device (`devices.test.ts`)
 - **THEN** each statement fails with a permission error (SQLSTATE `42501`)
+
+### Requirement: Remove asks for confirmation
+The page SHALL NOT delete a device when the Remove link is followed. Only submitting the confirmation form SHALL call `removeDevice`. The confirmation SHALL be server-rendered without client JavaScript.
+
+#### Scenario: Cancel deletes nothing
+- **GIVEN** the confirmation for `d1` is shown (`device-list.test.ts`)
+- **WHEN** the markup is inspected
+- **THEN** the only way to delete is the form with `action` bound to `removeAction`, and the Cancel control is a link (`<a`) rather than a form, so cancelling cannot call `removeAction`
+- **AND** the markup contains no `<script` and no `onclick`
+
+#### Scenario: Confirm removes
+- **GIVEN** a fake client whose delete resolves `{ data: [{ id: "d1" }], error: null }` (`devices.test.ts`)
+- **WHEN** the confirmation form is submitted, which calls `removeDevice(client, "d1")`
+- **THEN** the delete is called once for `d1` and the result is `{ ok: true }`
 
 ### Requirement: Removing a device revokes its token
 When a parent deletes their own device, no device row SHALL match its token hash afterwards, and its usage rows SHALL be gone.
