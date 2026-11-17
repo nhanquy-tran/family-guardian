@@ -94,7 +94,9 @@ function evalCoverage(testFiles) {
   const scenarios = specFiles().flatMap((f) => parseSpec(readFileSync(f, "utf8")).flatMap((r) => r.scenarios.map((s) => s.title)));
   const names = [];
   for (const f of testFiles.filter((t) => existsSync(t))) {
-    for (const m of readFileSync(f, "utf8").matchAll(/\b(?:it|test)(?:\.\w+)?\(\s*(["'`])(.+?)\1/g)) names.push(normalize(m[2]));
+    // Also matches chained modifiers with arguments: it.skipIf(cond)("title"), test.each(rows)("title").
+    const title = /\b(?:it|test)(?:\.\w+(?:\((?:[^()]|\([^()]*\))*\))?)*\(\s*(["'`])(.+?)\1/g;
+    for (const m of readFileSync(f, "utf8").matchAll(title)) names.push(normalize(m[2]));
   }
   const covered = (title) => {
     const t = normalize(title);

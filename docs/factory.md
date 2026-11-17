@@ -27,6 +27,7 @@ Owner writes issue (Depends on: #a, #b) ──label autopilot──▶ Factory 6
         4. gates: tests not weakened, npm run check + build, same tests pass
         5. debugger (only if gates fail): systematic debugging, code/test/spec, max 3 attempts
         6. gate: hidden acceptance tests restored and run
+           if they fail: debugger in hidden-test mode proposes code / test / spec per failure (NOTES only)
         7. verifier: openspec verify → VERIFY.md; all pass → openspec archive into openspec/specs/
         8. PR with evidence table (+ needs-human if anything failed)
                                 │
@@ -34,6 +35,8 @@ Owner writes issue (Depends on: #a, #b) ──label autopilot──▶ Factory 6
                                 │
                     GATE 2 (Claude, ADR 0013): read evidence + review, merge
                                 │
+   Factory 8 evidence (every later push to a factory PR): recomputes tests, coverage, hidden tests,
+        verify and archive rows into "Evidence (latest push)" in the PR body
    Factory 7 docs (nightly): applies "Docs to update" notes ──▶ docs PR
 ```
 
@@ -84,7 +87,9 @@ Deterministic checks run by the workflow, not by the agent that produced the wor
 | Scenario coverage | Factory 3, `factory-eval.mjs coverage` | every scenario title has a test named after it |
 | Same tests pass | Factory 3, after the developer | the test-writer's files pass, so tests vitest does not pick up cannot slip through |
 | Hidden acceptance tests | Factory 3, after the developer (and debugger) | the tests in `acceptance/<change>/`, which the developer never saw, pass |
+| Hidden test verdict | Factory 3, debugger in hidden-test mode, only when hidden tests fail | a proposal, not a gate: `HIDDEN VERDICT: code / test / spec / mixed` in NOTES.md and the evidence table; the gate decides |
 | OpenSpec verify | Factory 3, verifier agent | `VERIFY.md` starts with `VERIFY: PASS`; only then the change is archived into `openspec/specs/` |
+| Evidence (latest push) | Factory 8, `.github/scripts/refresh-evidence.mjs` on every push to a `factory/*` PR | not a gate: keeps the evidence current after gate fixes and `@claude` rounds; reviewers judge this section |
 | AI review verdict | Factory 4, `.github/scripts/review-verdict.sh` | the reviewer ends its comment with `<!-- factory-review {...} -->`; the workflow sets the `factory/review` commit status and the `review-changes-needed` label from it |
 
 The router refuses `build-now` on an issue whose spec is not approved yet (no `ready`, `in-review` or `needs-human`): it removes the label and comments instead of starting a build that fails.

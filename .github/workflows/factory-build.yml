@@ -331,6 +331,56 @@ jobs:
         if: always() && steps.tests.outcome == 'success'
         run: git add -A
 
+      # Hidden-test verdict: the debugger reads the failing hidden tests and proposes code / test / spec per
+      # failure. It changes nothing but NOTES.md, so the hidden gate stays meaningful; the gate acts on it.
+      - name: Hidden test verdict (debugger)
+        id: hidden_verdict
+        if: always() && startsWith(steps.hidden.outputs.result, 'fail (hidden')
+        continue-on-error: true
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ""
+        with:
+          anthropic_api_key: ${{ secrets.CLAUDE_API_KEY }}
+          allowed_bots: github-actions
+          github_token: ${{ github.token }}
+          prompt: |
+            Follow .claude/agents/debugger.md in hidden-test mode.
+            OpenSpec change: ${{ steps.change.outputs.name }}. Issue: #${{ matrix.issue }}.
+            Hidden tests: acceptance/${{ steps.change.outputs.name }}/. Output: /tmp/hidden.log.
+          claude_args: |
+            --model ${{ env.MODEL }}
+            --max-turns 20
+            --permission-mode default
+            --allowedTools "Read,Glob,Grep,Edit,Write,Bash(npx vitest run:*),Bash(git diff:*),Bash(git log:*),Bash(ls:*)"
+
+      - name: Keep only the verdict
+        id: hidden_verdict_result
+        if: always() && steps.hidden_verdict.outcome != 'skipped'
+        run: |
+          N="openspec/changes/${{ steps.change.outputs.name }}/NOTES.md"
+          cp "$N" /tmp/notes-keep.md 2>/dev/null || true
+          git checkout -- . && git clean -fdq -- .
+          if [ -f /tmp/notes-keep.md ]; then cp /tmp/notes-keep.md "$N" && git add "$N"; fi
+          V=$(grep -m1 -oE "^HIDDEN VERDICT: [a-z]+" "$N" 2>/dev/null | cut -d' ' -f3)
+          echo "result=${V:-none}" >> "$GITHUB_OUTPUT"
+
+      - name: Transcript (hidden verdict)
+        if: always() && steps.hidden_verdict.outputs.execution_file != ''
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: transcript-${{ matrix.issue }}-hidden-verdict
+          path: ${{ steps.hidden_verdict.outputs.execution_file }}
+          retention-days: 14
+
+      - name: Metrics (hidden verdict)
+        if: always() && steps.hidden_verdict.outcome != 'skipped'
+        continue-on-error: true
+        env:
+          EXEC_FILE: ${{ steps.hidden_verdict.outputs.execution_file }}
+        run: bash .github/scripts/post-metrics.sh debugger "$ISSUE" "$EXEC_FILE"
+
       - name: Verifier agent
         id: verifier
         if: always() && steps.tests.outcome == 'success'
@@ -406,6 +456,7 @@ jobs:
           HIDDEN: ${{ steps.hidden.outputs.result }}
           VERIFY: ${{ steps.verify.outputs.result }}
           ARCHIVE: ${{ steps.verify.outputs.archive }}
+          HIDDEN_VERDICT: ${{ steps.hidden_verdict_result.outputs.result }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: bash .github/scripts/open-factory-pr.sh
 
