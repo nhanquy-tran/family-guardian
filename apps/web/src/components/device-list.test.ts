@@ -6,7 +6,10 @@ import { DeviceList } from "./device-list";
 
 const now = new Date("2026-11-17T10:00:00Z");
 const renameAction = async () => {};
-const removeAction = async () => {};
+let removeCalls = 0;
+const removeAction = async () => {
+  removeCalls += 1;
+};
 
 const device = (over: Partial<DeviceRow> & { id: string }): DeviceRow => ({
   name: null,
@@ -132,7 +135,8 @@ describe("DeviceList", () => {
     const cancel = html.match(/<a[^>]*>\s*Cancel\s*<\/a>/);
     expect(cancel).not.toBeNull();
     expect(forms.some((f) => f.includes("Cancel"))).toBe(false);
-    expect(html).not.toContain("<script");
+    expect(html).toMatch(/<a[^>]*href="\/dashboard\/devices"[^>]*>\s*Cancel\s*<\/a>/);
+    expect(removeCalls).toBe(0);
     expect(html).not.toContain("onclick");
   });
 });

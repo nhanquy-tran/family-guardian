@@ -1,8 +1,12 @@
 # Notes: add-devices-page (#13)
 
-## Status: blocked on one test (needs human)
+## Status: test resolved by gate decision
 
-`npm run build` passes. `npm run check` passes except one test: 1 of 186 fails.
+Test assertion changed by gate decision (Claude, ADR 0013): no-`<script>` check replaced; React injects a form-replay script.
+
+Below is the original blocker note, kept for history.
+
+`npm run build` passes. `npm run check` passed except one test: 1 of 186 failed.
 
 `apps/web/src/components/device-list.test.ts` > "cancel deletes nothing" asserts `expect(html).not.toContain("<script")` on the markup of `DeviceList`.
 `renderToStaticMarkup` always appends React's form-replay bootstrap `<script>addEventListener("submit", ...)</script>` once the markup contains a `<form action={fn}>` with a function action. The spec requires exactly that (a form with `action` bound to `removeAction`; the rename form is bound the same way). So the assertion cannot hold for any implementation that satisfies the spec's "form bound to `removeAction`" scenario. I did not edit the test.
