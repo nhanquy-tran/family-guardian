@@ -43,6 +43,11 @@ Facts about the platforms we build on that caused real defects or failures. Ever
 - Labels added with `GITHUB_TOKEN` do not trigger the router; the scheduler labels with `FACTORY_TOKEN`.
 - Agent steps get no repository token in their shell (`GH_TOKEN: ""`): pushes, PRs and labels are done by workflow steps.
 
+## Factory agent permissions
+
+- Agents can only delete files with `git rm` (allowed for developer, debugger and `@claude`). CI fails any PR that changes, renames or deletes a migration already on main. Edit and Write tools cannot delete.
+- Permission rules for the verifier: a narrow `Write(<glob>)` did not match the absolute path the agent used, so the report was lost. The verifier gets `Write` and the workflow reverts every edit except `VERIFY.md`.
+
 ## OpenSpec
 
 - `openspec/specs/` is current behaviour. A change that alters existing behaviour uses MODIFIED (full requirement text, all scenarios kept or replaced) or REMOVED; ADDED for an existing requirement name fails archive.
