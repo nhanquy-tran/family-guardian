@@ -48,3 +48,5 @@ Facts about the platforms we build on that caused real defects or failures. Ever
 - `openspec/specs/` is current behaviour. A change that alters existing behaviour uses MODIFIED (full requirement text, all scenarios kept or replaced) or REMOVED; ADDED for an existing requirement name fails archive.
 - MODIFIED cannot just drop a scenario: give a replacement scenario, or REMOVED plus ADDED.
 - `openspec validate --specs --strict` needs a real `## Purpose` in every spec; archive fails on placeholders.
+- Agents can only delete files with `git rm` (allowed for developer, debugger and `@claude`; never on applied migrations). Edit and Write tools cannot delete.
+- Permission rules for the verifier: a narrow `Write(<glob>)` did not match the absolute path the agent used, so the report was lost. The verifier gets `Write` and the workflow reverts every edit except `VERIFY.md`.

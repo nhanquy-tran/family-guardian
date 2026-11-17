@@ -194,7 +194,7 @@ jobs:
             --model ${{ env.MODEL }}
             --max-turns ${{ vars.FACTORY_DEV_MAX_TURNS || 70 }}
             --permission-mode default
-            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(npm run:*),Bash(npm test:*),Bash(npx vitest:*),Bash(npx openspec:*),Bash(npm install:*),Bash(ls:*),Bash(date:*),Bash(git status:*),Bash(git diff:*)"
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(npm run:*),Bash(npm test:*),Bash(npx vitest:*),Bash(npx openspec:*),Bash(npm install:*),Bash(ls:*),Bash(date:*),Bash(git status:*),Bash(git diff:*),Bash(git rm:*)"
             --disallowedTools "${{ steps.guardrails.outputs.deny }}"
 
       - name: Transcript (developer)
@@ -275,8 +275,8 @@ jobs:
             --model ${{ env.MODEL }}
             --max-turns 40
             --permission-mode default
-            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(npx vitest:*),Bash(npm run:*),Bash(git diff:*),Bash(git log:*)"
-            --disallowedTools "Edit(acceptance/**),Write(acceptance/**),Edit(docs/architecture.md)"
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(npx vitest:*),Bash(npm run:*),Bash(git diff:*),Bash(git log:*),Bash(git status:*),Bash(git rm:*),Bash(ls:*)"
+            --disallowedTools "Edit(acceptance/**),Write(acceptance/**),Edit(docs/architecture.md),Bash(git rm supabase/migrations:*)"
 
       - name: Transcript (debugger)
         if: always() && steps.debugger.outputs.execution_file != ''
@@ -346,7 +346,7 @@ jobs:
             --model ${{ env.MODEL }}
             --max-turns 30
             --permission-mode default
-            --allowedTools "Read,Glob,Grep,Write(openspec/changes/**/VERIFY.md),Bash(npx openspec:*),Bash(openspec:*),Bash(git diff:*),Bash(git log:*)"
+            --allowedTools "Read,Glob,Grep,Write,Skill,Bash(npx openspec:*),Bash(openspec:*),Bash(npx vitest run:*),Bash(ls:*),Bash(git diff:*),Bash(git log:*),Bash(git status:*)"
 
       - name: Transcript (verifier)
         if: always() && steps.verifier.outputs.execution_file != ''
@@ -372,6 +372,10 @@ jobs:
         run: |
           CHANGE="${{ steps.change.outputs.name }}"
           V="openspec/changes/$CHANGE/VERIFY.md"
+          # The verifier reports only: keep VERIFY.md, drop any other edit it made (the build is staged).
+          cp "$V" /tmp/verify-keep.md 2>/dev/null || true
+          git checkout -- . ':!acceptance' && git clean -fdq -- . ':!acceptance'
+          cp /tmp/verify-keep.md "$V" 2>/dev/null || true
           if [ -f "$V" ] && head -1 "$V" | grep -q "VERIFY: PASS"; then VR="pass"; elif [ -f "$V" ]; then VR="fail (critical findings, see VERIFY.md)"; else VR="fail (no verify report)"; fi
           echo "result=$VR" >> "$GITHUB_OUTPUT"
           cp "$V" /tmp/verify.md 2>/dev/null || true
