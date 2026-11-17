@@ -2,7 +2,7 @@ import { localDay, resolveTimezone } from "@fg/shared";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { pageTitle } from "../../../../components/ui";
+import { navLink, navLinkCurrent, pageTitle } from "@/components/ui";
 import { createClient } from "../../../../lib/supabase/server";
 import { loadUsage, type UsageView as View } from "../../../../lib/usage";
 import { TimezoneSync } from "./timezone-sync";
@@ -32,7 +32,7 @@ export default async function Page({
     <Link
       href={`?view=${v}&tz=${encodeURIComponent(tz)}`}
       aria-current={view === v ? "page" : undefined}
-      className={`rounded px-3 py-1 text-sm ${view === v ? "bg-gray-900 text-white" : "bg-gray-100"}`}
+      className={view === v ? navLinkCurrent : navLink}
     >
       {text}
     </Link>

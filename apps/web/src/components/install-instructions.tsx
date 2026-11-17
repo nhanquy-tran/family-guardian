@@ -1,11 +1,12 @@
 import type { JSX } from "react";
+import { alertWarning, card } from "./ui";
 
-const code = "rounded bg-neutral-100 px-1 font-mono text-sm";
+const code = "rounded-sm bg-shell px-1 font-mono text-sm";
 
 export function InstallInstructions(): JSX.Element {
   return (
-    <div className="flex flex-col gap-6">
-      <section className="rounded border border-amber-400 bg-amber-50 p-4">
+    <div className="flex flex-col gap-4">
+      <section className={alertWarning}>
         <h2 className="text-lg font-semibold">Before you start: use a Standard account</h2>
         <p>
           Your child must use a <strong>Standard</strong> Windows account, not an <strong>Administrator</strong>{" "}
@@ -14,11 +15,11 @@ export function InstallInstructions(): JSX.Element {
         </p>
       </section>
 
-      <ol className="flex list-decimal flex-col gap-4 pl-6">
+      <ol className={`${card} flex list-decimal flex-col gap-4 pl-10 sm:pl-12`}>
         <li>
           On your child&apos;s laptop, sign in as an administrator (or have the administrator password ready), then
           download{" "}
-          <a href="/install/FamilyGuardian-Setup.reg" download className="underline">
+          <a href="/install/FamilyGuardian-Setup.reg" download className="text-accent-ink underline">
             FamilyGuardian-Setup.reg
           </a>
           .
@@ -36,7 +37,7 @@ export function InstallInstructions(): JSX.Element {
         <li>Then pair the extension with the code from the dashboard.</li>
         <li>
           To remove: download and run{" "}
-          <a href="/install/FamilyGuardian-Remove.reg" download className="underline">
+          <a href="/install/FamilyGuardian-Remove.reg" download className="text-accent-ink underline">
             FamilyGuardian-Remove.reg
           </a>{" "}
           as administrator and restart the browsers. Remove deletes only the values Family Guardian set and leaves the

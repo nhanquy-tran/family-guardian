@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import type { ChildRow } from "../lib/children";
 import { PAIRING_ERROR_MESSAGES, type PairingErrorReason } from "../lib/pairing/create-code";
-import { pageTitle } from "./ui";
+import { alertError, buttonDanger, buttonPrimary, card, input, pageTitle } from "./ui";
 
 type FormAction = (formData: FormData) => void | Promise<void>;
 
@@ -19,9 +19,7 @@ export type ChildrenListProps = {
   };
 };
 
-const INPUT = "rounded border border-gray-300 px-2 py-1";
-const BUTTON = "rounded bg-gray-900 px-3 py-1 text-white";
-const LINK = "text-sm text-red-700 underline";
+const LINK = "text-sm text-accent-ink underline";
 
 export function ChildrenList({
   items,
@@ -36,11 +34,11 @@ export function ChildrenList({
   return (
     <div className="space-y-6">
       <h1 className={pageTitle}>Children</h1>
-      {error ? <p role="alert" className="text-red-700">{error}</p> : null}
+      {error ? <p role="alert" className={alertError}>{error}</p> : null}
 
-      <form action={actions.addChildAction} className="flex gap-2">
-        <input name="name" required maxLength={50} placeholder="Child's name" aria-label="Child's name" className={INPUT} />
-        <button type="submit" className={BUTTON}>Add child</button>
+      <form action={actions.addChildAction} className="flex flex-wrap gap-2">
+        <input name="name" required maxLength={50} placeholder="Child's name" aria-label="Child's name" className={`${input} sm:w-auto`} />
+        <button type="submit" className={buttonPrimary}>Add child</button>
       </form>
 
       {items.length === 0 ? <p>No children yet</p> : null}
@@ -49,19 +47,19 @@ export function ChildrenList({
         {items.map((child) => {
           const active = activeCodes[child.id];
           return (
-            <li key={child.id} className="space-y-2 rounded border border-gray-200 p-4">
+            <li key={child.id} className={`${card} space-y-2`}>
               <p className="font-medium">{child.name}</p>
-              <form action={actions.renameChildAction} className="flex gap-2">
+              <form action={actions.renameChildAction} className="flex flex-wrap gap-2">
                 <input type="hidden" name="id" value={child.id} />
-                <input name="name" required maxLength={50} defaultValue={child.name} aria-label="New name" className={INPUT} />
-                <button type="submit" className={BUTTON}>Rename</button>
+                <input name="name" required maxLength={50} defaultValue={child.name} aria-label="New name" className={`${input} sm:w-auto`} />
+                <button type="submit" className={buttonPrimary}>Rename</button>
               </form>
-              <a href={`/dashboard/children/${encodeURIComponent(child.id)}/rules`} className="text-sm underline">Block sites</a>
-              <a href={`/dashboard/children/${encodeURIComponent(child.id)}/homework`} className="text-sm underline">Homework</a>
+              <a href={`/dashboard/children/${encodeURIComponent(child.id)}/rules`} className={LINK}>Block sites</a>
+              <a href={`/dashboard/children/${encodeURIComponent(child.id)}/homework`} className={LINK}>Homework</a>
               <a href={`/dashboard/children?confirmDelete=${encodeURIComponent(child.id)}`} className={LINK}>Delete</a>
               <form action={actions.createCodeAction} className="flex items-center gap-2">
                 <input type="hidden" name="childId" value={child.id} />
-                <button type="submit" className={BUTTON}>Pair a device</button>
+                <button type="submit" className={buttonPrimary}>Pair a device</button>
               </form>
               {active ? (
                 <p>
@@ -70,12 +68,12 @@ export function ChildrenList({
                 </p>
               ) : null}
               {pairError?.childId === child.id ? (
-                <div role="alert" className="space-y-2 text-red-700">
+                <div role="alert" className={`${alertError} space-y-2`}>
                   <p>{PAIRING_ERROR_MESSAGES[pairError.reason]}</p>
                   {pairError.reason === "in-use" ? (
                     <form action={actions.createCodeAction}>
                       <input type="hidden" name="childId" value={child.id} />
-                      <button type="submit" className={BUTTON}>Generate another code</button>
+                      <button type="submit" className={buttonPrimary}>Generate another code</button>
                     </form>
                   ) : null}
                 </div>
@@ -86,17 +84,17 @@ export function ChildrenList({
       </ul>
 
       {pending ? (
-        <form action={actions.deleteChildAction} className="space-y-2 rounded border border-red-300 p-4">
+        <form action={actions.deleteChildAction} className={`${card} space-y-2 border border-red`}>
           <input type="hidden" name="id" value={pending.id} />
           <p>
             Delete {pending.name}? This also deletes its devices and usage history. Its block history is deleted too.
           </p>
           <div className="flex items-center gap-3">
-            <button type="submit" className="rounded bg-red-700 px-3 py-1 text-white">Confirm delete</button>
+            <button type="submit" className={buttonDanger}>Confirm delete</button>
           </div>
         </form>
       ) : null}
-      {pending ? <a href="/dashboard/children" className="text-sm underline">Cancel</a> : null}
+      {pending ? <a href="/dashboard/children" className={LINK}>Cancel</a> : null}
     </div>
   );
 }

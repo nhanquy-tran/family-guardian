@@ -53,7 +53,7 @@ describe("screens use the shared styles", () => {
     ];
     for (const f of files) {
       const text = read(f);
-      const imp = text.match(/import\s*\{([^}]*)\}\s*from\s*["'](?:\.\/ui|@\/components\/ui|\.\.\/components\/ui)["']/);
+      const imp = text.match(/import\s*\{([^}]*)\}\s*from\s*["'](?:\.\/ui|@\/components\/ui|(?:\.\.\/)+components\/ui)["']/);
       expect(imp, `${f} imports ui`).not.toBeNull();
       const rest = text.replace(imp?.[0] ?? "", "");
       const names = (imp?.[1] ?? "").split(",").map((n) => n.trim()).filter(Boolean);

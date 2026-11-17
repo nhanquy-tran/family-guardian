@@ -1,10 +1,15 @@
-import { buttonPrimary, card } from "./ui";
+import { alertError, buttonPrimary, card } from "./ui";
 
 export function LoginForm({ error }: { error?: string }) {
   return (
-    <form method="post" action="/auth/sign-in" className={`${card} flex flex-col gap-4`}>
+    <form method="post" action="/auth/sign-in" className={`${card} flex max-w-sm flex-col gap-4`}>
+      <div className="flex items-center justify-center gap-2">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/icon.svg" alt="" width={36} height={36} className="size-9" />
+        <span className="text-xl font-semibold tracking-tighter text-ink">Family Guardian</span>
+      </div>
       {error ? (
-        <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+        <p role="alert" className={alertError}>
           Sign-in failed. Please try again.
         </p>
       ) : null}

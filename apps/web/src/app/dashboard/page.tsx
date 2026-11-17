@@ -2,7 +2,7 @@ import { resolveTimezone } from "@fg/shared";
 import Link from "next/link";
 import { Suspense } from "react";
 import { FocusOverviewView } from "../../components/focus-overview-view";
-import { pageTitle } from "../../components/ui";
+import { alertError, pageTitle } from "@/components/ui";
 import { loadFocusOverview } from "../../lib/focus-overview";
 import { createClient } from "../../lib/supabase/server";
 import { TimezoneCapture } from "./timezone-capture";
@@ -22,14 +22,14 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
       <TimezoneCapture />
       <h1 className={pageTitle}>Overview</h1>
       {overview.status === "error" ? (
-        <p role="alert" className="text-red-700">Could not load</p>
+        <p role="alert" className={alertError}>Could not load</p>
       ) : (
         <>
           <FocusOverviewView items={overview.children} />
           <ul className="space-y-1">
             {overview.children.map((child) => (
               <li key={child.id}>
-                <Link href={`/dashboard/usage/${encodeURIComponent(child.id)}`} className="text-sm underline">
+                <Link href={`/dashboard/usage/${encodeURIComponent(child.id)}`} className="text-sm text-accent-ink underline">
                   View usage for {child.name}
                 </Link>
               </li>

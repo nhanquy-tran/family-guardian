@@ -1,5 +1,5 @@
 import { DeviceList } from "../../../components/device-list";
-import { pageTitle } from "../../../components/ui";
+import { pageTitle } from "@/components/ui";
 import { listDevicesByChild } from "../../../lib/devices/devices";
 import { createClient } from "../../../lib/supabase/server";
 import { removeDeviceAction, renameDeviceAction } from "./actions";
