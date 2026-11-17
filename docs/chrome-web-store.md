@@ -8,12 +8,16 @@ Visibility: **Unlisted** (only people with the link can install; force-install v
 npm run zip -w extension
 ```
 
-Upload `apps/extension/.output/extension-<version>-chrome.zip`.
+Build with the production API URL and upload `apps/extension/.output/extension-<version>-chrome.zip`:
+
+```bash
+WXT_API_BASE_URL=https://family-guardian-one.vercel.app npm run zip -w extension
+```
 
 ## Store listing
 
 - Name: Family Guardian
-- Summary (max 132 chars): Shows parents which websites are used and for how long, and blocks sites they choose. Collects domains and time only.
+- Summary (max 132 chars): Shows parents which websites are used and for how long. Collects website domains and time only.
 - Category: Tools (or Family, if offered)
 - Language: English
 - Description:
@@ -42,8 +46,8 @@ Upload `apps/extension/.output/extension-<version>-chrome.zip`.
   - `idle`: stop counting time when the computer is idle or locked
   - `storage`: keep the device token, block rules and unsent usage while offline
   - `alarms`: send a usage report once a minute
-  - `declarativeNetRequest`: block sites the parent chose before they load
-  - Host permission `<all_urls>`: domain tracking and blocking must work on any website the child visits
+  - Host permission `https://family-guardian-one.vercel.app/*`: send usage reports to the parent's dashboard (our own API only)
+  - (Blocking, issue #15, will add `declarativeNetRequest` and broader host access in a later version, with its own justification.)
 - Remote code: No
 - Data usage: "Web history" (domains only) and "User activity" (time spent). Not sold, not used for unrelated purposes, not used for creditworthiness.
 - Certify the developer program policies.
