@@ -20,6 +20,7 @@ Test files:
 - **AND** exactly one insert into `children` was made with `{ family_id: "fam-1", name: "Minh" }`
 
 #### Scenario: Invalid names are rejected before the database
+- **GIVEN** a fake client that records every `from` call
 - **WHEN** `addChild` is called with `""`, `"   "` and a 51-character name (`children.test.ts`)
 - **THEN** each returns `{ ok: false, error: "Name must be 1 to 50 characters" }`
 - **AND** the fake client's `from` was never called
@@ -33,11 +34,13 @@ Test files:
 `renameChild(client, id, name)` SHALL apply the same name validation and update only `name` of the child with that `id`.
 
 #### Scenario: Rename updates only the name
+- **GIVEN** a fake client whose `children` update resolves without error
 - **WHEN** `renameChild(client, "child-1", " An ")` is called (`children.test.ts`)
 - **THEN** it returns `{ ok: true }`
 - **AND** the client recorded `from("children").update({ name: "An" }).eq("id", "child-1")` and no other write
 
 #### Scenario: Rename with invalid name
+- **GIVEN** a fake client that records writes
 - **WHEN** `renameChild(client, "child-1", "")` is called (`children.test.ts`)
 - **THEN** it returns `{ ok: false, error: "Name must be 1 to 50 characters" }` and no update was made
 
@@ -45,9 +48,40 @@ Test files:
 `deleteChild(client, id)` SHALL delete the child row with that `id`; its devices and pairing codes are removed by the database cascade from issue #7.
 
 #### Scenario: Delete by id
+- **GIVEN** a fake client whose `children` delete resolves without error
 - **WHEN** `deleteChild(client, "child-1")` is called (`children.test.ts`)
 - **THEN** it returns `{ ok: true }`
 - **AND** the client recorded `from("children").delete().eq("id", "child-1")`
+
+### Requirement: Delete needs a confirmation step
+`ChildrenList` SHALL render for each child a "Delete" link to `?confirmDelete=<id>` and no direct delete form. For a listed `confirmDelete` id it SHALL render one confirmation form that names the child, states "This also deletes its devices and usage history.", and has "Confirm delete" and "Cancel" controls; only that form posts the delete action.
+
+#### Scenario: Delete link leads to confirmation, no direct delete
+- **GIVEN** children `Minh` (`c1`) and `An` (`c2`) and `confirmDelete` `null`
+- **WHEN** a test renders `ChildrenList` (`children-list.test.ts`)
+- **THEN** the markup has two "Delete" links with `href` `?confirmDelete=c1` and `?confirmDelete=c2` (or the `/dashboard/children` path with that query)
+- **AND** it contains no "Confirm delete" button and no form whose action is the delete action
+
+#### Scenario: Confirm view names the child
+- **GIVEN** children `Minh` (`c1`) and `An` (`c2`) and `confirmDelete` `"c1"`
+- **WHEN** a test renders `ChildrenList` (`children-list.test.ts`)
+- **THEN** the markup contains one "Confirm delete" button inside a form with a hidden `id` input `c1`, the text "Minh" in the confirmation, and "This also deletes its devices and usage history."
+- **AND** it contains a "Cancel" link to `/dashboard/children` and no "Confirm delete" for `An`
+
+#### Scenario: Cancel deletes nothing
+- **GIVEN** the confirmation view of `c1` and a stub delete action
+- **WHEN** a test renders `ChildrenList` and follows Cancel, that is renders it again with `confirmDelete` `null` (`children-list.test.ts`)
+- **THEN** the stub delete action was never called and the markup shows `Minh` and `An` with no confirmation form
+
+#### Scenario: Confirm deletes
+- **GIVEN** a fake client whose `children` delete resolves without error
+- **WHEN** the delete action runs with the form data from the confirmation form, `id` = `c1` (`children.test.ts`)
+- **THEN** `deleteChild` is called once and the client recorded `from("children").delete().eq("id", "c1")`
+
+#### Scenario: Unknown confirmDelete id
+- **GIVEN** children `Minh` (`c1`) and `confirmDelete` `"other"`
+- **WHEN** a test renders `ChildrenList` (`children-list.test.ts`)
+- **THEN** no confirmation form is rendered
 
 ### Requirement: List children
 `listChildren(client)` SHALL return the family's children (as limited by RLS) ordered by `created_at`, or an empty list on error.
@@ -64,14 +98,16 @@ Test files:
 - **THEN** it returns `[]`
 
 ### Requirement: Children page markup
-`ChildrenList` SHALL render an add form (name input, "Add child" button), and for each child its name, a rename form (name input, "Rename" button), a "Delete" button and a "Pair a device" button. With no children it SHALL show "No children yet". A given `error` string SHALL be shown.
+`ChildrenList` SHALL render an add form (name input, "Add child" button), and for each child its name, a rename form (name input, "Rename" button), a "Delete" link and a "Pair a device" button. With no children it SHALL show "No children yet". A given `error` string SHALL be shown.
 
 #### Scenario: Children with controls
-- **WHEN** a test renders `ChildrenList` with children `Minh` and `An`, no codes and no error (`children-list.test.ts`)
-- **THEN** the markup contains `Minh`, `An`, one "Add child" button, and two each of "Rename", "Delete" and "Pair a device" buttons
+- **GIVEN** children `Minh` and `An`, no codes, no error and no `confirmDelete`
+- **WHEN** a test renders `ChildrenList` (`children-list.test.ts`)
+- **THEN** the markup contains `Minh`, `An`, one "Add child" button, two each of "Rename" buttons and "Delete" links, and two "Pair a device" buttons
 - **AND** every name input has `maxlength="50"` and `required`
 
 #### Scenario: Empty state and error
-- **WHEN** a test renders `ChildrenList` with no children and error `"Name must be 1 to 50 characters"` (`children-list.test.ts`)
+- **GIVEN** no children and error `"Name must be 1 to 50 characters"`
+- **WHEN** a test renders `ChildrenList` (`children-list.test.ts`)
 - **THEN** the markup contains "No children yet" and "Name must be 1 to 50 characters"
 - **AND** it contains the "Add child" button
