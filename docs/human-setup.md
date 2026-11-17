@@ -75,3 +75,19 @@ Project Settings > API (or API Keys):
 3. GitHub repo secrets (https://github.com/nhanquy-tran/family-guardian/settings/secrets/actions/new):
    - `SUPABASE_ACCESS_TOKEN` = the token
    - `SUPABASE_DB_PASSWORD` = the database password
+
+## 9. Offline alerts (issue #18)
+
+Alerts stay off until all of this exists: the cron function only logs a warning and makes no calls, and the endpoint answers `500`.
+
+1. Generate a secret, for example `openssl rand -hex 32`. Keep it for the next two steps.
+2. Vercel > Settings > Environment Variables (Production): `ALERT_CRON_SECRET` = the secret, `ALERT_FROM_EMAIL` = `onboarding@resend.dev` (until a domain is verified in Resend). `RESEND_API_KEY` comes from section 7. Redeploy.
+3. Supabase > SQL Editor, run once (same secret as in Vercel):
+   ```sql
+   select vault.create_secret('https://family-guardian-one.vercel.app', 'app_url');
+   select vault.create_secret('<the secret>', 'alert_cron_secret');
+   ```
+4. To rotate the secret, update the Vault entry and the Vercel env together and redeploy; only one value works at a time.
+5. Check: `select jobname, schedule from cron.job;` lists `offline-alerts` and `purge-pair-attempts`.
+
+An alert e-mail is sent at most once per device per 24 hours, and a laptop that is simply switched off also triggers it.
