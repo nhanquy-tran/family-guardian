@@ -102,3 +102,7 @@ Token: read-only views work without one (60 GitHub API calls per hour per IP, ab
 - One user-visible outcome per issue, small enough for one night.
 - Acceptance criteria as bullet points; the spec writer turns them into scenarios.
 - Name the area (`area:web`, `area:extension`, `area:infra`) and any dependency (`Depends on #n`).
+
+## Learn loop
+
+When a gate or the human catches something an earlier step should have caught, add a row to [factory-learnings.md](factory-learnings.md) and turn it into a rule in the relevant `.claude/agents/*.md` file. The spec writer and reviewer read both.
