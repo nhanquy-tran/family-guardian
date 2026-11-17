@@ -1,4 +1,5 @@
 name: "Factory 1: write spec"
+run-name: "Factory 1: write spec #${{ inputs.issue }}"
 
 # Trigger: dispatched by the router when the owner labels an issue `needs-spec`. Dispatch requires write access.
 # Output: a PR labelled `spec` with an OpenSpec change. Merging it is the human spec approval (gate 1).
