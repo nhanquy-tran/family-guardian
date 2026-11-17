@@ -56,6 +56,7 @@ export function ChildrenList({
                 <button type="submit" className={BUTTON}>Rename</button>
               </form>
               <a href={`/dashboard/children/${encodeURIComponent(child.id)}/rules`} className="text-sm underline">Block sites</a>
+              <a href={`/dashboard/children/${encodeURIComponent(child.id)}/homework`} className="text-sm underline">Homework</a>
               <a href={`/dashboard/children?confirmDelete=${encodeURIComponent(child.id)}`} className={LINK}>Delete</a>
               <form action={actions.createCodeAction} className="flex items-center gap-2">
                 <input type="hidden" name="childId" value={child.id} />
