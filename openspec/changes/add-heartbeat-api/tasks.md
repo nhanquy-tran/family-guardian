@@ -1,5 +1,9 @@
 # Tasks
 
+## 0. Prerequisite
+
+- [ ] 0.1 Confirm PR #38 (`supabase/migrations/20261117000000_initial_schema.sql`) is merged; do not build before
+
 ## 1. Tests first
 
 - [ ] 1.1 Write `apps/web/src/lib/device/token.test.ts`, `apps/web/src/lib/device/heartbeat.test.ts` (with a fake `HeartbeatStore` recording calls) and `apps/web/src/lib/device/supabase-store.test.ts` (with a fake Supabase client recording calls) for the scenarios in `specs/device-heartbeat/spec.md`
@@ -8,8 +12,9 @@
 ## 2. Implementation
 
 - [ ] 2.1 Add `supabase/migrations/<timestamp>_heartbeat.sql` (design.md decision 7); verify the migration tests pass
+- [ ] 2.0 Add `HeartbeatEnvelope` to `packages/shared/src/contracts.ts` (keep `HeartbeatRequest` and `UsageEntry`) with a test in `packages/shared`
 - [ ] 2.2 Add `lib/device/token.ts` (`hashDeviceToken`) and `lib/device/heartbeat.ts` (`handleHeartbeat`, decisions 1 to 5); verify token and handler tests pass
-- [ ] 2.3 Add `lib/supabase/admin.ts` and `lib/device/supabase-store.ts` (decision 6); verify store tests pass
+- [ ] 2.3 Add `lib/supabase/admin.ts` (imports `server-only`; skip creating `admin.ts` or `token.ts` if change #9 already did) and `lib/device/supabase-store.ts` (decision 6); verify store tests pass
 - [ ] 2.4 Add `app/api/device/heartbeat/route.ts` exporting only `POST`, wiring request, `new Date()` and the store to the handler
 - [ ] 2.5 Document `SUPABASE_SERVICE_ROLE_KEY` (name only, server only) in `docs/human-setup.md` under Vercel, and add `extension_version` and `rules_version` to the data model in `docs/architecture.md`
 
