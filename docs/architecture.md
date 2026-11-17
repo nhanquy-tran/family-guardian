@@ -41,7 +41,7 @@ Parent: any browser (phone/PC) ──────────▶  └───�
 families(id, name, created_at)
 parents(user_id -> auth.users, family_id)
 children(id, family_id, name, homework_categories[], rules_version, created_at)  -- rules_version bumped by triggers on block_rules and domain_categories
-devices(id, child_id, token_hash, browser, os, extension_version, last_seen_at, created_at)
+devices(id, child_id, name, token_hash, browser, os, extension_version, last_seen_at, created_at)
 pairing_codes(code, child_id, expires_at)                    -- one active code per child; deleted on redeem
 pair_attempts(id, ip_hash, at)                               -- rate limit: keyed HMAC of the IP, purged after 10 min (ADR 0012)
 usage_minutes(device_id, minute_utc, domain, seconds)        -- PK (device_id, minute_utc, domain)

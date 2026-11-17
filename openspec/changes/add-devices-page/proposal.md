@@ -25,7 +25,7 @@ None (the `database-schema` capability is not archived yet; this change adds its
 
 ## Impact
 
-- New migration `supabase/migrations/20261117120000_devices_name.sql`, building on `20261117000000_initial_schema.sql` (devices table, select grant, delete policy) and `20261117100000_heartbeat.sql` (`extension_version`), plus `supabase/tests/devices.test.ts`.
+- New migration `supabase/migrations/20261118090000_devices_name.sql`, building on `20261117000000_initial_schema.sql` (devices table, select grant, delete policy) and `20261117100000_heartbeat.sql` (`extension_version`), plus `supabase/tests/devices.test.ts`.
 - New files under `apps/web/src/lib/devices/`, `apps/web/src/components/device-list.tsx`, `apps/web/src/app/dashboard/devices/` (page and server actions).
 - `docs/architecture.md` data model: `devices` gains `name` (`extension_version` is already documented by #10).
 - No new dependencies. No new data collected from the child: `extensionVersion` is already part of `HeartbeatRequest`; this change only displays the column that #10 already added.

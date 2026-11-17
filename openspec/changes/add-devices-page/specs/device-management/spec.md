@@ -140,7 +140,7 @@ A fixed `now` of `2026-11-17T10:00:00Z` is used in web tests.
 - **THEN** the markup contains "Name must be 1 to 40 characters.", "Something went wrong. Please try again." and "Could not load devices. Please reload the page." respectively
 
 ### Requirement: Device name column
-A new migration `20261117120000_devices_name.sql`, built on `20261117000000_initial_schema.sql` and `20261117100000_heartbeat.sql`, SHALL add only the nullable column `devices.name` (1..40 characters). It SHALL NOT create or alter `devices.extension_version`, which already exists with its own check and select grant. Parents SHALL be able to select `name` and `extension_version` for their own family's devices.
+A new migration `20261118090000_devices_name.sql`, built on `20261117000000_initial_schema.sql` and `20261117100000_heartbeat.sql`, SHALL add only the nullable column `devices.name` (1..40 characters). It SHALL NOT create or alter `devices.extension_version`, which already exists with its own check and select grant. Parents SHALL be able to select `name` and `extension_version` for their own family's devices.
 
 #### Scenario: Columns and limits
 - **WHEN** the service role updates a device's `name` to `""` and to a 41-character string (`devices.test.ts`)

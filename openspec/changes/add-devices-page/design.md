@@ -12,7 +12,7 @@ Migrations already on `main`: `20261117000000_initial_schema.sql` (#7) and `2026
 
 ## Decisions
 
-1. **New migration** `supabase/migrations/20261117120000_devices_name.sql`, building on `20261117000000_initial_schema.sql` and `20261117100000_heartbeat.sql` (never edit applied migrations). It adds only `name`; it does not touch `extension_version`:
+1. **New migration** `supabase/migrations/20261118090000_devices_name.sql`, building on `20261117000000_initial_schema.sql` and `20261117100000_heartbeat.sql` (never edit applied migrations). It adds only `name`; it does not touch `extension_version`:
    - `alter table public.devices add column name text check (char_length(name) between 1 and 40);` Nullable: existing and newly paired devices have no name until renamed.
    - `grant select (name) on public.devices to authenticated;` (the initial migration uses a column list, so a new column is not visible otherwise).
    - `revoke update on public.devices from authenticated, anon; grant update (name) on public.devices to authenticated;` so a parent can never change `token_hash`, `child_id`, `last_seen_at`, `browser`, `os` or `extension_version`, even with a policy in place.
