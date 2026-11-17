@@ -2,7 +2,9 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { LoginForm } from "./login-form";
-import { card } from "./ui";
+import * as ui from "./ui";
+
+const u = ui as Record<string, string>;
 
 describe("LoginForm", () => {
   it("login form renders one Google button", () => {
@@ -21,12 +23,16 @@ describe("LoginForm", () => {
 
   it("card layout", () => {
     const html = renderToStaticMarkup(createElement(LoginForm, {}));
-    expect(card).not.toBe("");
-    expect(html).toContain(card);
+    expect(u.card).toBeTruthy();
+    expect(html).toContain(u.card);
+    expect(html).toMatch(/<img[^>]*src="\/icon\.svg"/);
+    expect(html).toContain("Family Guardian");
     const buttons = html.match(/<button[^>]*>/g) ?? [];
     expect(buttons).toHaveLength(1);
-    expect(buttons[0]).toMatch(/class="[^"]*\bw-full\b/);
-    expect(buttons[0]).toMatch(/class="[^"]*\bmin-h-10\b/);
+    const classes = (buttons[0]?.match(/class="([^"]*)"/)?.[1] ?? "").split(/\s+/);
+    expect(u.buttonPrimary).toBeTruthy();
+    for (const c of (u.buttonPrimary ?? "").split(/\s+/)) expect(classes).toContain(c);
+    expect(classes).toContain("w-full");
     expect(html).toContain('method="post"');
     expect(html).toContain('action="/auth/sign-in"');
   });
@@ -37,7 +43,8 @@ describe("LoginForm", () => {
     expect(alert).not.toBeNull();
     const el = alert?.[0] ?? "";
     expect(el).toContain("Sign-in failed. Please try again.");
-    expect(el).toMatch(/class="[^"]*\btext-red-\d+/);
-    expect(el).toMatch(/class="[^"]*\bbg-red-\d+/);
+    expect(u.alertError).toBeTruthy();
+    const classes = (el.match(/class="([^"]*)"/)?.[1] ?? "").split(/\s+/);
+    for (const c of (u.alertError ?? "").split(/\s+/)) expect(classes).toContain(c);
   });
 });

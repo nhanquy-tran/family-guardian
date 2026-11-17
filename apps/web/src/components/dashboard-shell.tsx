@@ -9,7 +9,14 @@ export const DASHBOARD_NAV: { label: string; href: string }[] = [
   { label: "Install", href: "/dashboard/install" },
 ];
 
-export function DashboardShell({ familyName, children }: { familyName: string; children?: ReactNode }) {
+export function DashboardShell({
+  familyName,
+  children,
+}: {
+  familyName: string;
+  currentPath?: string;
+  children?: ReactNode;
+}) {
   return (
     <div className={container}>
       <header className="flex items-center justify-between gap-4">
