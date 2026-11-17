@@ -15,8 +15,10 @@ on:
         required: true
 
 concurrency:
-  group: review-${{ github.event.pull_request.number || inputs.pr }}
-  cancel-in-progress: true
+  # Label events get their own group: the factory opens PRs with labels, and a skipped
+  # `labeled` run must never cancel the real review of the `opened` event.
+  group: review-${{ github.event.pull_request.number || inputs.pr }}-${{ github.event.action == 'labeled' && github.event.label.name || 'review' }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
