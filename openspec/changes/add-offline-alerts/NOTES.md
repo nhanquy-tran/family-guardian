@@ -2,7 +2,7 @@
 
 ## What changed
 
-- Migration `20261118100000_offline_alerts.sql`: `alerts.incident_last_seen_at` (not null, backfilled), `alerts.emailed_at`, unique `(device_id, incident_last_seen_at)`, `find_offline_devices(p_now)` (service role only), `call_offline_alerts()` (Vault + `net.http_post`, 10 s timeout, warning when a secret is missing), and `offline-alerts` / `purge-pair-attempts` cron jobs guarded on `pg_cron`/`pg_net` being available. API roles lose all rights on `alerts` except `select` (RLS `alerts_select` unchanged).
+- Migration `20261118110000_offline_alerts.sql`: `alerts.incident_last_seen_at` (not null, backfilled), `alerts.emailed_at`, unique `(device_id, incident_last_seen_at)`, `find_offline_devices(p_now)` (service role only), `call_offline_alerts()` (Vault + `net.http_post`, 10 s timeout, warning when a secret is missing), and `offline-alerts` / `purge-pair-attempts` cron jobs guarded on `pg_cron`/`pg_net` being available. API roles lose all rights on `alerts` except `select` (RLS `alerts_select` unchanged).
 - `lib/alerts/offline.ts` (handler: auth, claim before send, throttle, release on total failure), `resend.ts`, `supabase-store.ts`, `banner.ts`, `components/offline-banner.tsx` (rendered in `app/dashboard/layout.tsx`), route `app/api/alerts/offline/route.ts` (POST only).
 - `ALERT_FROM_EMAIL` added to `apps/web/.env.example`; `docs/human-setup.md` already documented the Vault and env steps (section 9).
 
