@@ -15,7 +15,14 @@ export const HeartbeatRequest = z.object({
   extensionVersion: z.string().max(32),
 });
 
-export const HeartbeatResponse = z.object({
+export const HeartbeatEnvelope = z.object({
+  entries: z.array(z.unknown()),
+  currentDomain: z.string().max(253).nullable(),
+  browser: z.enum(["chrome", "edge", "brave", "other"]),
+  extensionVersion: z.string().max(32),
+});
+
+export const HeartbeatResponse =z.object({
   rulesVersion: z.number().int().nonnegative(),
 });
 
