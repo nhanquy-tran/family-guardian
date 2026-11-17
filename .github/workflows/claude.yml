@@ -23,9 +23,18 @@ jobs:
         with:
           fetch-depth: 0
       - uses: anthropics/claude-code-action@v1
+        id: agent
         with:
           anthropic_api_key: ${{ secrets.CLAUDE_API_KEY }}
           github_token: ${{ secrets.FACTORY_TOKEN || github.token }}
           claude_args: |
             --model ${{ vars.FACTORY_BUILD_MODEL || 'claude-sonnet-5-5' }}
             --max-turns 40
+      - name: Metrics (fixer)
+        if: always()
+        continue-on-error: true
+        env:
+          EXEC_FILE: ${{ steps.agent.outputs.execution_file }}
+          NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/post-metrics.sh fixer "$NUMBER" "$EXEC_FILE"
