@@ -1,0 +1,118 @@
+/* Family Guardian design tokens. Source of truth for every screen: intro page, parent web app, factory control pane.
+   See docs/design/style-guide.md. The control pane deploys a copy of this file (dashboard-pages.yml). */
+
+:root {
+  color-scheme: light;
+
+  /* Surfaces */
+  --ground: #e7ebf3;      /* page background */
+  --shell: #f5f7fb;       /* sunken areas: board columns, inputs on cards, code */
+  --card: #ffffff;        /* cards, dialogs, nav */
+  --line: #e8ecf3;        /* dividers, table rows */
+  --line-2: #d6dce7;      /* borders of controls */
+
+  /* Text */
+  --ink: #131722;         /* headings, body */
+  --ink-2: #394150;       /* secondary text, lead paragraphs */
+  --muted: #737b8c;       /* labels, captions, placeholders */
+
+  /* Brand: the blue of the app icon */
+  --accent: #2563eb;
+  --accent-ink: #1d4ed8;  /* links and text on light backgrounds */
+  --accent-soft: #dfe8fd; /* tinted backgrounds, focus ring */
+  --accent-contrast: #ffffff;
+
+  /* Supporting colours (charts, categories) */
+  --indigo: #5b5bd6;
+  --indigo-soft: #e4e4fb;
+  --cyan: #0e8fb0;
+  --cyan-soft: #d9f0f6;
+
+  /* Status */
+  --green: #1f9d6b;
+  --green-soft: #dcf3e8;
+  --amber: #c98a12;
+  --amber-soft: #fbf0d6;
+  --red: #dc3d55;
+  --red-soft: #fde4e8;
+
+  /* Decoration */
+  --grad-hero: linear-gradient(100deg, #dbe6fe 0%, #e4e2fb 100%);
+  --grad-text: linear-gradient(100deg, var(--accent-ink), var(--indigo));
+  --hatch: repeating-linear-gradient(135deg, #eef1f7 0 6px, #f7f8fc 6px 12px);
+  --shadow: 0 1px 2px rgba(19, 23, 34, 0.04), 0 8px 24px rgba(19, 23, 34, 0.05);
+  --shadow-lift: 0 30px 80px -30px rgba(23, 45, 110, 0.35), 0 1px 2px rgba(19, 23, 34, 0.04);
+
+  /* Shape */
+  --radius: 20px;         /* cards, dialogs */
+  --radius-md: 14px;      /* inner panels, board columns */
+  --radius-sm: 10px;      /* small cards, icon buttons, inputs */
+  --radius-pill: 999px;   /* buttons, pills, tabs */
+
+  /* Type */
+  --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ground: #0c0f16;
+    --shell: #131823;
+    --card: #1a2030;
+    --line: #262d3d;
+    --line-2: #333c50;
+    --ink: #eef1f7;
+    --ink-2: #cfd5e2;
+    --muted: #8f98ab;
+    --accent: #5b8cff;
+    --accent-ink: #8fb0ff;
+    --accent-soft: #1e2a4a;
+    --accent-contrast: #0c0f16;
+    --indigo: #9b9bff;
+    --indigo-soft: #2a2a4d;
+    --cyan: #3cc2e0;
+    --cyan-soft: #12333d;
+    --green: #4cc792;
+    --green-soft: #173528;
+    --amber: #e3b04b;
+    --amber-soft: #3a2f1c;
+    --red: #f4707f;
+    --red-soft: #3d1f26;
+    --grad-hero: linear-gradient(100deg, #1c2a4d 0%, #262645 100%);
+    --hatch: repeating-linear-gradient(135deg, #222939 0 6px, #1b2130 6px 12px);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
+    --shadow-lift: 0 30px 80px -30px rgba(0, 0, 0, 0.6), 0 1px 2px rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* Same dark values, for an explicit theme switch. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #0c0f16;
+  --shell: #131823;
+  --card: #1a2030;
+  --line: #262d3d;
+  --line-2: #333c50;
+  --ink: #eef1f7;
+  --ink-2: #cfd5e2;
+  --muted: #8f98ab;
+  --accent: #5b8cff;
+  --accent-ink: #8fb0ff;
+  --accent-soft: #1e2a4a;
+  --accent-contrast: #0c0f16;
+  --indigo: #9b9bff;
+  --indigo-soft: #2a2a4d;
+  --cyan: #3cc2e0;
+  --cyan-soft: #12333d;
+  --green: #4cc792;
+  --green-soft: #173528;
+  --amber: #e3b04b;
+  --amber-soft: #3a2f1c;
+  --red: #f4707f;
+  --red-soft: #3d1f26;
+  --grad-hero: linear-gradient(100deg, #1c2a4d 0%, #262645 100%);
+  --hatch: repeating-linear-gradient(135deg, #222939 0 6px, #1b2130 6px 12px);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
+  --shadow-lift: 0 30px 80px -30px rgba(0, 0, 0, 0.6), 0 1px 2px rgba(0, 0, 0, 0.3);
+}

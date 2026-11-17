@@ -454,6 +454,10 @@ function buildIssueModels() {
     return models.get(n);
   };
   const isBuildPr = (n, target) => (state.linked.get(n) || {}).factory?.number === target;
+  const afterSpec = (n, t) => {
+    const merged = (state.linked.get(n) || {}).spec?.merged_at;
+    return !!merged && t > Date.parse(merged);
+  };
   const measured = new Set();
   const failedRuns = new Set(state.history.filter((r) => ["failure", "timed_out", "cancelled"].includes(r.conclusion)).map((r) => r.id));
 
@@ -462,7 +466,7 @@ function buildIssueModels() {
     const end = Date.parse(m.at);
     const step = m.agent === "spec-writer" ? "spec" : m.agent === "test-writer" ? "tests" : m.agent === "developer" ? "dev"
       : m.agent === "reviewer" ? (isBuildPr(n, m.target) ? "build-review" : "spec-review")
-      : isBuildPr(n, m.target) ? "build-fix" : "spec-fix";
+      : isBuildPr(n, m.target) || (m.target === n && afterSpec(n, end)) ? "build-fix" : "spec-fix";
     measured.add(`${m.run_id}:${m.agent === "fixer" ? "fix" : "factory"}`);
     model(n).acts.push({ step, start: end - (m.duration_ms || 0), end, cost: m.cost_usd || 0, turns: m.turns || 0, run: m.run_id, attempt: m.run_attempt || 1, ok: !m.is_error && !failedRuns.has(m.run_id), url: m.url, agent: m.agent });
   }
@@ -891,6 +895,7 @@ $("token-dialog").addEventListener("close", () => {
 
 function updateTokenButton() {
   $("token-btn").textContent = getToken() ? "Token ✓" : "Add token";
+  $("token-btn").classList.toggle("primary", !getToken());
 }
 
 // ---------- wiring ----------
@@ -913,6 +918,12 @@ $("token-input").addEventListener("keydown", (ev) => {
   if (ev.key === "Enter") { ev.preventDefault(); $("token-dialog").close("save"); }
 });
 $("refresh").addEventListener("click", load);
+function markTab() {
+  const current = location.hash || "#board";
+  document.querySelectorAll(".tabs a").forEach((a) => a.classList.toggle("current", a.getAttribute("href") === current));
+}
+window.addEventListener("hashchange", markTab);
+markTab();
 $("token-btn").addEventListener("click", openToken);
 $("repo-link").textContent = REPO;
 $("repo-link").href = `https://github.com/${REPO}`;

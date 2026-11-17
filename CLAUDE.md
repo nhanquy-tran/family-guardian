@@ -13,6 +13,7 @@ Parental monitoring for kids' Windows laptops: a Chrome/Edge/Brave extension plu
 | Architecture overview | `docs/architecture.md` |
 | Area rules | `apps/web/CLAUDE.md`, `apps/extension/CLAUDE.md`, `supabase/CLAUDE.md`, `packages/shared/CLAUDE.md` |
 | Procedures | skills in `.claude/skills/` (`add-migration`, `add-device-route`, OpenSpec skills) |
+| Design (style guide, tokens, icon; every UI uses them) | `docs/design/` |
 
 ## Commands
 

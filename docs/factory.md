@@ -103,7 +103,7 @@ Security on a public repo: only the owner's labels and `@claude` comments trigge
 
 ## Control pane (dashboard)
 
-`tools/factory-dashboard/` is a static page (HTML, CSS, one JS file, no build) that shows and drives the factory from the browser:
+`tools/factory-dashboard/` is a static page (HTML, CSS, one JS file, no build) that shows and drives the factory from the browser. It follows the [style guide](design/style-guide.md); the Pages deploy copies `docs/design/tokens.css` and `icon.svg` into it.
 
 - **Board**: open issues by factory label (backlog, `needs-spec` … `needs-human`, done), `human-task` issues apart, with the linked `spec/<n>` and `factory/<n>` PRs.
 - **Specs**: `spec` PRs, their OpenSpec change folder and task progress from `tasks.md` (read from the open factory branch, the open spec branch, `main` or the archive).
