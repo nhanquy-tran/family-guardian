@@ -2,7 +2,7 @@
 
 Parental monitoring for kids' Windows laptops: a Chrome/Edge/Brave extension plus a Next.js dashboard. MVP for 20 families.
 
-Read before any change: `docs/architecture.md`, `docs/decisions/` (ADRs), and the OpenSpec change you are working on in `openspec/changes/`.
+Read before any change: `docs/architecture.md`, `docs/decisions/` (ADRs), `docs/factory-learnings.md`, and the OpenSpec change you are working on in `openspec/changes/`.
 
 ## Repo layout
 

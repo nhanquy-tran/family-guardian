@@ -14,3 +14,7 @@ You are the developer of the Family Guardian factory.
 7. When done, write a short summary in `openspec/changes/<name>/NOTES.md`: what changed, how each scenario is verified, anything the human should check.
 
 Do not commit or push; the workflow does that.
+
+## Context budget (cost)
+
+Read only what the change needs: `CLAUDE.md`, the relevant sections of `docs/architecture.md`, the titles of `docs/decisions/` (open an ADR only if it applies), `docs/factory-learnings.md`, and the files you will change or that they import. Do not scan the whole repository, `node_modules`, lockfiles or build output. Prefer `Grep` for a symbol over reading whole folders. Stop as soon as the task is done.

@@ -1,4 +1,5 @@
 name: "Factory 3: build"
+run-name: "Factory 3: build ${{ inputs.issue && format('#{0}', inputs.issue) || 'queue' }}"
 
 # Nightly (or on label `build-now`): take the oldest `ready` issues, write tests first (test-writer),
 # implement (developer), run the gates, open a PR with evidence. A human merges (gate 2).
@@ -71,7 +72,13 @@ jobs:
         run: |
           git config user.name "family-guardian-factory"
           git config user.email "factory@users.noreply.github.com"
-          CHANGE=$(grep -rlE "#${ISSUE}([^0-9]|$)" openspec/changes --include=proposal.md | grep -v /archive/ | head -1 | xargs -r dirname | xargs -r basename || true)
+          # The change folder is the one added by the spec commit for this issue ("spec: ... (#N)").
+          # Searching proposal text is a fallback only: other proposals mention #N as a dependency.
+          CHANGE=$(git log -E --grep "^spec: .*\(#${ISSUE}\)( \(#[0-9]+\))?$" --format= --name-only -- openspec/changes             | grep -oE '^openspec/changes/[^/]+' | grep -v '/archive$' | sed 's#.*/##' | sort | uniq -c | sort -rn | head -1 | awk '{print $2}' || true)
+          if [ -z "$CHANGE" ]; then
+            CHANGE=$(grep -rlE "^(Implements|Issue).*#${ISSUE}([^0-9]|$)" openspec/changes --include=proposal.md | grep -v /archive/ | head -1 | xargs -r dirname | xargs -r basename || true)
+          fi
+          echo "Change for #${ISSUE}: ${CHANGE:-none}"
           if [ -z "$CHANGE" ]; then
             gh issue comment "$ISSUE" --body "Factory: no approved OpenSpec change references #${ISSUE}. Label it \`needs-spec\` first."
             gh issue edit "$ISSUE" --remove-label ready --remove-label build-now --add-label needs-human
@@ -94,7 +101,7 @@ jobs:
             OpenSpec change: ${{ steps.change.outputs.name }}. Issue: #${{ matrix.issue }}.
           claude_args: |
             --model ${{ env.MODEL }}
-            --max-turns 40
+            --max-turns 30
             --permission-mode default
             --allowedTools "Read,Write,Edit,Glob,Grep,Bash(npx vitest:*),Bash(npm run typecheck:*),Bash(npm test:*),Bash(ls:*)"
 
@@ -144,7 +151,7 @@ jobs:
             OpenSpec change: ${{ steps.change.outputs.name }}. Issue: #${{ matrix.issue }}.
           claude_args: |
             --model ${{ env.MODEL }}
-            --max-turns ${{ vars.FACTORY_DEV_MAX_TURNS || 80 }}
+            --max-turns ${{ vars.FACTORY_DEV_MAX_TURNS || 60 }}
             --permission-mode default
             --allowedTools "Read,Write,Edit,Glob,Grep,Bash(npm run:*),Bash(npm test:*),Bash(npx vitest:*),Bash(npx openspec:*),Bash(npm install:*),Bash(ls:*),Bash(git status:*),Bash(git diff:*)"
 
