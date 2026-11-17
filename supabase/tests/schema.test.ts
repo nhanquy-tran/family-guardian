@@ -52,7 +52,7 @@ async function seedFamily(db: Db, label: string, code: string): Promise<Family> 
   await db.query("insert into pairing_codes (code, child_id, expires_at) values ($1, $2, now() + interval '1 hour')", [code, childId]);
   await db.query("insert into usage_minutes (device_id, minute_utc, domain, seconds) values ($1, '2026-11-17T09:00:00Z', 'example.com', 30)", [deviceId]);
   await db.query("insert into block_events (device_id, domain) values ($1, 'tiktok.com')", [deviceId]);
-  await db.query("insert into alerts (device_id, kind) values ($1, 'offline')", [deviceId]);
+  await db.query("insert into alerts (device_id, kind, incident_last_seen_at) values ($1, 'offline', now())", [deviceId]);
   const categoryId = (
     await one(db, "insert into domain_categories (family_id, domain, category) values ($1, $2, 'games') returning id", [familyId, `override-${label.toLowerCase()}.com`])
   ).id as string;
@@ -174,7 +174,7 @@ describe("schema constraints and triggers", () => {
       ["pairing code", "insert into pairing_codes (code, child_id, expires_at) values ('abc123', $1, now() + interval '1 hour')", [fam.childId]],
       ["child homework category", "insert into children (family_id, name, homework_categories) values ($1, 'Z', '{homework}')", [fam.familyId]],
       ["domain category", "insert into domain_categories (family_id, domain, category) values (null, 'spotify.com', 'music')", []],
-      ["alert kind", "insert into alerts (device_id, kind) values ($1, 'other')", [fam.deviceId]],
+      ["alert kind", "insert into alerts (device_id, kind, incident_last_seen_at) values ($1, 'other', now())", [fam.deviceId]],
     ];
     for (const [label, sql, params] of statements) {
       const r = await attempt(db, svc, sql, params);
@@ -189,7 +189,7 @@ describe("schema constraints and triggers", () => {
       ["block rule", "insert into block_rules (child_id, kind, value) values ($1, 'category', 'games')", [fam.childId]],
       ["pairing code", "insert into pairing_codes (code, child_id, expires_at) values ('AB12CD', $1, now() + interval '1 hour')", [fam.childId]],
       ["child", "insert into children (family_id, name, homework_categories) values ($1, 'Okay', '{education,productivity}')", [fam.familyId]],
-      ["alert", "insert into alerts (device_id, kind) values ($1, 'offline')", [fam.deviceId]],
+      ["alert", "insert into alerts (device_id, kind, incident_last_seen_at) values ($1, 'offline', now())", [fam.deviceId]],
     ];
     for (const [label, sql, params] of statements) {
       const r = await attempt(db, svc, sql, params);
@@ -243,7 +243,7 @@ describe("schema constraints and triggers", () => {
     const deviceId = dev.ok ? (dev.rows[0]?.id as string) : "";
     expect((await attempt(db, svc, "insert into usage_minutes (device_id, minute_utc, domain, seconds) values ($1, '2026-11-17T13:00:00Z', 'example.com', 5)", [deviceId])).ok).toBe(true);
     expect((await attempt(db, svc, "insert into block_events (device_id, domain) values ($1, 'example.com')", [deviceId])).ok).toBe(true);
-    expect((await attempt(db, svc, "insert into alerts (device_id, kind) values ($1, 'offline')", [deviceId])).ok).toBe(true);
+    expect((await attempt(db, svc, "insert into alerts (device_id, kind, incident_last_seen_at) values ($1, 'offline', now())", [deviceId])).ok).toBe(true);
     expect((await attempt(db, svc, "update devices set last_seen_at = now() where id = $1", [deviceId])).ok).toBe(true);
   });
 });
@@ -284,7 +284,7 @@ describe("row level security", () => {
       ["insert into domain_categories (family_id, domain, category) values (null, 'anon.com', 'games')", []],
       ["insert into usage_minutes (device_id, minute_utc, domain, seconds) values ($1, '2026-11-17T14:00:00Z', 'anon.com', 5)", [a.deviceId]],
       ["insert into block_events (device_id, domain) values ($1, 'anon.com')", [a.deviceId]],
-      ["insert into alerts (device_id, kind) values ($1, 'offline')", [a.deviceId]],
+      ["insert into alerts (device_id, kind, incident_last_seen_at) values ($1, 'offline', now())", [a.deviceId]],
       ["insert into devices (child_id, token_hash, browser, os) values ($1, 'anon-h', 'chrome', 'Windows')", [a.childId]],
       ["insert into parents (user_id, family_id) values (gen_random_uuid(), $1)", [a.familyId]],
     ];
@@ -414,7 +414,7 @@ describe("row level security", () => {
       ["insert into devices (child_id, token_hash, browser, os) values ($1, 'parent-h', 'chrome', 'Windows')", [a.childId]],
       ["insert into usage_minutes (device_id, minute_utc, domain, seconds) values ($1, '2026-11-17T15:00:00Z', 'example.com', 5)", [a.deviceId]],
       ["insert into block_events (device_id, domain) values ($1, 'example.com')", [a.deviceId]],
-      ["insert into alerts (device_id, kind) values ($1, 'offline')", [a.deviceId]],
+      ["insert into alerts (device_id, kind, incident_last_seen_at) values ($1, 'offline', now())", [a.deviceId]],
       ["update devices set last_seen_at = now() where id = $1", [a.deviceId]],
       ["insert into families (name) values ('rogue')", []],
       ["insert into parents (user_id, family_id) values (gen_random_uuid(), $1)", [a.familyId]],
