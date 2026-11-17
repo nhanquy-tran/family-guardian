@@ -10,6 +10,7 @@ Known values (not secret):
 | Supabase URL | `https://gorggbnaidjszwhkzkzr.supabase.co` |
 | Google OAuth redirect URI | `https://gorggbnaidjszwhkzkzr.supabase.co/auth/v1/callback` |
 | Google Cloud project | `family-guardian` (ID `winter-pivot-515007-u4`) |
+| Vercel production URL | `https://family-guardian-one.vercel.app` |
 
 ## 1. Google OAuth consent screen (issue #1)
 
