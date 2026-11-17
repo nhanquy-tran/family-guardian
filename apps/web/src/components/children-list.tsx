@@ -87,7 +87,7 @@ export function ChildrenList({
         <form action={actions.deleteChildAction} className="space-y-2 rounded border border-red-300 p-4">
           <input type="hidden" name="id" value={pending.id} />
           <p>
-            Delete {pending.name}? This also deletes its devices and usage history.
+            Delete {pending.name}? This also deletes its devices and usage history. Its block history is deleted too.
           </p>
           <div className="flex items-center gap-3">
             <button type="submit" className="rounded bg-red-700 px-3 py-1 text-white">Confirm delete</button>

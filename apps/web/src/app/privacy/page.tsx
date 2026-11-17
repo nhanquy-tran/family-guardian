@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { RETENTION_MONTHS } from "../../lib/retention";
 
 export const metadata: Metadata = {
   title: "Privacy policy · Family Guardian",
@@ -18,16 +19,16 @@ export default function PrivacyPage() {
 
       <h2 className="text-xl font-semibold">What the extension collects</h2>
       <ul className="list-disc space-y-1 pl-6">
-        <li>The website domain of the active tab (for example <code>youtube.com</code>), never the full address</li>
-        <li>How many seconds per minute that domain was in use while the person was active</li>
-        <li>Domains of sites that were blocked by a parent&apos;s rule, and when</li>
-        <li>The browser and operating system name, and the extension version</li>
+        <li>The website domain of the active tab (for example <code>youtube.com</code>)</li>
+        <li>Seconds of use per minute for that domain, while the person was active</li>
+        <li>The blocked domain, with the time, when a parent&apos;s rule blocked a site</li>
+        <li>The browser name, the operating system name and the extension version</li>
       </ul>
 
       <h2 className="text-xl font-semibold">What is never collected</h2>
       <p>
-        Full web addresses, page titles, page content, search terms, messages, keystrokes, form data, passwords,
-        screenshots, location, or browsing in other browsers.
+        Full web addresses, page titles, page content, search terms, keystrokes and screenshots. Also never
+        messages, form data, passwords or location.
       </p>
 
       <h2 className="text-xl font-semibold">Parents&apos; data</h2>
@@ -42,8 +43,9 @@ export default function PrivacyPage() {
 
       <h2 className="text-xl font-semibold">Retention and deletion</h2>
       <p>
-        Usage data is kept for 13 months and then deleted. A parent can delete a child, a device or the whole family
-        account at any time, which deletes the related data.
+        Usage and block history is kept for {RETENTION_MONTHS} months and then deleted automatically. A parent can
+        delete a child (with its devices and history) or a device in the dashboard at any time, which deletes the
+        related data. Deleting a whole account is done on request: use the contact link below.
       </p>
 
       <h2 className="text-xl font-semibold">Contact</h2>
