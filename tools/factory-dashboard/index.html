@@ -5,29 +5,31 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="referrer" content="no-referrer">
   <title>Factory Control Pane</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="tokens.css?v=dev">
   <link rel="stylesheet" href="style.css?v=dev">
 </head>
 <body>
-  <header class="top">
-    <div class="brand">
-      <h1>Factory control pane</h1>
-      <a id="repo-link" class="muted" href="#"></a>
-    </div>
-    <div class="top-actions">
-      <span id="status" class="muted"></span>
-      <span id="rate" class="muted"></span>
-      <button id="refresh" type="button">Refresh</button>
-      <button id="token-btn" type="button">Token</button>
+  <header class="nav-bar">
+    <div class="nav-in">
+      <a class="brand" href="#board"><img src="icon.svg" width="30" height="30" alt=""><span>Factory <span class="brand-sub">control pane</span></span></a>
+      <nav class="tabs" aria-label="Sections">
+        <a href="#board">Board</a>
+        <a href="#specs">Specs</a>
+        <a href="#runs">Runs</a>
+        <a href="#cost">Cost</a>
+        <a href="#health">Health</a>
+      </nav>
+      <div class="top-actions">
+        <span class="meta-line"><a id="repo-link" href="#"></a> <span id="status"></span> <span id="rate"></span></span>
+        <button id="refresh" type="button">Refresh</button>
+        <button id="token-btn" type="button" class="primary">Token</button>
+      </div>
     </div>
   </header>
-
-  <nav class="tabs">
-    <a href="#board">Board</a>
-    <a href="#specs">Specs</a>
-    <a href="#runs">Runs</a>
-    <a href="#cost">Cost</a>
-    <a href="#health">Health</a>
-  </nav>
 
   <div id="banner" class="banner" hidden></div>
 

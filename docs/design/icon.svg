@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Family Guardian">
+  <rect width="128" height="128" rx="28" fill="#2563eb"/>
+  <path d="M64 24c-11 6-20 7-30 7v33c0 14 15 29 30 42 15-13 30-28 30-42V31c-10 0-19-1-30-7z" fill="#fff"/>
+  <circle cx="64" cy="56" r="12" fill="#2563eb"/>
+</svg>
