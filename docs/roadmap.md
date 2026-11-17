@@ -4,6 +4,8 @@
 
 Goal: a parent monitors and protects their child's Windows laptop browsing. 20 test families.
 
+Status 2026-11-17 (end of day 1): about one day ahead. Scope unchanged; the gained day goes to an earlier store submission, an earlier real-laptop test and a hardening day. See [plan.md](plan.md). Optional v0.2 pull-in at the end of the week: daily time limits per category, only if store review and the real-device test are done.
+
 - Google sign-in for parents, one family per account
 - Add child, pair device with a code
 - Extension for Chrome, Edge, Brave on Windows: domain + time tracking, idle detection, offline queue
@@ -38,6 +40,7 @@ Goal: a parent monitors and protects their child's Windows laptop browsing. 20 t
 
 | When | Factory maturity (Zühlke steps) |
 |---|---|
-| Week 1 | Step 02-03: agents implement issues overnight, human approves spec and merges |
-| Week 2-3 | Step 03: auto-merge low-risk changes (docs, tests) when all gates pass |
-| Later | Step 04: human spot-checks a sample; factory metrics drive improvements |
+| Week 1, day 1 | Step 03: agents spec and build, human approves specs and merges (reached on day 1) |
+| Week 1, from day 1 evening | Step 04: Claude takes the spec and build gates, owner picks backlog items and handles escalations (ADR 0013) |
+| Week 2-3 | Measure: rounds per item, escalations, cost per item; tune agent rules from `factory-learnings.md` |
+| Later | Step 05 for low-risk areas (docs, tests, UI polish): no per-PR gate, owner validates the result |

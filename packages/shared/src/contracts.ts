@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export const MAX_HEARTBEAT_ENTRIES = 1440;
+
 export const UsageEntry = z.object({
   minuteUtc: z.iso.datetime(),
   domain: z.string().min(1).max(253),
@@ -7,7 +9,14 @@ export const UsageEntry = z.object({
 });
 
 export const HeartbeatRequest = z.object({
-  entries: z.array(UsageEntry).max(1440),
+  entries: z.array(UsageEntry).max(MAX_HEARTBEAT_ENTRIES),
+  currentDomain: z.string().max(253).nullable(),
+  browser: z.enum(["chrome", "edge", "brave", "other"]),
+  extensionVersion: z.string().max(32),
+});
+
+export const HeartbeatEnvelope = z.object({
+  entries: z.array(z.unknown()),
   currentDomain: z.string().max(253).nullable(),
   browser: z.enum(["chrome", "edge", "brave", "other"]),
   extensionVersion: z.string().max(32),
