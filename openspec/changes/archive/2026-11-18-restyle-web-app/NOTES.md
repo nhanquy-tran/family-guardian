@@ -29,3 +29,8 @@ None.
 - `docs/design/style-guide.md`: status pills use `--ink` text with a strong-colour border, not strong-colour text. Record the failing light-mode pairs: `--red` on `--card` (4.34:1), `--red` on `--red-soft` (3.60:1), `--muted` on `--card` (4.25:1). `--muted` is for placeholders and disabled text only; captions and labels use `--ink-2`. Same for "Ghost / danger" (`--red` text).
 - `apps/web/CLAUDE.md`: `src/styles/tokens.css` is a copy of `docs/design/tokens.css` (a test asserts equality; update both together). Components never use `dark:`; colours come from token classes in `src/components/ui.ts`.
 - `docs/architecture.md`: none.
+
+## Gate (Claude)
+
+- Hidden acceptance test "every ui.ts class is built from design tokens only" was wrong by the spec: it treated the design tokens `red`, `green`, `amber` as Tailwind palette colours. Fixed to require a shade (`red-500`); the dark/hex check split after a CodeQL anchor alert. All 6 hidden tests pass. Change archived by the gate after the fix.
+- Task 4.2 (manual preview) is waived for merge: Vercel previews are rate-limited. Checked locally on a production build: login (light desktop, dark 375px) and the public install and privacy pages (no horizontal scroll at 375px). The signed-in dashboard pages are checked on production after the next deploy; problems become a bug issue.
