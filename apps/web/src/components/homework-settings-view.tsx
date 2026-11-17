@@ -1,6 +1,7 @@
 import { CATEGORIES, type Category } from "@fg/shared";
 import type { ReactElement } from "react";
 import type { HomeworkError } from "../lib/homework";
+import { pageTitle } from "./ui";
 
 type FormAction = (formData: FormData) => void | Promise<void>;
 
@@ -28,7 +29,7 @@ const BUTTON = "rounded bg-gray-900 px-3 py-1 text-white";
 export function HomeworkSettingsView({ childId, childName, categories, extraDomains, error, actions }: HomeworkSettingsViewProps): ReactElement {
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Homework for {childName}</h1>
+      <h1 className={pageTitle}>Homework for {childName}</h1>
       <a href="/dashboard/children" className="text-sm underline">Back to children</a>
       {error ? <p role="alert" className="text-red-700">{MESSAGES[error] ?? MESSAGES.failed}</p> : null}
 

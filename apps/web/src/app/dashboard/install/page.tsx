@@ -1,3 +1,5 @@
+import { pageTitle } from "../../../components/ui";
+
 export default function Page() {
-  return <h1 className="text-2xl font-semibold">Install</h1>;
+  return <h1 className={pageTitle}>Install</h1>;
 }

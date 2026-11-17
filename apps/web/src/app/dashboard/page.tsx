@@ -2,6 +2,7 @@ import { resolveTimezone } from "@fg/shared";
 import Link from "next/link";
 import { Suspense } from "react";
 import { FocusOverviewView } from "../../components/focus-overview-view";
+import { pageTitle } from "../../components/ui";
 import { loadFocusOverview } from "../../lib/focus-overview";
 import { createClient } from "../../lib/supabase/server";
 import { TimezoneSync } from "./usage/[childId]/timezone-sync";
@@ -17,7 +18,7 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
       <Suspense>
         <TimezoneSync />
       </Suspense>
-      <h1 className="text-2xl font-semibold">Overview</h1>
+      <h1 className={pageTitle}>Overview</h1>
       {overview.status === "error" ? (
         <p role="alert" className="text-red-700">Could not load</p>
       ) : (
