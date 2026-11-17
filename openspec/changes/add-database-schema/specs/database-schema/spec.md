@@ -131,6 +131,46 @@ A parent SHALL be able to create, update and delete children, block rules, pairi
 - **WHEN** parent A updates their own child setting `family_id` to family B's id
 - **THEN** the update fails with an RLS violation
 
+### Requirement: Parents create pairing codes directly
+A parent SHALL be able to insert a `pairing_codes` row for a child of their own family with the parent session (no server route needed), and SHALL NOT be able to insert one for another family's child.
+
+#### Scenario: Parent creates a pairing code for their own child
+- **GIVEN** parent A with a child in family A
+- **WHEN** parent A inserts a `pairing_codes` row with code `AB12CD`, that child and `expires_at` one hour ahead
+- **THEN** the insert succeeds
+- **AND** parent A can select that row
+
+#### Scenario: Cannot create a pairing code for another family's child
+- **WHEN** parent A inserts a `pairing_codes` row for family B's child
+- **THEN** the insert fails with an RLS violation
+
+### Requirement: Active pairing codes are unique across all families
+A `pairing_codes.code` value SHALL be in use by at most one row at a time across all families. A code whose `expires_at` is in the past SHALL NOT count as in use: inserting the same value SHALL succeed and replace the expired row. Rejecting a duplicate SHALL NOT reveal anything about the other family's code beyond the fact that the value is taken.
+
+#### Scenario: Duplicate of another family's active code is rejected
+- **GIVEN** family A has an active code `AB12CD` (`expires_at` in the future)
+- **WHEN** parent B inserts `AB12CD` for their own child
+- **THEN** the insert fails with a unique violation (SQLSTATE `23505`)
+- **AND** family A's code row is unchanged (same child, same `expires_at`)
+- **AND** parent B selecting from `pairing_codes` still sees no row of family A
+
+#### Scenario: Duplicate within the same family is rejected
+- **GIVEN** family A has an active code `AB12CD`
+- **WHEN** parent A inserts `AB12CD` again for another child of family A
+- **THEN** the insert fails with a unique violation (SQLSTATE `23505`)
+
+#### Scenario: Expired code does not block the value
+- **GIVEN** family A has a code `AB12CD` with `expires_at` in the past
+- **WHEN** parent B inserts `AB12CD` for their own child with `expires_at` one hour ahead
+- **THEN** the insert succeeds
+- **AND** the service role sees exactly one `AB12CD` row, belonging to parent B's child
+
+#### Scenario: Other codes are untouched by the cleanup
+- **GIVEN** family A has an expired code `ZZ99ZZ` and an active code `AB12CD`
+- **WHEN** parent B inserts `QQ11QQ`
+- **THEN** the insert succeeds
+- **AND** the service role still sees `ZZ99ZZ` and `AB12CD`
+
 ### Requirement: Device data written only by the service role
 Parents SHALL NOT insert or update `devices`, `usage_minutes`, `block_events` or `alerts`, and SHALL NOT insert `families` or `parents`; these writes happen only through server routes with the service role (or the sign-in trigger).
 

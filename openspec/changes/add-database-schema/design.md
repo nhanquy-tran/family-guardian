@@ -50,9 +50,17 @@
    - helpers `asParent(userId, fn)`, `asAnon(fn)`, `asService(fn)` that run `fn` in a transaction after `set local role ...` and `set local request.jwt.claim.sub = ...`.
    The stand-in lives only in tests; the migration never creates `auth` objects.
 
+7. **Pairing code uniqueness.** `pairing_codes.code` stays the primary key, so the database itself enforces uniqueness across all families (the check runs below RLS, so parent B gets `23505` without ever reading family A's row). Parents keep direct insert (decision 4). To stop expired codes blocking a value forever, a `before insert or update of code` trigger on `pairing_codes` runs `public.purge_expired_pairing_code()` (`security definer`, `set search_path = ''`): `delete from public.pairing_codes where code = new.code and expires_at < now()`. Then the primary key decides: an expired row is gone, so the insert succeeds; an active row stays, so the insert fails with `23505`.
+   - Alternative: a `create_pairing_code(child_id, code)` security-definer function; rejected because parents would need a second way to write the table, the function must re-implement the family check that RLS already does, and the dashboard would call `rpc` instead of a plain insert.
+   - Alternative: a partial unique index on active codes; rejected because `now()` is not allowed in an index predicate.
+   - The trigger deletes only a row with the exact same `code` and only if it is expired, so it exposes nothing and cannot remove a live code. Expired rows with other values are left for the (out of scope) cleanup job.
+   - Leak surface: the only signal to a parent is success or `23505` for a value they chose. The error detail repeats their own value, nothing else.
+
 ## Risks / Trade-offs
 
 - [PGlite behaviour differs from hosted Supabase] → Both are stock Postgres; the stand-in copies Supabase's default grants. The human applies the migration to the hosted project and checks the Supabase security advisor.
 - [`nulls not distinct` needs Postgres 15+] → Supabase and PGlite both run 15+.
 - [Category list duplicated in SQL and `packages/shared` (change `add-domain-categories`, not merged yet)] → The tests assert the 9 values listed in the spec; a later change can compare them to `CATEGORIES` directly.
-- [Pairing code guessing via primary key conflict] → Codes expire in 1 hour and the pair route will be rate limited; acceptable for MVP.
+- [Pairing code guessing via primary key conflict: a parent can probe whether a specific code is taken, and a code is a bearer credential for pairing a device to that child] → The probe only says "taken", never whose or for which child. The space is 32^6 ≈ 1.07 billion values (6 characters from a 32-character alphabet, which the generator in issue #9 must use), codes live 1 hour, and the pair route will be rate limited. Probing also needs a signed-in parent account, and even a hit does not pair anything without the pair route. Acceptable for MVP; the rate limit belongs to the pair route change, not this one.
+- [Trigger deletes an expired row even if the insert then fails] → Harmless: the row was expired and unusable.
+- [`code ~ '^[A-Z0-9]{6}$'` allows 36 characters, wider than the 32-character alphabet] → The database stays permissive; the generator picks the alphabet.
