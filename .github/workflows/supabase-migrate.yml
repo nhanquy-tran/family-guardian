@@ -48,4 +48,4 @@ jobs:
         if: github.event_name != 'pull_request'
         run: |
           set -o pipefail
-          supabase db push --remote="$PROJECT_REF" --password "$SUPABASE_DB_PASSWORD" | tee -a "$GITHUB_STEP_SUMMARY"
+          supabase db push --remote="$PROJECT_REF" --password "$SUPABASE_DB_PASSWORD" --yes | tee -a "$GITHUB_STEP_SUMMARY"
