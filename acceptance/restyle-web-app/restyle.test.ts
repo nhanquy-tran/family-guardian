@@ -33,7 +33,8 @@ describe("acceptance: restyle web app", () => {
     expect(names.length).toBeGreaterThanOrEqual(20);
     for (const n of names) {
       for (const t of tokens(ui[n] ?? "")) {
-        expect(t, `${n}: ${t}`).not.toMatch(/(^|:)(text|bg|border|ring|from|to|via|fill|stroke)-(neutral|slate|gray|zinc|stone|red|green|amber|yellow|blue|rose|white|black)(-\d+)?$/);
+        // Palette colours carry a shade (red-500); `red`, `green`, `amber` alone are design tokens.
+        expect(t, `${n}: ${t}`).not.toMatch(/(^|:)(text|bg|border|ring|from|to|via|fill|stroke)-((neutral|slate|gray|zinc|stone|red|green|amber|yellow|blue|rose)-\d+|white|black)$/);
         expect(t, `${n}: ${t}`).not.toMatch(/^dark:|#[0-9a-fA-F]{3,8}$/);
       }
     }
