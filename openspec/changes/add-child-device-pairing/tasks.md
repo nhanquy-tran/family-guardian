@@ -18,8 +18,8 @@
 
 ## 4. Pair endpoint
 
-- [ ] 4.1 Add `apps/web/src/lib/pairing/pair-device.ts` (`pairDevice` failing closed, `clientIp` with `warn`, `sha256Hex`, `hmacSha256Hex`); verify `pair-device.test.ts` passes
-- [ ] 4.2 Add `apps/web/src/lib/supabase/admin.ts` (`import "server-only"`, service-role client, `PAIR_RATE_LIMIT_SECRET` read here and a missing value throws an error naming the variable, RPC errors thrown) and `app/api/device/pair/route.ts` (POST, wires deps, returns JSON with the status from `pairDevice`)
+- [ ] 4.1 Add `apps/web/src/lib/pairing/pair-device.ts` (`pairDevice` failing closed, `clientIp` with `warn`, `hmacSha256Hex`); verify `pair-device.test.ts` passes
+- [ ] 4.2 Add `apps/web/src/lib/device/token.ts` (`hashDeviceToken`, SHA-256 lowercase hex) and `apps/web/src/lib/supabase/admin.ts` (`import "server-only"`, service-role client, `PAIR_RATE_LIMIT_SECRET` read here and a missing value throws an error naming the variable, RPC errors thrown), and `app/api/device/pair/route.ts` (POST, wires deps, returns JSON with the status from `pairDevice`). If #10 already created the token or admin file, reuse it
 
 ## 5. Verify
 

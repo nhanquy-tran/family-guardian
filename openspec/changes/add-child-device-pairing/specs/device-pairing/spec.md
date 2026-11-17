@@ -120,13 +120,13 @@ On a `"23505"` insert error, `createPairingCode` SHALL retry with a new random c
 - **THEN** the markup contains `PAIRING_ERROR_MESSAGES["in-use"]` and a button with text "Generate another code"
 
 ### Requirement: Pair a device with a valid code
-`pairDevice(deps, ip, body)` SHALL, for a valid request and code, create a random device token of 32 bytes encoded as base64url, call `deps.redeem(code, sha256Hex(token), browser, os)`, and return `200 { deviceToken: token }`. The token SHALL NOT be passed to `redeem` or any other dep; only its hash is.
+`pairDevice(deps, ip, body)` SHALL, for a valid request and code, create a random device token of 32 bytes encoded as base64url, call `deps.redeem(code, hashDeviceToken(token), browser, os)`, and return `200 { deviceToken: token }`. The token SHALL NOT be passed to `redeem` or any other dep; only its hash is.
 
 #### Scenario: Successful pairing
 - **GIVEN** `registerAttempt` returning `1` and `redeem` returning `"device-1"`
 - **WHEN** `pairDevice(deps, "203.0.113.5", { code: " ab2-cd3 ", browser: "chrome", os: "Windows" })` is called (`pair-device.test.ts`)
 - **THEN** the status is `200` and `body.deviceToken` matches `^[A-Za-z0-9_-]{43}$`
-- **AND** `redeem` was called once with `("AB2CD3", sha256Hex(body.deviceToken), "chrome", "Windows")`
+- **AND** `redeem` was called once with `("AB2CD3", hashDeviceToken(body.deviceToken), "chrome", "Windows")`
 - **AND** no argument passed to any dep equals the token
 
 #### Scenario: Tokens are random
@@ -160,7 +160,7 @@ For a code that is malformed, unknown, expired or already used, `pairDevice` SHA
 - **WHEN** `pairDevice` is called twice with a valid request (`pair-device.test.ts`)
 - **THEN** the first returns `200` and the second returns `429 { error: "rate_limited" }`
 - **AND** `redeem` was called exactly once
-- **AND** `registerAttempt` received a 64-character lowercase hex string equal to `hmacSha256Hex("test-secret", "203.0.113.5")`, which differs from the raw IP and from `sha256Hex("203.0.113.5")`
+- **AND** `registerAttempt` received a 64-character lowercase hex string equal to `hmacSha256Hex("test-secret", "203.0.113.5")`, which differs from the raw IP and from `hashDeviceToken("203.0.113.5")`
 
 #### Scenario: Malformed requests count too
 - **GIVEN** `registerAttempt` returning `11`
@@ -200,7 +200,7 @@ If `hashIp` or `registerAttempt` throws or returns an error, or `PAIR_RATE_LIMIT
 - **GIVEN** `PAIR_RATE_LIMIT_SECRET` unset (and, in a second case, set to `""`), and a `registerAttempt` spy
 - **WHEN** the deps are built through `admin.ts` and `pairDevice` is called with a valid request (`admin.test.ts`, `route.test.ts`)
 - **THEN** the route returns `500 { error: "server_error" }` and the body does not contain the variable value
-- **AND** neither `registerAttempt` nor `redeem` was called, and no plain `sha256Hex(ip)` was produced
+- **AND** neither `registerAttempt` nor `redeem` was called, and no plain SHA-256 of the IP was produced
 
 #### Scenario: RPC error becomes a thrown error
 - **GIVEN** a fake service-role client whose `rpc("register_pair_attempt")` resolves `{ data: null, error: { message: "boom" } }`
