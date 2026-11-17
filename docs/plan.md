@@ -58,3 +58,4 @@ These need the product owner's own accounts, credentials or approvals:
 - 2026-11-17: Chrome Web Store developer account registered (non-trader). Draft uploaded, extension ID `mohnkinbpagpelmlfmgkgaplfikdjjcb`. Submit for review after #4 and #11 (target day 3).
 - 2026-11-17: Issue #3 done: FACTORY_TOKEN, Resend key in Vercel, Anthropic spend limit. All Day 1 human tasks done except submitting the extension for review (#2, day 3).
 - 2026-11-17 (end of day 1): #4-#8 merged; schema live; Google sign-in live; factory runs in step 04 with Claude as delegated gate (ADR 0013); 10 factory learnings recorded. Revised plan: about one day ahead, scope unchanged.
+- 2026-11-17 (close of day 1): #10 heartbeat API merged (migration applied, production returns 401 for unknown tokens), #11 spec approved after one fix round. Tomorrow starts with build #9, then #11, then the Chrome Web Store submission.
