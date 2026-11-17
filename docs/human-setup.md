@@ -19,7 +19,7 @@ Google Cloud console > Google Auth Platform > Overview > Get started (project `f
 2. Audience: **External**. Next.
 3. Contact information: your Gmail. Next.
 4. Finish: tick the Google API Services User Data Policy agreement. **Create**.
-5. Audience page: click **Publish app** > Confirm. Sign-in only uses the basic scopes (email, profile, openid), so no verification is needed. If you stay in Testing instead, add every parent's Gmail under Test users (max 100).
+5. Audience page: stay in **Testing** for now and add each parent's Gmail under **Test users** (max 100). "Publish app" stays disabled until the Branding page has an app home page, privacy policy link and authorized domain, which need the Vercel URL and the `/privacy` page (issue #19). Publish then; basic scopes (email, profile, openid) need no verification.
 
 ## 2. Google OAuth client (issue #1)
 
