@@ -194,6 +194,7 @@ async function load() {
     renderRuns();
     renderCost();
     renderHealth();
+    renderWorkflow();
     $("status").textContent = `Updated ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
     await renderSpecs();
   } catch (e) {
@@ -422,11 +423,14 @@ const STEPS = [
   { key: "queue", label: "Queue", phase: "build", kind: "wait" },
   { key: "tests", label: "Test writer", phase: "build", kind: "agent" },
   { key: "dev", label: "Developer", phase: "build", kind: "agent" },
+  { key: "verify", label: "Verifier", phase: "build", kind: "agent" },
   { key: "build-review", label: "AI review", phase: "build", kind: "review" },
-  { key: "build-fix", label: "Fixes", phase: "build", kind: "fix" },
+  { key: "build-fix", label: "Debug, fixes", phase: "build", kind: "fix" },
   { key: "build-gate", label: "Build gate", phase: "build", kind: "wait" },
 ];
 const AGENT_STEPS = STEPS.filter((s) => s.kind !== "wait");
+// Reviewers (reviewer, spec-reviewer, quality-reviewer) and fix rounds (fixer, debugger) are placed by their target.
+const AGENT_STEP = { "spec-writer": "spec", "test-writer": "tests", developer: "dev", verifier: "verify" };
 const stepLabel = (key) => {
   const s = STEPS.find((x) => x.key === key);
   return s.kind === "wait" ? s.label : `${s.label} (${s.phase})`;
@@ -479,9 +483,9 @@ function buildIssueModels() {
   for (const m of state.metrics) {
     const n = issueOf(m.target);
     const end = Date.parse(m.at);
-    const step = m.agent === "spec-writer" ? "spec" : m.agent === "test-writer" ? "tests" : m.agent === "developer" ? "dev"
-      : m.agent === "reviewer" ? (isBuildPr(n, m.target) ? "build-review" : "spec-review")
-      : isBuildPr(n, m.target) || (m.target === n && afterSpec(n, end)) ? "build-fix" : "spec-fix";
+    const onBuild = isBuildPr(n, m.target) || (m.target === n && afterSpec(n, end));
+    const step = AGENT_STEP[m.agent] || (/reviewer$/.test(m.agent) ? (isBuildPr(n, m.target) ? "build-review" : "spec-review")
+      : m.agent === "debugger" || onBuild ? "build-fix" : "spec-fix");
     measured.add(`${m.run_id}:${m.agent === "fixer" ? "fix" : "factory"}`);
     model(n).acts.push({ step, start: end - (m.duration_ms || 0), end, cost: m.cost_usd || 0, turns: m.turns || 0, run: m.run_id, attempt: m.run_attempt || 1, ok: !m.is_error && !failedRuns.has(m.run_id), url: m.url, agent: m.agent });
   }
@@ -763,6 +767,170 @@ function issueDetail(n) {
   if (!$("issue-dialog").open) $("issue-dialog").showModal();
 }
 
+// ---------- factory workflow ----------
+
+const KINDS = {
+  human: "Owner",
+  auto: "Automation",
+  agent: "AI agent",
+  eval: "Eval (deterministic)",
+  check: "Quality gate",
+  gate: "Decision gate",
+};
+
+// The factory as documented in docs/factory.md (ADR 0013, ADR 0017). `labels` link live issues to a node.
+const FLOW = [
+  { phase: "Plan", file: "factory-scheduler.yml, factory-router.yml", nodes: [
+    { id: "issue", kind: "human", title: "Write the issue", who: "Owner",
+      what: "One user-visible outcome, acceptance criteria as bullets, an area label and a `Depends on:` line. Label `autopilot` to let the scheduler run it, or `needs-spec` to start now.",
+      labels: ["autopilot"] },
+    { id: "scheduler", kind: "auto", title: "Scheduler", who: "Factory 6, every 30 min and on merges",
+      what: "Picks `autopilot` issues in dependency order. Starts a spec when its dependencies are specified and a build when they are merged and no other build touches the same files.",
+      pass: "At most 3 agent jobs in parallel (FACTORY_MAX_PARALLEL)." },
+    { id: "router", kind: "auto", title: "Router", who: "Factory 0",
+      what: "Turns labels into runs: `needs-spec` starts the spec writer, `build-now` starts a build.",
+      fail: "Refuses `build-now` on an issue without an approved spec: removes the label and comments.",
+      labels: ["needs-spec"] },
+  ] },
+  { phase: "Spec", file: "factory-spec.yml", nodes: [
+    { id: "spec-writer", kind: "agent", title: "Spec writer", who: "spec-writer agent (Opus)",
+      what: "Reads the current behaviour in `openspec/specs/` and writes an OpenSpec change: proposal, design, tasks and spec deltas with GIVEN/WHEN/THEN scenarios.",
+      labels: ["spec-in-progress"] },
+    { id: "spec-eval", kind: "eval", title: "Spec eval", who: "factory-eval.mjs spec",
+      what: "Checks the change before anyone reads it.",
+      pass: "All files exist, every requirement has scenarios, every scenario has WHEN and THEN, tasks.md names a test file, `openspec validate --strict` passes.",
+      fail: "Adds `needs-human`; the result is in the PR's evidence table." },
+    { id: "spec-review", kind: "agent", title: "AI review, stage 1", who: "spec-reviewer agent (Factory 4)",
+      what: "Reviews the spec against the issue, the ADRs and the learnings.",
+      pass: "Verdict \"looks good\": green `factory/review` status.",
+      fail: "\"Changes needed\": red status and `review-changes-needed` label." },
+    { id: "gate1", kind: "gate", title: "Gate 1: approve spec", who: "Claude, on the owner's behalf (ADR 0013)",
+      what: "Critical review: issue fit, testable scenarios, failure paths, privacy, security, dependencies.",
+      pass: "No high or medium findings: Claude merges the spec PR, Factory 2 labels the issue `ready`.",
+      fail: "Asks for fixes with `@claude`, then the review runs again.",
+      loop: "max 3 fix rounds, then escalates to the owner",
+      labels: ["spec-review", "ready"] },
+  ] },
+  { phase: "Build", file: "factory-build.yml", nodes: [
+    { id: "test-writer", kind: "agent", title: "Test writer", who: "test-writer agent",
+      what: "Writes the tests from the scenarios before any code: visible tests named after each scenario, plus hidden acceptance tests in `acceptance/<change>/`.",
+      labels: ["in-progress"] },
+    { id: "evals-first", kind: "eval", title: "Tests fail first", who: "Workflow",
+      what: "Proves the tests test something, and hides the acceptance tests from the developer.",
+      pass: "Visible and hidden tests run and fail (not a syntax error), every scenario has a test with its title, hidden tests are removed from the tree." },
+    { id: "developer", kind: "agent", title: "Developer", who: "developer agent",
+      what: "Implements until the tests pass. It cannot edit tests, applied migrations, architecture docs or `.env`. Lint is auto-fixed afterwards." },
+    { id: "gates", kind: "check", title: "Build gates", who: "Workflow",
+      what: "Deterministic gates on the developer's work.",
+      pass: "Tests not weakened (diff check), `npm run check` and `npm run build` pass, the test writer's tests pass.",
+      fail: "Starts the debugger." },
+    { id: "debugger", kind: "agent", title: "Debugger", who: "debugger agent, only when a gate fails",
+      what: "Finds the root cause first, then fixes the code, or a test that is wrong by the spec (label `test-arbitrated`). The gates run again afterwards.",
+      loop: "once per build, at most 3 fix attempts inside it" },
+    { id: "hidden", kind: "eval", title: "Hidden acceptance tests", who: "Workflow",
+      what: "Restores the tests the developer never saw and runs them.",
+      pass: "All hidden acceptance tests pass.",
+      fail: "Adds `needs-human`." },
+    { id: "verifier", kind: "agent", title: "Verifier", who: "verifier agent",
+      what: "Checks the build against the OpenSpec change for completeness, correctness and coherence and writes VERIFY.md.",
+      pass: "`VERIFY: PASS`: the change is archived into `openspec/specs/`.",
+      fail: "Adds `needs-human`." },
+    { id: "pr", kind: "auto", title: "PR with evidence", who: "open-factory-pr.sh",
+      what: "Opens `factory/<n>` with an evidence table: model, wall time and the result of every eval and gate.",
+      fail: "Any failed eval or gate adds `needs-human`.",
+      labels: ["needs-human"] },
+  ] },
+  { phase: "Review", file: "ci.yml, codeql.yml, factory-review.yml", nodes: [
+    { id: "ci", kind: "check", title: "CI", who: "GitHub Actions",
+      what: "Typecheck, lint, unit tests, build, gitleaks, migration checks and CodeQL on the PR.",
+      pass: "All checks green; branch protection blocks the merge otherwise." },
+    { id: "review1", kind: "agent", title: "AI review, stage 1", who: "spec-reviewer agent",
+      what: "Does the PR do exactly what the spec says? Scenario to test to code.",
+      pass: "No high or medium findings: stage 2 runs.",
+      fail: "Red `factory/review` status, `review-changes-needed`." },
+    { id: "review2", kind: "agent", title: "AI review, stage 2", who: "quality-reviewer agent",
+      what: "Correctness bugs, simplicity and maintainability. Comments only, never approves." },
+    { id: "gate2", kind: "gate", title: "Gate 2: approve build", who: "Claude, on the owner's behalf (ADR 0013)",
+      what: "Reads the evidence, CI, the Vercel preview and the diff against spec and issue, and runs it where possible.",
+      pass: "No high or medium findings: Claude merges and the issue closes.",
+      fail: "Fix with `@claude`, or change the spec and rebuild.",
+      loop: "max 2 build attempts. Always escalates privacy or security ADRs, destructive migrations, new services or secrets, and items over about $10",
+      labels: ["in-review"] },
+  ] },
+  { phase: "Run", file: "factory-docs.yml, factory-watchdog.yml", nodes: [
+    { id: "docs", kind: "agent", title: "Docs update", who: "docs-writer agent (Factory 7, nightly)",
+      what: "Applies the \"Docs to update\" notes of merged changes to `docs/` in a docs PR." },
+    { id: "watchdog", kind: "auto", title: "Watchdog", who: "Factory 5, every 30 min",
+      what: "Restarts stalled agent runs and unblocks factory and spec PRs that conflict with main.",
+      loop: "max 2 restarts, then `needs-human`" },
+    { id: "learn", kind: "human", title: "Learn loop", who: "Owner and Claude",
+      what: "When a gate catches something an earlier step should have caught, it goes into factory-learnings.md and becomes a rule in the agent's file." },
+  ] },
+];
+const FLOW_NODES = FLOW.flatMap((p, pi) => p.nodes.map((n) => ({ ...n, phase: p.phase, phaseIndex: pi })));
+const flowView = { selected: "gate1", kind: "" };
+
+function flowIssues(node) {
+  return state.issues.filter((i) => i.state === "open" && (node.labels || []).some((l) => i.labels.some((x) => x.name === l)));
+}
+
+function renderWorkflow() {
+  const node = FLOW_NODES.find((n) => n.id === flowView.selected) || FLOW_NODES[0];
+  const at = FLOW_NODES.indexOf(node);
+  const route = FLOW_NODES.filter((n) => !flowView.kind || n.kind === flowView.kind || n === node);
+  const prev = route[route.indexOf(node) - 1];
+  const next = route[route.indexOf(node) + 1];
+  put("workflow-filter", [
+    html`<button type="button" class="chip-btn${flowView.kind ? "" : " on"}" data-act="flow-kind" data-kind="">All steps</button>`,
+    Object.entries(KINDS).map(([k, label]) => html`<button type="button" class="chip-btn k-${k}${flowView.kind === k ? " on" : ""}" data-act="flow-kind" data-kind="${k}"><i></i>${label}</button>`),
+  ]);
+  put("workflow-flow", FLOW.map((p, pi) => html`<div class="phase-col">
+    <div class="phase-head"><span class="phase-n">${pi + 1}</span><span>${p.phase}</span></div>
+    <div class="phase-file muted">${p.file}</div>
+    <ol class="steps-list">${p.nodes.map((n) => {
+      const live = flowIssues(n);
+      const dim = flowView.kind && flowView.kind !== n.kind;
+      return html`<li><button type="button" class="node k-${n.kind}${n.id === node.id ? " on" : ""}${dim ? " dim" : ""}" data-act="flow" data-id="${n.id}" aria-pressed="${n.id === node.id}">
+        <i></i><span class="node-title">${n.title}</span>
+        ${n.loop ? html`<span class="node-loop" title="${n.loop}">↺</span>` : ""}
+        ${live.length ? html`<span class="node-count" title="${live.length} open issue(s) here now">${live.length}</span>` : ""}
+      </button></li>`;
+    })}</ol>
+  </div>`));
+
+  const live = flowIssues(node);
+  const md = (t) => new Raw(esc(t).replace(/`([^`]+)`/g, "<code>$1</code>"));
+  put("workflow-detail", html`
+    <div class="detail-head">
+      <span class="kind-pill k-${node.kind}"><i></i>${KINDS[node.kind]}</span>
+      <span class="muted small">Step ${at + 1} of ${FLOW_NODES.length} · ${node.phase}</span>
+      <span class="spacer"></span>
+      <button type="button" class="small" data-act="flow" data-id="${prev?.id || ""}"${prev ? "" : html` disabled`}>Previous</button>
+      <button type="button" class="small primary" data-act="flow" data-id="${next?.id || ""}"${next ? "" : html` disabled`}>${flowView.kind ? `Next ${KINDS[flowView.kind].toLowerCase()}` : "Next step"}</button>
+    </div>
+    <h3 class="detail-title">${node.title}</h3>
+    <p class="muted small">${node.who}</p>
+    <p>${md(node.what)}</p>
+    <dl class="detail-grid">
+      ${node.pass ? html`<dt class="ok">Passes when</dt><dd>${md(node.pass)}</dd>` : ""}
+      ${node.fail ? html`<dt class="no">Otherwise</dt><dd>${md(node.fail)}</dd>` : ""}
+      ${node.loop ? html`<dt class="loop">Retry loop</dt><dd>${md(node.loop)}</dd>` : ""}
+      ${node.labels ? html`<dt>Labels</dt><dd>${node.labels.map((l) => html`<code>${l}</code> `)}</dd>` : ""}
+      ${node.labels ? html`<dt>Here now</dt><dd>${live.length ? live.map((i) => html`<a href="${i.html_url}" target="_blank" rel="noopener">#${i.number}</a> ${i.title}<br>`) : html`<span class="muted">No open issue.</span>`}</dd>` : ""}
+    </dl>`);
+}
+
+function selectFlow(id, kind) {
+  if (id) flowView.selected = id;
+  if (kind !== undefined) {
+    flowView.kind = kind;
+    const first = kind && FLOW_NODES.find((n) => n.kind === kind);
+    if (first && FLOW_NODES.find((n) => n.id === flowView.selected)?.kind !== kind) flowView.selected = first.id;
+  }
+  renderWorkflow();
+  if (id && window.innerWidth < 720) $("workflow-detail").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 function turnPage(key, to) {
   pages[key] = Math.max(0, to);
   const render = { specs: renderSpecs, runs: renderRuns, cost: renderCost, health: renderHealth }[key];
@@ -941,6 +1109,8 @@ document.addEventListener("click", (ev) => {
   else if (btn.dataset.act === "comment") commentAction(n);
   else if (btn.dataset.act === "merge") mergeAction(n);
   else if (btn.dataset.act === "issue") issueDetail(n);
+  else if (btn.dataset.act === "flow") selectFlow(btn.dataset.id);
+  else if (btn.dataset.act === "flow-kind") selectFlow(null, btn.dataset.kind);
   else if (btn.dataset.act === "page") turnPage(btn.dataset.key, Number(btn.dataset.to));
   else if (btn.dataset.act === "rerun") rerunAction(Number(btn.dataset.run), btn.dataset.name);
 });
@@ -963,5 +1133,6 @@ $("repo-link").textContent = REPO;
 $("repo-link").href = `https://github.com/${REPO}`;
 
 updateTokenButton();
+renderWorkflow();
 load();
 setInterval(() => { if (getToken() && !document.hidden && !$("confirm-dialog").open && !$("issue-dialog").open) load(); }, 120000);
