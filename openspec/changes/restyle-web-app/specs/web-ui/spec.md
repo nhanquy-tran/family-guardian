@@ -45,7 +45,7 @@ The login page SHALL show a centred card with the app icon, the wordmark "Family
 
 ### Requirement: Styled dashboard shell
 
-The dashboard shell SHALL show a sticky nav bar with the app icon and wordmark, pill nav links (the current page marked with `aria-current="page"` and the accent-soft style), the family name, Settings and Sign out, above a padded, width-limited container.
+The dashboard shell SHALL show a sticky nav bar with the app icon and wordmark, pill nav links (the current page marked with `aria-current="page"` and the accent-soft style, derived from the browser path by a client component), the family name, Settings and Sign out, above a padded, width-limited container.
 
 #### Scenario: Header
 - **GIVEN** family name "Tran family"
@@ -58,14 +58,24 @@ The dashboard shell SHALL show a sticky nav bar with the app icon and wordmark, 
 - **THEN** `<nav>` has `flex` and `flex-wrap`, each link has the `navLink` classes, and the hrefs and their order are unchanged
 
 #### Scenario: Current page is highlighted
-- **GIVEN** `DashboardShell` rendered with `currentPath` `/dashboard/devices`
+- **GIVEN** `DashboardShell` rendered with the optional `currentPath` override `/dashboard/devices`
 - **WHEN** rendered in `dashboard-shell.test.ts`
 - **THEN** only the Devices link has `aria-current="page"` and the `navLinkCurrent` classes
 
+#### Scenario: Sub-paths highlight their section
+- **GIVEN** `DashboardShell` rendered with `currentPath` `/dashboard/children/123`
+- **WHEN** rendered in `dashboard-shell.test.ts`
+- **THEN** only the Children link has `aria-current="page"`, and with `currentPath` `/dashboard` only the overview link has it
+
 #### Scenario: No current page
-- **GIVEN** `DashboardShell` rendered without `currentPath`
+- **GIVEN** `DashboardShell` rendered without `currentPath` outside a Next router context
 - **WHEN** rendered in `dashboard-shell.test.ts`
 - **THEN** no link has `aria-current`
+
+#### Scenario: Nav reads the path on the client
+- **GIVEN** `apps/web/src/app/dashboard/layout.tsx` and the nav component file `apps/web/src/components/dashboard-nav.tsx`
+- **WHEN** `dashboard-shell.test.ts` reads their source
+- **THEN** `layout.tsx` passes no `currentPath` to `DashboardShell`, and `dashboard-nav.tsx` starts with `"use client"` and calls `usePathname`
 
 #### Scenario: Page container
 - **GIVEN** the shell markup
@@ -109,7 +119,7 @@ Styling SHALL NOT change routes, copy, nav items, form actions, data, API or pri
 #### Scenario: Constants exist and follow the guide
 - **GIVEN** the exports of `ui.ts`
 - **WHEN** `ui.test.ts` inspects them
-- **THEN** every listed name is a non-empty string; `card` contains `bg-card`, `rounded-card` and `shadow-card`; the three button constants contain `rounded-pill` and `min-h-10`; `buttonPrimary` contains `bg-accent`; `buttonDanger` contains `text-red`; `input` contains `rounded-` and a `focus` ring class; each `pill*` contains `rounded-pill`; `navLinkCurrent` contains `bg-accent-soft`
+- **THEN** every listed name is a non-empty string; `card` contains `bg-card`, `rounded-card` and `shadow-card`; the three button constants contain `rounded-pill` and `min-h-10`; `buttonPrimary` contains `bg-accent`; `buttonDanger` contains `text-ink` and `border-red`; `input` contains `rounded-` and a `focus` ring class; each `pill*` contains `rounded-pill`; `navLinkCurrent` contains `bg-accent-soft`
 
 #### Scenario: No neutral or palette colours in ui.ts
 - **GIVEN** the exports and the source text of `ui.ts`
@@ -148,6 +158,15 @@ The app SHALL serve `docs/design/icon.svg` as its favicon and as the icon in the
 - **GIVEN** `docs/design/icon.svg`
 - **WHEN** `styles-wiring.test.ts` compares it with `apps/web/src/app/icon.svg` and `apps/web/public/icon.svg`
 - **THEN** both are identical to the source and `apps/web/src/app/favicon.ico` no longer exists
+
+### Requirement: Text colour classes pass contrast
+
+Class strings in `ui.ts` SHALL NOT colour text with `--red`, `--amber`, `--green` or `--muted`, because those pairs fall below 4.5:1 on card and soft backgrounds. Status is shown with `text-ink` plus a border or dot in the strong colour. `--muted` is for placeholders and disabled text only; captions and labels use `ink-2`.
+
+#### Scenario: No low-contrast text classes
+- **GIVEN** every string constant exported by `ui.ts`
+- **WHEN** `ui.test.ts` inspects them
+- **THEN** none contains `text-red`, `text-amber`, `text-green` or `text-muted`, except that `input` may contain `placeholder:text-muted`
 
 ### Requirement: Readable colours in light and dark
 
