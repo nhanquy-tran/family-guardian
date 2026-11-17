@@ -59,7 +59,12 @@ The endpoint SHALL accept only `Authorization: <scheme> <token>` where the schem
 - **AND** Next.js therefore answers `GET` with `405`
 
 ### Requirement: Envelope validation
-After authentication, the body SHALL be parsed as JSON and its envelope (`entries` array of at most 1440 items of any shape, `browser`, `extensionVersion`, `currentDomain`) validated with `HeartbeatEnvelope` from `@fg/shared`. Invalid JSON or envelope SHALL respond `400 { "error": "invalid_request" }` and write nothing. Invalid individual entries SHALL NOT cause a `400`.
+After authentication, the body SHALL be parsed as JSON and its envelope (`entries` array of items of any shape, `browser`, `extensionVersion`, `currentDomain`) validated with `HeartbeatEnvelope` from `@fg/shared`. Invalid JSON or envelope SHALL respond `400 { "error": "invalid_request" }` and write nothing. Invalid individual entries SHALL NOT cause a `400`.
+
+#### Scenario: Envelope check order
+- **GIVEN** a valid token
+- **WHEN** it sends 1441 entries together with browser `firefox`
+- **THEN** the response is `400 { error: "invalid_request" }`, not `413`
 
 #### Scenario: Invalid JSON
 - **GIVEN** a valid token
@@ -77,6 +82,41 @@ After authentication, the body SHALL be parsed as JSON and its envelope (`entrie
 - **WHEN** a body with one entry of `seconds: 61` is parsed with each
 - **THEN** `HeartbeatEnvelope` accepts it and `HeartbeatRequest` rejects it
 - **AND** `UsageEntry` is still the per-entry schema used by `HeartbeatRequest`
+
+### Requirement: Batch size cap
+`@fg/shared` SHALL export `MAX_HEARTBEAT_ENTRIES = 1440` next to the contracts, used by `HeartbeatRequest` and by the handler. After a valid envelope, a request with more than `MAX_HEARTBEAT_ENTRIES` entries SHALL respond `413 { "error": "too_many_entries" }` and write nothing, not even `last_seen_at`, so a client can tell "split the batch" from "malformed". The extension MUST send at most `MAX_HEARTBEAT_ENTRIES` entries per request, oldest first, in chunks.
+
+#### Scenario: Exactly the cap
+- **GIVEN** a valid token
+- **WHEN** it sends a valid body with 1440 valid entries on distinct minutes
+- **THEN** the response is `200`
+- **AND** `upsertUsage` is called once with 1440 rows
+
+#### Scenario: Above the cap
+- **GIVEN** a valid token
+- **WHEN** it sends a valid envelope with 1441 entries
+- **THEN** the response is `413 { error: "too_many_entries" }`
+- **AND** `upsertUsage` and `updateDevice` are never called
+
+#### Scenario: Constant exported
+- **GIVEN** `@fg/shared`
+- **WHEN** `MAX_HEARTBEAT_ENTRIES` is imported
+- **THEN** it equals `1440`
+- **AND** `HeartbeatRequest` rejects 1441 entries and accepts 1440
+
+### Requirement: Request log with counts only
+For every request that passes authentication and the envelope and size checks, the handler SHALL call an injected `log` once with `{ accepted, skipped }`, both non-negative integers: stored entries (after de-duplication) and skipped entries. The log call SHALL carry no domains, tokens, device or child ids, or IP addresses.
+
+#### Scenario: Logger receives counts only
+- **GIVEN** a valid token and a logger that records calls
+- **WHEN** it sends 2 valid entries and 1 with `seconds: 61`
+- **THEN** the logger is called once with exactly `{ accepted: 2, skipped: 1 }`
+- **AND** no argument contains a domain, `tok-1`, `dev-1` or an IP address
+
+#### Scenario: No log for rejected requests
+- **GIVEN** a logger that records calls
+- **WHEN** a request gets `401`, `400` or `413`
+- **THEN** the logger is not called
 
 ### Requirement: Idempotent usage storage
 Each kept entry SHALL be stored as a `usage_minutes` row `{ device_id, minute_utc, domain, seconds }` of the authenticated device, upserted on `(device_id, minute_utc, domain)` so that sending the same minute again replaces `seconds` instead of adding. Within one request, the last entry for a `(minuteUtc, domain)` pair SHALL win. No other field SHALL be written to `usage_minutes`.

@@ -11,12 +11,14 @@ The extension sends per-domain seconds every minute (architecture flow 3) and le
 - `POST /api/device/heartbeat` (`apps/web/src/app/api/device/heartbeat/route.ts`): a thin route over a tested handler in `apps/web/src/lib/device/heartbeat.ts`.
 - Bearer device token, hashed with SHA-256 (`apps/web/src/lib/device/token.ts`, reusable by the pair route). Missing, malformed, unknown or revoked (device deleted by the parent) token → `401`.
 - Envelope (`entries` array, `browser`, `extensionVersion`, `currentDomain`) validated with a new `HeartbeatEnvelope` schema in `@fg/shared`; invalid JSON or envelope → `400`. Each entry is then validated separately with `UsageEntry`; invalid entries are skipped, not fatal.
+- More than `MAX_HEARTBEAT_ENTRIES` (1440, new export in `@fg/shared`) entries → `413 { error: "too_many_entries" }`. The extension change (#11) must send chunks of at most that size, oldest first.
+- One log line per accepted request with only counts (`accepted`, `skipped`); no domains, tokens, ids or IPs.
 - Valid entries are upserted into `usage_minutes` on `(device_id, minute_utc, domain)`, replacing `seconds`, so a resend never adds. Entries that fail `UsageEntry`, are older than 7 days, more than 5 minutes ahead of the server minute, not on a whole minute, or have a domain the database would reject are skipped, the rest are stored.
 - `devices.last_seen_at`, `browser` and the new `extension_version` column are updated on every authenticated, valid heartbeat.
 - Response `200` with `HeartbeatResponse` `{ rulesVersion }`: the child's `children.rules_version`.
 - New migration: `devices.extension_version`, `children.rules_version` (writable only by triggers, not by parents), and triggers that bump `rules_version` when the child's block rules or the family's domain category overrides change. Trigger functions are not executable by API roles.
 - Service-role Supabase client `apps/web/src/lib/supabase/admin.ts` (server only, imports `server-only`).
-- `packages/shared`: add `HeartbeatEnvelope` (looser request schema); `HeartbeatRequest` and `UsageEntry` stay unchanged.
+- `packages/shared`: add `HeartbeatEnvelope` (looser request schema) and `MAX_HEARTBEAT_ENTRIES`; `HeartbeatRequest` and `UsageEntry` stay unchanged.
 
 ## Capabilities
 
@@ -46,3 +48,4 @@ None (`database-schema` is not archived yet; the new columns and triggers are sp
 - Extension side: sending heartbeats, offline queue, reacting to `rulesVersion`.
 - Updating `devices.os` (not in the request).
 - Reporting skipped entries back to the extension.
+- Chunking in the extension (#11 must do it).
