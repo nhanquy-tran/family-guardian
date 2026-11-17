@@ -1,6 +1,6 @@
 # 0016. Digest e-mails replace per-incident offline e-mails
 
-Date: 2026-11-18. Status: proposed (amends ADR 0010; needs human approval). Issue #58.
+Date: 2026-11-18. Status: accepted (owner product decision 2026-11-18; amends ADR 0010). Issue #58.
 
 ## Context
 One e-mail per offline incident (ADR 0010) is noisy: a switched-off laptop looks like a removed extension. The owner decided parents get a digest instead.
