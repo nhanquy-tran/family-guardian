@@ -200,16 +200,64 @@ jobs:
           else R="fail (see the run log)"; tail -n 40 /tmp/green.log; fi
           echo "result=$R" >> "$GITHUB_OUTPUT"
 
+      # Self-fixing: when gates fail, an independent arbiter decides by the spec whether a test is wrong
+      # (two of five builds on day 2 failed on impossible tests). Max once per build; changes are labelled.
+      - name: Test arbiter agent
+        id: arbiter
+        if: >-
+          always() && steps.tests.outcome == 'success' && steps.guard.outputs.result == 'pass' &&
+          (steps.green.outputs.result != 'pass' || steps.gate.outputs.result != 'pass')
+        continue-on-error: true
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.CLAUDE_API_KEY }}
+          allowed_bots: github-actions
+          github_token: ${{ secrets.FACTORY_TOKEN || github.token }}
+          prompt: |
+            Follow .claude/agents/arbiter.md exactly.
+            OpenSpec change: ${{ steps.change.outputs.name }}. Issue: #${{ matrix.issue }}.
+          claude_args: |
+            --model ${{ env.MODEL }}
+            --max-turns 25
+            --permission-mode default
+            --allowedTools "Read,Glob,Grep,Edit(**/*.test.ts),Edit(**/*.test.tsx),Edit(openspec/changes/**/NOTES.md),Bash(npx vitest:*)"
+
+      - name: Metrics (arbiter)
+        if: always() && steps.arbiter.outcome != 'skipped'
+        continue-on-error: true
+        env:
+          EXEC_FILE: ${{ steps.arbiter.outputs.execution_file }}
+        run: bash .github/scripts/post-metrics.sh arbiter "$ISSUE" "$EXEC_FILE"
+
+      - name: "Gates after arbitration"
+        id: regate
+        if: always() && steps.arbiter.outcome != 'skipped'
+        run: |
+          git checkout -B "factory/${ISSUE}"
+          git add -A
+          CHANGED=""
+          while read -r f; do
+            [ -z "$f" ] && continue
+            git diff --cached --quiet "${{ steps.tests.outputs.sha }}" -- "$f" || CHANGED="$CHANGED $f"
+          done < /tmp/test-files.txt
+          FILES=$(tr '\n' ' ' < /tmp/test-files.txt)
+          if npx vitest run $FILES > /tmp/green.log 2>&1; then G="pass"; else G="fail (after arbitration)"; tail -n 40 /tmp/green.log; fi
+          if npm run check > /tmp/check.log 2>&1 && npm run build > /tmp/build.log 2>&1; then C="pass"; else C="fail (after arbitration)"; fi
+          tail -n 40 /tmp/check.log /tmp/build.log > /tmp/gate-tail.txt 2>/dev/null || true
+          if [ -n "$CHANGED" ]; then echo "guard=arbitrated (changed:$CHANGED)" >> "$GITHUB_OUTPUT"; else echo "guard=pass" >> "$GITHUB_OUTPUT"; fi
+          echo "green=$G" >> "$GITHUB_OUTPUT"
+          echo "gate=$C" >> "$GITHUB_OUTPUT"
+
       - name: Open PR with evidence
         if: always() && steps.tests.outcome == 'success'
         env:
           CHANGE: ${{ steps.change.outputs.name }}
           STARTED: ${{ steps.change.outputs.started }}
           TESTS_SHA: ${{ steps.tests.outputs.sha }}
-          GUARD: ${{ steps.guard.outputs.result }}
-          GATE: ${{ steps.gate.outputs.result }}
+          GUARD: ${{ steps.regate.outputs.guard || steps.guard.outputs.result }}
+          GATE: ${{ steps.regate.outputs.gate || steps.gate.outputs.result }}
           RED: ${{ steps.red.outputs.result }}
-          GREEN: ${{ steps.green.outputs.result }}
+          GREEN: ${{ steps.regate.outputs.green || steps.green.outputs.result }}
           COVERAGE: ${{ steps.coverage.outputs.result }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: bash .github/scripts/open-factory-pr.sh

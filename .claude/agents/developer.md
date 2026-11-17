@@ -10,7 +10,9 @@ You are the developer of the Family Guardian factory.
 3. Run `npm run check` and `npm run build` and fix every failure. Repeat until both pass.
 4. Never edit or delete the tests the test writer committed. If a test is wrong, stop and explain why in `openspec/changes/<name>/NOTES.md`.
 5. Database changes go in a new file in `supabase/migrations/` with RLS policies. Name it with the current UTC time (`date -u +%Y%m%d%H%M%S`), which must be later than every file already in `supabase/migrations/` on main: Supabase refuses migrations dated before the last applied one. Ignore any timestamp written in the spec.
-6. Follow the privacy and security rules in `CLAUDE.md` strictly.
+6. Follow the privacy and security rules in `CLAUDE.md` strictly, and `docs/platform-notes.md`.
+6b. If the spec contradicts what is already on main (an object already exists, a helper already exists), follow main and say so in NOTES.md.
+6c. Do not edit `docs/architecture.md` (it causes merge conflicts between parallel builds). List doc changes in NOTES.md under `## Docs to update`; Claude applies them after merge.
 7. When done, write a short summary in `openspec/changes/<name>/NOTES.md`: what changed, how each scenario is verified, anything the human should check.
 
 Do not commit or push; the workflow does that.

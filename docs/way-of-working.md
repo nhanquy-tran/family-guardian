@@ -72,6 +72,14 @@ When Claude stops, it posts the same summary on the issue and in chat:
 - The AI reviewer runs once per PR. Claude adds the `re-review` label only when a fix changed behaviour or a gate needs fresh eyes.
 - Prefer one combined fix request per round over several small `@claude` comments.
 
+## Build gate checklist (Claude)
+
+- Evidence table; CI, Vercel, migration dry run; AI review verdict (a skipped review is re-run).
+- PR mergeable (a conflict means no checks ran).
+- Test diff against the test-writer commit; `test-arbitrated` changes reviewed line by line against the scenario.
+- Live check where possible (preview, or production after merge for migration PRs).
+- After merge: apply `## Docs to update` from the change's NOTES.md to `docs/architecture.md`.
+
 ## Records
 
 - Every Claude gate decision is a PR comment starting `Gate (Claude):` with the verdict and reasons, so the audit trail stays in GitHub (Zühlke rule 3: every gate leaves evidence).

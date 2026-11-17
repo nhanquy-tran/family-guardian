@@ -15,6 +15,8 @@ if ! git rebase -q origin/main; then
   exit 1
 fi
 git push -u origin "factory/${ISSUE}" --force-with-lease
+# The rebase rewrote commits: point the evidence at the test commit as it exists now.
+TESTS_SHA=$(git log --format=%H -1 --grep "^test: scenarios for ${CHANGE} " || echo "${TESTS_SHA:-}")
 
 MINUTES=$(( ( $(date +%s) - STARTED ) / 60 ))
 TITLE=$(gh issue view "$ISSUE" --json title -q .title)
@@ -29,7 +31,7 @@ NOTES_FILE="openspec/changes/${CHANGE}/NOTES.md"
   echo "| Gate | Result |"
   echo "|---|---|"
   echo "| Tests written first by a separate agent | commit ${TESTS_SHA:-none} |"
-  echo "| Tests not weakened by the developer | ${GUARD:-not run} |"
+  echo "| Tests not weakened by the developer (or changed by the arbiter, see NOTES) | ${GUARD:-not run} |"
   echo "| Eval: tests fail before implementation | ${RED:-not run} |"
   echo "| Eval: every scenario has a test with its title | ${COVERAGE:-not run} |"
   echo "| Eval: same tests pass after implementation | ${GREEN:-not run} |"
@@ -52,7 +54,7 @@ NOTES_FILE="openspec/changes/${CHANGE}/NOTES.md"
 
 LABELS="factory"
 for RESULT in "${GUARD:-}" "${GATE:-}" "${RED:-}" "${GREEN:-}" "${COVERAGE:-}"; do
-  case "$RESULT" in pass*) ;; *) LABELS="factory,needs-human" ;; esac
+  case "$RESULT" in pass*) ;; arbitrated*) LABELS="$LABELS,test-arbitrated" ;; *) LABELS="factory,needs-human" ;; esac
 done
 
 OPEN_PR=$(gh pr list --head "factory/${ISSUE}" --state open --json number -q '.[0].number')

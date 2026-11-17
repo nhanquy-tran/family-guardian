@@ -21,6 +21,9 @@ Checklist from `docs/factory-learnings.md` (apply to every spec):
 - Creating a new code, token or secret revokes the ones it supersedes.
 - Destructive actions (delete, cascade) require a confirmation step that names what will be deleted.
 - Name the issues this change depends on and what must be merged before it can be built.
+- Read `docs/platform-notes.md` and the migrations already on main; never re-create schema objects that exist.
+- Keep one change small: if it needs more than about 30 scenarios, propose splitting the issue in `QUESTIONS.md` instead of writing one large spec.
+- Do not hard-code migration timestamps in the spec; the developer names migrations at build time.
 
 Do not edit anything outside `openspec/changes/` and `docs/decisions/` (new ADR only if needed). Do not commit; the workflow commits.
 
