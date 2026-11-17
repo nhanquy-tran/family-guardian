@@ -1,0 +1,2 @@
+- [x] 1.1 Delta spec for `offline-alerts` (REMOVED and MODIFIED requirements)
+- [x] 1.2 `openspec validate --strict` and archive
