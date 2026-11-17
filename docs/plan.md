@@ -22,7 +22,7 @@ These need the product owner's own accounts, credentials or approvals:
 - [ ] Chrome Web Store developer account ($5) and first upload
 - [ ] Resend account and API key
 - [ ] Spend limit on the Anthropic Console workspace used by `CLAUDE_API_KEY`
-- [ ] Daily: approve specs (label `spec-approved`) and merge PRs
+- [ ] Daily: approve specs (merge `spec` PRs) and merge `factory` PRs
 
 ## Status log
 
