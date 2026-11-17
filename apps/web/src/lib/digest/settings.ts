@@ -2,13 +2,41 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type DigestSettingsResult = { ok: true } | { ok: false; error: "invalid" | "failed" };
 
-export async function saveDigestSettings(
-  _client: SupabaseClient,
-  _input: { frequency: unknown; hour: unknown; timezone: unknown },
-): Promise<DigestSettingsResult> {
-  throw new Error("not implemented");
+export function isValidTimezone(value: unknown): value is string {
+  if (typeof value !== "string" || value.length === 0) return false;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
-export async function captureFamilyTimezone(_client: SupabaseClient, _timezone: string): Promise<void> {
-  throw new Error("not implemented");
+// RLS limits the update to the caller's family.
+export async function saveDigestSettings(
+  client: SupabaseClient,
+  input: { frequency: unknown; hour: unknown; timezone: unknown },
+): Promise<DigestSettingsResult> {
+  const { frequency, hour, timezone } = input;
+  if (
+    (frequency !== "daily" && frequency !== "weekly") ||
+    typeof hour !== "number" ||
+    !Number.isInteger(hour) ||
+    hour < 0 ||
+    hour > 23 ||
+    !isValidTimezone(timezone)
+  ) {
+    return { ok: false, error: "invalid" };
+  }
+  const { data, error } = await client
+    .from("families")
+    .update({ digest_frequency: frequency, digest_hour: hour, timezone, timezone_known: true })
+    .select("id");
+  if (error || !data || data.length === 0) return { ok: false, error: "failed" };
+  return { ok: true };
+}
+
+export async function captureFamilyTimezone(client: SupabaseClient, timezone: string): Promise<void> {
+  if (!isValidTimezone(timezone)) return;
+  await client.from("families").update({ timezone, timezone_known: true }).eq("timezone_known", false);
 }

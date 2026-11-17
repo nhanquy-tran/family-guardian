@@ -43,8 +43,9 @@ export function createOfflineAlertStore(client: SupabaseClient): OfflineAlertSto
       return (data ?? []).length > 0;
     },
 
-    async resolveReturned(_now) {
-      throw new Error("not implemented");
+    async resolveReturned(now) {
+      const { error } = await client.rpc("resolve_offline_alerts", { p_now: now });
+      if (error) fail("resolve_offline_alerts");
     },
   };
 }

@@ -40,7 +40,7 @@ export type OfflineResult = {
   body: OfflineCounts | { error: string };
 };
 
-function tokenMatches(authorization: string | null, secret: string): boolean {
+export function tokenMatches(authorization: string | null, secret: string): boolean {
   const prefix = "Bearer ";
   const token = authorization?.startsWith(prefix) ? authorization.slice(prefix.length) : "";
   // Equal-length digests keep the comparison constant-time whatever the token length.
@@ -53,5 +53,19 @@ export async function handleOfflineAlerts(input: OfflineInput): Promise<OfflineR
   if (!tokenMatches(input.authorization, input.secret)) {
     return { status: 401, body: { error: "unauthorized" } };
   }
-  throw new Error("not implemented");
+  try {
+    const nowIso = input.now.toISOString();
+    let recorded = 0;
+    let skipped = 0;
+    for (const device of await input.store.findOfflineDevices(nowIso)) {
+      if (await input.store.claimAlert(device.deviceId, device.lastSeenAt, null)) recorded += 1;
+      else skipped += 1;
+    }
+    await input.store.resolveReturned(nowIso);
+    const counts = { recorded, skipped };
+    input.log(counts);
+    return { status: 200, body: counts };
+  } catch {
+    return { status: 500, body: { error: "server_error" } };
+  }
 }

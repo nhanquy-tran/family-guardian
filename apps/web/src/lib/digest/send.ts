@@ -1,5 +1,6 @@
+import { tokenMatches } from "../alerts/offline";
 import type { DigestMessage } from "./content";
-import type { DigestFamily, DuePeriod } from "./schedule";
+import { latestDuePeriod, type DigestFamily, type DuePeriod } from "./schedule";
 
 export type DigestFamilyRow = DigestFamily & { id: string };
 
@@ -36,6 +37,55 @@ export type DigestResult = {
   body: DigestCounts | { error: string };
 };
 
-export async function handleDigestSend(_input: DigestInput): Promise<DigestResult> {
-  throw new Error("not implemented");
+type Outcome = "sent" | "skipped" | "failed";
+
+async function sendForFamily(input: DigestInput, family: DigestFamilyRow): Promise<Outcome | null> {
+  const period = latestDuePeriod(family, input.now);
+  if (!period) return null;
+
+  const { store } = input;
+  if (!(await store.claimDigest(family.id, period.frequency, period.periodStart))) return "skipped";
+  try {
+    const recipients = await store.listParentEmails(family.id);
+    if (recipients.length === 0) return "skipped";
+    const message = await input.build(family, period);
+    let delivered = false;
+    for (const to of recipients) {
+      const result = await input.mailer.send({ to, subject: message.subject, text: message.text }).catch(() => ({ ok: false }));
+      if (result.ok) delivered = true;
+    }
+    if (delivered) return "sent";
+  } catch {
+    // falls through to release the claim
+  }
+  await store.releaseDigest(family.id, period.frequency, period.periodStart).catch(() => undefined);
+  return "failed";
+}
+
+export async function handleDigestSend(input: DigestInput): Promise<DigestResult> {
+  if (!input.secret) return { status: 500, body: { error: "server_error" } };
+  if (!tokenMatches(input.authorization, input.secret)) {
+    return { status: 401, body: { error: "unauthorized" } };
+  }
+  if (!input.mailConfigured || !input.appUrl) return { status: 500, body: { error: "server_error" } };
+
+  let families: DigestFamilyRow[];
+  try {
+    families = await input.store.listFamilies();
+  } catch {
+    return { status: 500, body: { error: "server_error" } };
+  }
+
+  const counts: DigestCounts = { sent: 0, skipped: 0, failed: 0 };
+  for (const family of families) {
+    let outcome: Outcome | null;
+    try {
+      outcome = await sendForFamily(input, family);
+    } catch {
+      outcome = "failed";
+    }
+    if (outcome) counts[outcome] += 1;
+  }
+  input.log(counts);
+  return { status: 200, body: counts };
 }
