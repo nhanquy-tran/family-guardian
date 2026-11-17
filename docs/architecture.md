@@ -61,7 +61,7 @@ alerts(id, device_id, kind, sent_at)
 4. **Block**: the heartbeat response carries a rules version. On change, the extension fetches rules and updates `declarativeNetRequest` dynamic rules. Blocked navigations redirect to an extension page.
 5. **Focus score**: per child per day. `focus = homework_seconds / total_seconds * 100 - switch_penalty`, where a switch is a change between a homework and a non-homework domain within an active session, and `switch_penalty = min(20, switches_per_hour * 2)`. Computed in `packages/shared` and shown on the dashboard.
 6. **Tamper alert**: a `pg_cron` job every 5 minutes marks devices silent for over 15 minutes during the child's usual hours and calls the alert endpoint, which e-mails the parent via Resend once per incident.
-7. **Install**: the dashboard generates a `.reg` file that sets `ExtensionInstallForcelist` and `IncognitoModeAvailability=1` for Chrome, Edge and Brave under `HKLM\SOFTWARE\Policies`. The child must use a Standard Windows account.
+7. **Install**: the dashboard generates a `.reg` file that sets `ExtensionInstallForcelist`, a private-mode policy (`IncognitoModeAvailability=1` for Chrome and Brave, `InPrivateModeAvailability=1` for Edge) and `BrowserGuestModeEnabled=0` (guest windows do not load extensions) for Chrome, Edge and Brave under `HKLM\SOFTWARE\Policies`. The child must use a Standard Windows account.
 
 ## Security
 
