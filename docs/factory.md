@@ -2,7 +2,11 @@
 
 How Family Guardian is built: people set the target and decide at the gates, agents do the work, often overnight. Modelled on the Zühlke AI Factory production model (eight elements, five rules, six maturity steps) using only open-source parts. Decision: [ADR 0006](decisions/0006-ai-factory.md), auth and cost: [ADR 0007](decisions/0007-factory-auth-and-cost.md).
 
-## Flow of one change (maturity step 03, human on the loop)
+## Flow of one change
+
+Current operating mode: **step 04, Claude as delegated gate**, see [way-of-working.md](way-of-working.md) and ADR 0013. The diagram below shows the gates; in step 04 Claude takes GATE 1 and GATE 2.
+
+### Gates
 
 ```
 Owner writes issue ──label needs-spec──▶ Factory 0 router ──▶ Factory 1: spec-writer agent
