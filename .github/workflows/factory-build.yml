@@ -327,6 +327,10 @@ jobs:
           echo "result=$R" >> "$GITHUB_OUTPUT"
 
       # OpenSpec verify (1.2): completeness, correctness, coherence against the change and the specs.
+      - name: Stage the build before verifying
+        if: always() && steps.tests.outcome == 'success'
+        run: git add -A
+
       - name: Verifier agent
         id: verifier
         if: always() && steps.tests.outcome == 'success'
@@ -372,9 +376,9 @@ jobs:
         run: |
           CHANGE="${{ steps.change.outputs.name }}"
           V="openspec/changes/$CHANGE/VERIFY.md"
-          # The verifier reports only: keep VERIFY.md, drop any other edit it made (the build is staged).
+          # The verifier reports only: keep VERIFY.md, drop any other edit it made (the build was staged before it ran).
           cp "$V" /tmp/verify-keep.md 2>/dev/null || true
-          git checkout -- . ':!acceptance' && git clean -fdq -- . ':!acceptance'
+          git checkout -- . && git clean -fdq -- .
           cp /tmp/verify-keep.md "$V" 2>/dev/null || true
           if [ -f "$V" ] && head -1 "$V" | grep -q "VERIFY: PASS"; then VR="pass"; elif [ -f "$V" ]; then VR="fail (critical findings, see VERIFY.md)"; else VR="fail (no verify report)"; fi
           echo "result=$VR" >> "$GITHUB_OUTPUT"
