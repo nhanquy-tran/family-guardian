@@ -42,4 +42,4 @@ jobs:
             --model ${{ vars.FACTORY_REVIEW_MODEL || 'claude-sonnet-5-5' }}
             --max-turns 30
             --permission-mode default
-            --allowedTools "Read,Glob,Grep,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*)"
+            --allowedTools "Read,Glob,Grep,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(gh issue view:*)"

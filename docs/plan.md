@@ -28,3 +28,4 @@ These need the product owner's own accounts, credentials or approvals:
 
 - 2026-11-17: repo created (public), `CLAUDE_API_KEY` secret added, GitHub CLI installed.
 - 2026-11-17: Day 1 foundation on `main`: docs, ADRs 0001-0010, OpenSpec, monorepo skeleton (web, extension, shared), factory workflows, CI green. Labels, milestone "v0.1 MVP" and backlog issues #1-#19 created. Human tasks: #1, #2, #3. First factory trial: #4, #5, #6 (pure logic, no accounts needed).
+- 2026-11-17: First factory runs. Fixed: Claude action refuses bot-dispatched runs (`allowed_bots: github-actions`); GitHub blocks PR creation with `GITHUB_TOKEN` (added `FACTORY_TOKEN`); reviewer could not read issues (allowed `gh issue view`). Spec writer produced specs for #4, #5, #6 (PRs #20-#22), AI review ran on all three.
