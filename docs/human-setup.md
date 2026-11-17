@@ -11,6 +11,7 @@ Known values (not secret):
 | Google OAuth redirect URI | `https://gorggbnaidjszwhkzkzr.supabase.co/auth/v1/callback` |
 | Google Cloud project | `family-guardian` (ID `winter-pivot-515007-u4`) |
 | Vercel production URL | `https://family-guardian-one.vercel.app` |
+| Chrome Web Store extension ID | `mohnkinbpagpelmlfmgkgaplfikdjjcb` (draft, not yet submitted) |
 
 ## 1. Google OAuth consent screen (issue #1)
 
