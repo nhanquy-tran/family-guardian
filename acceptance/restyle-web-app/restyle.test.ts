@@ -35,7 +35,8 @@ describe("acceptance: restyle web app", () => {
       for (const t of tokens(ui[n] ?? "")) {
         // Palette colours carry a shade (red-500); `red`, `green`, `amber` alone are design tokens.
         expect(t, `${n}: ${t}`).not.toMatch(/(^|:)(text|bg|border|ring|from|to|via|fill|stroke)-((neutral|slate|gray|zinc|stone|red|green|amber|yellow|blue|rose)-\d+|white|black)$/);
-        expect(t, `${n}: ${t}`).not.toMatch(/^dark:|#[0-9a-fA-F]{3,8}$/);
+        expect(t, `${n}: ${t}`).not.toMatch(/^dark:/);
+        expect(t, `${n}: ${t}`).not.toMatch(/#[0-9a-fA-F]{3,8}/);
       }
     }
     // status pills carry the dark ink text, not the strong colour

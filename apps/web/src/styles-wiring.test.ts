@@ -27,7 +27,7 @@ describe("Tailwind generates CSS", () => {
   });
 
   const staticDir = join(webRoot, ".next", "static");
-  it.skipIf(!existsSync(staticDir))("build emits the classes", () => {
+  it.skipIf(!existsSync(staticDir))("Build emits the classes", () => {
     const css = cssFiles(staticDir)
       .map((f) => readFileSync(f, "utf8"))
       .join("\n");
