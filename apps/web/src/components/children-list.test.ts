@@ -80,6 +80,20 @@ describe("ChildrenList delete confirmation", () => {
   });
 });
 
+describe("ChildrenList delete confirmation text", () => {
+  it("Confirmation text", () => {
+    const actions = stubActions();
+    const html = render({ confirmDelete: "c1", actions });
+    expect(html).toContain("Minh");
+    expect(html).toContain("devices");
+    expect(html).toContain("usage history");
+    expect(html).toContain("block history");
+    // the Delete link only navigates; nothing is deleted until the confirm form is submitted
+    expect(links(render(), "Delete")[0][1]).toMatch(/href="[^"]*\?confirmDelete=c1"/);
+    expect(actions.deleteChildAction).not.toHaveBeenCalled();
+  });
+});
+
 describe("ChildrenList markup", () => {
   it("Children with controls", () => {
     const html = render();
