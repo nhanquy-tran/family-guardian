@@ -6,7 +6,7 @@ name: "Factory 5: watchdog"
 
 on:
   schedule:
-    - cron: "*/30 * * * *"
+    - cron: "26,56 * * * *" # off :00/:30, where GitHub delays or drops most scheduled runs
   workflow_dispatch:
 
 concurrency:
@@ -32,3 +32,9 @@ jobs:
           token: ${{ secrets.FACTORY_TOKEN || github.token }}
           fetch-depth: 0
       - run: bash .github/scripts/watchdog.sh
+      - name: Revive missed schedules
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node .github/scripts/revive-schedules.mjs factory-watchdog.yml | tee -a "$GITHUB_STEP_SUMMARY"

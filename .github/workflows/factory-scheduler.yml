@@ -5,7 +5,7 @@ name: "Factory 6: scheduler"
 
 on:
   schedule:
-    - cron: "*/30 * * * *"
+    - cron: "11,41 * * * *" # off :00/:30, where GitHub delays or drops most scheduled runs
   issues:
     types: [closed, labeled]
   pull_request:
@@ -24,7 +24,7 @@ concurrency:
 permissions:
   contents: read
   issues: write
-  actions: read
+  actions: write # revive-schedules.mjs starts workflows whose cron slot was skipped
 
 jobs:
   schedule:
@@ -43,3 +43,10 @@ jobs:
           MAX_PARALLEL: ${{ vars.FACTORY_MAX_PARALLEL || 3 }}
           DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
         run: node .github/scripts/scheduler.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Revive missed schedules
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+        run: node .github/scripts/revive-schedules.mjs factory-scheduler.yml | tee -a "$GITHUB_STEP_SUMMARY"
