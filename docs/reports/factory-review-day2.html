@@ -1,0 +1,168 @@
+<title>Factory Review, Day 2</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* Layout: a single reading column like an engineering post-mortem; tables for the ledger, pills for state. */
+:root {
+  --bg: #f6f7f9; --surface: #ffffff; --fg: #1b2230; --muted: #5b6577; --line: #dde2ea;
+  --accent: #2457d6; --accent-soft: #e6edfd;
+  --ok: #1d7a4a; --ok-soft: #e3f4ea; --warn: #9a6200; --warn-soft: #fbf0d9; --bad: #b3261e; --bad-soft: #fbe5e3;
+  --display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11151c; --surface: #181d26; --fg: #e5e9f0; --muted: #9aa4b5; --line: #2a3140;
+  --accent: #7ea2ff; --accent-soft: #1e2a47;
+  --ok: #6fd39b; --ok-soft: #173326; --warn: #f2c063; --warn-soft: #3a2e14; --bad: #ff8a80; --bad-soft: #3c1d1b; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #11151c; --surface: #181d26; --fg: #e5e9f0; --muted: #9aa4b5; --line: #2a3140;
+  --accent: #7ea2ff; --accent-soft: #1e2a47;
+  --ok: #6fd39b; --ok-soft: #173326; --warn: #f2c063; --warn-soft: #3a2e14; --bad: #ff8a80; --bad-soft: #3c1d1b; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font: 15px/1.6 var(--body); }
+.wrap { max-width: 920px; margin: 0 auto; padding-block: 40px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 40px; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.2; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(28px, 4vw, 38px); }
+h2 { font-size: 22px; }
+h3 { font-size: 16px; }
+p { margin: 0; max-width: 68ch; }
+.eyebrow { font: 600 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.lede { color: var(--muted); font-size: 16px; }
+header { display: grid; gap: 12px; }
+section { display: grid; gap: 16px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: grid; gap: 4px; }
+.kpi b { font: 700 26px var(--display); font-variant-numeric: tabular-nums; }
+.kpi span { color: var(--muted); font-size: 13px; }
+.kpi .delta { font: 600 12px var(--mono); color: var(--ok); }
+.table { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14px; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 12px var(--mono); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); background: var(--bg); }
+tr:last-child td { border-bottom: 0; }
+td.num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+code { font: 13px var(--mono); background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; }
+.pill { display: inline-block; font: 600 11px var(--mono); padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.bad { background: var(--bad-soft); color: var(--bad); }
+.pill.info { background: var(--accent-soft); color: var(--accent); }
+.flow { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; font: 13px/1.7 var(--mono); white-space: pre; }
+ul.plain { margin: 0; padding-left: 18px; display: grid; gap: 6px; max-width: 72ch; }
+.note { border-left: 3px solid var(--warn); background: var(--warn-soft); padding: 12px 14px; border-radius: 0 6px 6px 0; }
+footer { color: var(--muted); font-size: 13px; }
+a { color: var(--accent); }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Family Guardian · AI factory · 2026-11-18</div>
+    <h1>Factory review after day 2</h1>
+    <p class="lede">What the factory delivered, where it stalled or needed a human, what that cost, and the changes now live to make it more autonomous, self-fixing and cheaper. Claude acts as the delegated spec and build gate (ADR 0013).</p>
+  </header>
+
+  <section>
+    <h2>Day 2 in numbers</h2>
+    <div class="kpis">
+      <div class="kpi"><b>5</b><span>builds merged: #9 pairing, #11 extension, #13 devices, #14 blocking rules, #17 installer</span></div>
+      <div class="kpi"><b>7</b><span>specs approved by the Claude gate, all within one fix round (limit 3)</span></div>
+      <div class="kpi"><b>$0.30</b><span>average spec cost (was $0.78 on Opus)</span><span class="delta">−62%</span></div>
+      <div class="kpi"><b>7</b><span>AI reviews since tuning (35 on day 1, one per push)</span><span class="delta">−80% runs</span></div>
+      <div class="kpi"><b>$7.89</b><span>agent spend since cost tuning, 27 runs (day 1: $14.01, 57 runs)</span></div>
+      <div class="kpi"><b>0</b><span>escalations from the round limits; 2 owner tasks (secrets, store upload)</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Where the agent money goes now</h2>
+    <p>After moving specs to Sonnet and reviewing once per PR, the build agents are the main cost. Their turns rose with larger specs (#9 had 59 scenarios).</p>
+    <div class="table"><table>
+      <thead><tr><th>Agent</th><th class="num">Runs</th><th class="num">Cost</th><th class="num">Avg / run</th><th class="num">Avg turns</th><th>Change vs day 1</th></tr></thead>
+      <tbody>
+        <tr><td>Test writer</td><td class="num">6</td><td class="num">$2.86</td><td class="num">$0.48</td><td class="num">36</td><td>Up: bigger specs; one run lost to a turn cap</td></tr>
+        <tr><td>Developer</td><td class="num">5</td><td class="num">$1.99</td><td class="num">$0.40</td><td class="num">45</td><td>Up: bigger specs</td></tr>
+        <tr><td>Fixer (<code>@claude</code>)</td><td class="num">7</td><td class="num">$1.67</td><td class="num">$0.24</td><td class="num">15</td><td>Now measured; spec and test fix rounds</td></tr>
+        <tr><td>Reviewer</td><td class="num">7</td><td class="num">$0.75</td><td class="num">$0.11</td><td class="num">10</td><td>Runs −80%</td></tr>
+        <tr><td>Spec writer</td><td class="num">2</td><td class="num">$0.61</td><td class="num">$0.30</td><td class="num">18</td><td>Per spec −62% (Sonnet)</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>What went wrong, and why</h2>
+    <p>Every row needed Claude or the owner to step in. Root causes are grouped; each now has a fix in the next section.</p>
+    <div class="table"><table>
+      <thead><tr><th>Problem</th><th>Seen on</th><th>Root cause</th><th>Impact</th></tr></thead>
+      <tbody>
+        <tr><td>Impossible tests</td><td>#13, #11</td><td>Test writer computed an expectation wrong (a 7-day window) or asserted on framework output (React's form-replay <code>&lt;script&gt;</code>). The developer correctly refused to weaken them.</td><td><span class="pill bad">2 of 5 builds blocked</span></td></tr>
+        <tr><td>Silent stall</td><td>#13</td><td>PR conflicted with main (<code>docs/architecture.md</code>); GitHub then runs no PR checks. Claude's wait had no time limit.</td><td><span class="pill bad">~40 min idle</span> builds #11 and #14 unnoticed</td></tr>
+        <tr><td>Finished work discarded</td><td>#9</td><td>New turn cap (30) marked a completed test writer (37 turns) as failed.</td><td><span class="pill warn">1 rebuild, ~$0.5</span></td></tr>
+        <tr><td>Stale specs</td><td>#13, #14</td><td>Specs written before #10 merged re-created its columns and triggers; the migrations would have failed.</td><td><span class="pill warn">caught at spec gate</span></td></tr>
+        <tr><td>Migration order</td><td>#13</td><td>Migration timestamp taken from the spec was older than migrations applied meanwhile; Supabase refuses it.</td><td><span class="pill warn">caught by dry run</span></td></tr>
+        <tr><td>Reviews skipped</td><td>#44, #45</td><td>PRs open with a label: the skipped <code>labeled</code> run cancelled the real review (shared concurrency group).</td><td><span class="pill warn">2 PRs unreviewed</span></td></tr>
+        <tr><td>Platform knowledge gaps</td><td>#10, #11, #12, #17, #18</td><td>Agents did not know: PostgREST 1000-row limit, guest windows bypass extensions, switched-off laptops look like removed extensions, 401 should not wipe devices, queue size caps.</td><td><span class="pill info">5 gate fixes</span></td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>Improvements now live</h2>
+    <div class="table"><table>
+      <thead><tr><th>Change</th><th>Goal</th><th>Where</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td><b>Test arbiter.</b> When gates fail and tests were not weakened, an independent agent decides per failing test, by the spec, whether the test or the code is wrong; it may change only failing tests and NOTES.md, once per build. Changes are labelled <code>test-arbitrated</code> for the gate.</td><td>Self-fixing</td><td><code>arbiter.md</code>, <code>factory-build.yml</code></td><td><span class="pill info">live, not yet exercised</span></td></tr>
+        <tr><td><b>Watchdog</b> every 30 minutes: restarts runs older than 60 min with no progress for 30 min (max 2 restarts, then <code>needs-human</code>); merges main into conflicting factory/spec PRs or asks <code>@claude</code> to resolve.</td><td>Autonomous</td><td><code>factory-watchdog.yml</code></td><td><span class="pill ok">live, test run clean</span></td></tr>
+        <tr><td><b>Platform notes</b>: one knowledge file with every platform surprise so far; all agents read it.</td><td>Fewer gate fixes</td><td><code>docs/platform-notes.md</code></td><td><span class="pill ok">live</span></td></tr>
+        <tr><td><b>Agent rules</b>: build-time migration timestamps; follow main when a spec is stale; no factory edits to <code>architecture.md</code> (listed in NOTES, applied after merge); split specs above ~30 scenarios; test writers show computed expectations.</td><td>Fewer failures and conflicts</td><td><code>.claude/agents/*.md</code></td><td><span class="pill ok">live</span></td></tr>
+        <tr><td><b>Build agents continue on error</b>, caps sized to the work (test writer 45, developer 70); gates decide. Factory-caused failures do not count toward the 2-attempt limit.</td><td>No wasted work</td><td><code>factory-build.yml</code></td><td><span class="pill ok">live, verified on #9</span></td></tr>
+        <tr><td><b>Review concurrency fix</b>: label events no longer cancel the review.</td><td>Reliable review</td><td><code>factory-review.yml</code></td><td><span class="pill ok">live, verified on #46, #47</span></td></tr>
+        <tr><td><b>Evidence after rebase</b>: test commit SHA recomputed after the rebase.</td><td>Correct audit trail</td><td><code>open-factory-pr.sh</code></td><td><span class="pill ok">live</span></td></tr>
+        <tr><td><b>Claude's waits are time-boxed</b> (60 min), poll once a minute, and check mergeability first when a PR has no checks.</td><td>No idle factory</td><td><code>way-of-working.md</code></td><td><span class="pill ok">in use</span></td></tr>
+        <tr><td><b>Cost tuning</b> (ADR 0014): Sonnet specs, one review per PR, context budget.</td><td>Cost</td><td>workflows, agents</td><td><span class="pill ok">measured above</span></td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>How a change flows now</h2>
+<div class="flow">Owner picks an issue ─▶ Claude: needs-spec ─▶ spec writer (Sonnet) ─▶ AI review (once)
+                                     │
+                 SPEC GATE (Claude, max 3 rounds; reads platform notes + main)
+                                     │ merge
+           build-now when dependencies are merged (max 3 jobs in parallel)
+                                     │
+   test writer ─▶ developer ─▶ gates (red, coverage, not weakened, green, check+build)
+                                     │ any gate fails?
+                               test ARBITER (once) ─▶ gates again
+                                     │
+   rebase on main ─▶ PR with evidence ─▶ CI, Vercel, migration dry run, AI review (once)
+                                     │
+                 BUILD GATE (Claude, max 2 attempts) ─▶ merge ─▶ migration applied
+                                     │
+            watchdog (30 min): stalled runs restarted, conflicting PRs unblocked</div>
+  </section>
+
+  <section>
+    <h2>Next improvements (not yet done)</h2>
+    <ul class="plain">
+      <li><b>Dependency-aware queue:</b> issues declare <code>Depends on #N</code>; a workflow starts the build when the last dependency merges, instead of Claude sequencing by hand.</li>
+      <li><b>Staging database for previews</b> (Supabase branching) so migration PRs can be tested before merge.</li>
+      <li><b>Smaller build prompts:</b> pass only the scenario list and touched files to the test writer to cut its 36-turn average.</li>
+      <li><b>Daily factory digest</b> on the dashboard: items done, cost per item, interventions, open escalations.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Waiting on the owner</h2>
+    <div class="note">
+      <ul class="plain">
+        <li><b>Chrome Web Store:</b> upload <code>family-guardian-extension-0.2.0.zip</code> (project folder) and submit for review, unlisted. Permissions are now minimal: tabs, idle, storage, alarms, and our API host only.</li>
+        <li><b>Offline alerts (#18), before its build:</b> <code>ALERT_CRON_SECRET</code>, <code>ALERT_FROM_EMAIL</code> in Vercel and two Vault entries, see <code>docs/human-setup.md</code> section on alerts.</li>
+        <li><b>Product decision:</b> offline e-mails are capped at one per device per 24 h. Do you prefer quiet hours or a daily digest instead?</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>Sources: factory metrics comments on issues and PRs, GitHub Actions run history, gate comments, <code>docs/factory-learnings.md</code>. Costs are agent API costs only (no GitHub Actions minutes). Decisions: ADR 0013 (delegated gate), ADR 0014 (cost tuning), ADR 0015 (self-fixing factory).</footer>
+</div>
