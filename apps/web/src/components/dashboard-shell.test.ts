@@ -46,4 +46,38 @@ describe("DashboardShell", () => {
       expect(existsSync(join(dashboard, p)), p).toBe(true);
     }
   });
+
+  const classesOf = (tag: string): string[] => (tag.match(/class="([^"]*)"/)?.[1] ?? "").split(/\s+/).filter(Boolean);
+
+  it("header", () => {
+    const header = render().match(/<header[^>]*>[\s\S]*?<\/header>/)?.[0] ?? "";
+    const classes = classesOf(header.match(/<header[^>]*>/)?.[0] ?? "");
+    expect(classes).toContain("flex");
+    expect(classes).toContain("items-center");
+    expect(header).toContain("Tran family");
+    expect(header).toContain('action="/auth/sign-out"');
+    expect(header).toContain('method="post"');
+    expect(classesOf(header.match(/<button[^>]*>/)?.[0] ?? "")).toContain("min-h-10");
+  });
+
+  it("nav is horizontal and wraps", () => {
+    const nav = render().match(/<nav[\s\S]*?<\/nav>/)?.[0] ?? "";
+    const classes = classesOf(nav.match(/<nav[^>]*>/)?.[0] ?? "");
+    expect(classes).toContain("flex");
+    expect(classes).toContain("flex-wrap");
+    const links = nav.match(/<a[^>]*>/g) ?? [];
+    expect(links).toHaveLength(DASHBOARD_NAV.length);
+    for (const link of links) {
+      expect(classesOf(link).some((c) => /^(p|px|py)-\d/.test(c))).toBe(true);
+    }
+    const hrefs = [...nav.matchAll(/<a[^>]*href="([^"]*)"/g)].map((m) => m[1]);
+    expect(hrefs).toEqual(DASHBOARD_NAV.map((n) => n.href));
+  });
+
+  it("page container", () => {
+    const html = render();
+    const classes = classesOf(html.match(/^<div[^>]*>/)?.[0] ?? "");
+    for (const c of ["mx-auto", "max-w-4xl", "p-4", "sm:p-6"]) expect(classes).toContain(c);
+    expect(html).toMatch(/<main[^>]*>[\s\S]*page body[\s\S]*<\/main>/);
+  });
 });
