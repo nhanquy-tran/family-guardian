@@ -32,6 +32,7 @@ jobs:
         with:
           fetch-depth: 0
       - uses: anthropics/claude-code-action@v1
+        id: agent
         with:
           anthropic_api_key: ${{ secrets.CLAUDE_API_KEY }}
           github_token: ${{ github.token }}
@@ -43,3 +44,11 @@ jobs:
             --max-turns 30
             --permission-mode default
             --allowedTools "Read,Glob,Grep,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(gh issue view:*)"
+      - name: Metrics (reviewer)
+        if: always()
+        continue-on-error: true
+        env:
+          EXEC_FILE: ${{ steps.agent.outputs.execution_file }}
+          PR: ${{ github.event.pull_request.number || inputs.pr }}
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/post-metrics.sh reviewer "$PR" "$EXEC_FILE"
