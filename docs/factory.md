@@ -115,3 +115,7 @@ When a gate or the human catches something an earlier step should have caught, a
 ## When to stop the review loop
 
 The reviewer can always find something. A PR is ready for the human gate when it has **no high or medium findings**; low and info findings are optional and may be fixed later. At most two fix rounds per PR; after that the human decides.
+
+## Watchdog
+
+`Factory 5: watchdog` runs every 30 minutes: restarts stalled agent runs (max 2 restarts, then `needs-human`) and unblocks factory/spec PRs that conflict with main. Its run summary lists every action.

@@ -7,7 +7,11 @@ const NOW = new Date("2026-11-17T10:05:30Z");
 
 type Row = { device_id: string; minute_utc: string; domain: string; seconds: number };
 
-function fakeStore(opts: { known?: boolean; findThrows?: boolean; upsertThrows?: boolean; updateThrows?: boolean } = {}) {
+type BlockedRow = { device_id: string; at: string; domain: string };
+
+function fakeStore(
+  opts: { known?: boolean; findThrows?: boolean; upsertThrows?: boolean; updateThrows?: boolean; blockedThrows?: boolean } = {},
+) {
   const known = opts.known ?? true;
   const findDevice = vi.fn(async (hash: string) => {
     if (opts.findThrows) throw new Error("db down");
@@ -19,8 +23,11 @@ function fakeStore(opts: { known?: boolean; findThrows?: boolean; upsertThrows?:
   const updateDevice = vi.fn(async (_id: string, _patch: { last_seen_at: string; browser: string; extension_version: string }) => {
     if (opts.updateThrows) throw new Error("db down");
   });
-  const store: HeartbeatStore = { findDevice, upsertUsage, updateDevice };
-  return { store, findDevice, upsertUsage, updateDevice };
+  const insertBlocked = vi.fn(async (_rows: BlockedRow[]) => {
+    if (opts.blockedThrows) throw new Error("db down");
+  });
+  const store: HeartbeatStore = { findDevice, upsertUsage, insertBlocked, updateDevice };
+  return { store, findDevice, upsertUsage, insertBlocked, updateDevice };
 }
 
 type Fake = ReturnType<typeof fakeStore>;
@@ -48,6 +55,7 @@ async function call(
 
 function nothingWritten(f: Fake) {
   expect(f.upsertUsage).not.toHaveBeenCalled();
+  expect(f.insertBlocked).not.toHaveBeenCalled();
   expect(f.updateDevice).not.toHaveBeenCalled();
 }
 
@@ -345,6 +353,99 @@ describe("device status update", () => {
       expect(res.status).toBe(500);
       expect(res.body).toEqual({ error: "server_error" });
     }
+  });
+});
+
+describe("blocked attempts are stored from heartbeats", () => {
+  const MIN = 60_000;
+  const iso = (offsetMs: number) => new Date(NOW.getTime() + offsetMs).toISOString();
+  const valid = { at: iso(-MIN), domain: "tiktok.com" };
+  const validRow: BlockedRow = { device_id: "dev-1", at: valid.at, domain: "tiktok.com" };
+
+  it("Valid blocked attempt stored", async () => {
+    const f = fakeStore();
+    const res = await call(f, {
+      body: body({ entries: [entry("2026-11-17T10:03:00Z", "khanacademy.org", 10)], blocked: [valid] }),
+    });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ rulesVersion: 3 });
+    expect(f.insertBlocked).toHaveBeenCalledTimes(1);
+    expect(f.insertBlocked).toHaveBeenCalledWith([validRow]);
+    const usageOrder = f.upsertUsage.mock.invocationCallOrder[0]!;
+    const blockedOrder = f.insertBlocked.mock.invocationCallOrder[0]!;
+    const updateOrder = f.updateDevice.mock.invocationCallOrder[0]!;
+    expect(usageOrder).toBeLessThan(blockedOrder);
+    expect(blockedOrder).toBeLessThan(updateOrder);
+  });
+
+  it("Invalid attempts skipped, valid ones kept", async () => {
+    const f = fakeStore();
+    const res = await call(f, {
+      body: body({
+        blocked: [
+          { at: iso(-8 * 24 * 60 * MIN), domain: "tiktok.com" },
+          { at: iso(10 * MIN), domain: "tiktok.com" },
+          { at: iso(-MIN), domain: "tiktok.com/@x" },
+          "not an object",
+          valid,
+        ],
+      }),
+    });
+    expect(res.status).toBe(200);
+    expect(f.insertBlocked).toHaveBeenCalledTimes(1);
+    expect(f.insertBlocked).toHaveBeenCalledWith([validRow]);
+    expect(res.log).toHaveBeenCalledTimes(1);
+    expect(res.log.mock.calls[0]![0].skipped).toBe(4);
+
+    const none = fakeStore();
+    const noneRes = await call(none, { body: body({ blocked: [{ at: iso(10 * MIN), domain: "tiktok.com" }] }) });
+    expect(noneRes.status).toBe(200);
+    expect(none.insertBlocked).not.toHaveBeenCalled();
+  });
+
+  it("Request without blocked unchanged", async () => {
+    const f = fakeStore();
+    const res = await call(f, { body: body({ entries: [entry("2026-11-17T10:03:00Z", "khanacademy.org", 10)] }) });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ rulesVersion: 3 });
+    expect(f.upsertUsage).toHaveBeenCalledTimes(1);
+    expect(f.updateDevice).toHaveBeenCalledTimes(1);
+    expect(f.insertBlocked).not.toHaveBeenCalled();
+  });
+
+  it("Blocked insert failure", async () => {
+    const f = fakeStore({ blockedThrows: true });
+    const res = await call(f, { body: body({ blocked: [valid] }) });
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ error: "server_error" });
+  });
+});
+
+describe("blocked attempts are bounded and idempotent", () => {
+  const start = Date.parse("2026-11-17T09:00:00Z");
+  const attempts = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({ at: new Date(start + i * 1000).toISOString(), domain: "tiktok.com" }));
+
+  it("Too many blocked attempts", async () => {
+    const f = fakeStore();
+    const res = await call(f, { body: body({ blocked: attempts(1001) }) });
+    expect(res.status).toBe(413);
+    expect(res.body).toEqual({ error: "too_many_entries" });
+    nothingWritten(f);
+
+    const ok = fakeStore();
+    const okRes = await call(ok, { body: body({ blocked: attempts(1000) }) });
+    expect(okRes.status).toBe(200);
+    expect(ok.insertBlocked).toHaveBeenCalledTimes(1);
+    expect(ok.insertBlocked.mock.calls[0]![0]).toHaveLength(1000);
+  });
+
+  it("Duplicate attempts in one request stored once", async () => {
+    const f = fakeStore();
+    const dup = { at: "2026-11-17T10:04:00Z", domain: "tiktok.com" };
+    await call(f, { body: body({ blocked: [dup, dup] }) });
+    expect(f.insertBlocked).toHaveBeenCalledTimes(1);
+    expect(f.insertBlocked.mock.calls[0]![0]).toHaveLength(1);
   });
 });
 
