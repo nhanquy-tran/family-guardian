@@ -21,7 +21,7 @@ The system SHALL compute day boundaries and the local day of a minute in a given
 
 ### Requirement: Today overview
 
-`summarizeDay` SHALL return total seconds, the top 10 domains by seconds with their share of the total (whole percent), and seconds per category using `categorize`. Tests live in `packages/shared/src/usage-summary.test.ts`.
+`summarizeDay` SHALL take the aggregated rows and return total seconds, the top 10 domains by seconds with their share of the total (whole percent), and seconds per category using `categorize`. Tests live in `packages/shared/src/usage-summary.test.ts`.
 
 #### Scenario: Totals and categories
 - **GIVEN** 600 s on `youtube.com` and 300 s on `khanacademy.org`
@@ -62,7 +62,7 @@ The system SHALL compute day boundaries and the local day of a minute in a given
 `buildTimeline` SHALL return, for each minute of the local day that has usage, the minute of day (0–1439 in the timezone) and the category with the most seconds in that minute (ties resolved by `CATEGORIES` order). Tests live in `packages/shared/src/usage-summary.test.ts`.
 
 #### Scenario: Dominant category per minute
-- **GIVEN** in one minute 40 s on `youtube.com` and 20 s on `khanacademy.org`
+- **GIVEN** one minute row with domains `youtube.com` (40 s) and `khanacademy.org` (20 s)
 - **WHEN** `buildTimeline` is called
 - **THEN** that minute is `entertainment`
 
@@ -85,24 +85,78 @@ The page SHALL use the `tz` query parameter as the parent's timezone and SHALL f
 - **WHEN** `resolveTimezone` is called
 - **THEN** it returns `UTC`
 
+### Requirement: Database aggregation
+
+The system SHALL aggregate usage in SQL functions `usage_by_day(child_id, tz, days)` and `usage_timeline(child_id, tz, day)` in a new migration. Both SHALL be `security invoker` with `set search_path = ''`, so RLS applies, SHALL validate `tz` against `pg_timezone_names`, and SHALL not be executable by `anon`. Tests live in `supabase/tests/usage.test.ts` (PGlite harness).
+
+#### Scenario: Week with more than 1000 rows sums correctly
+- **GIVEN** a child with 2500 `usage_minutes` rows over 7 local days across several domains
+- **WHEN** a parent of that family calls `usage_by_day(child, 'UTC', 7)`
+- **THEN** the sum of `seconds` equals the sum of the inserted seconds and no domain total is missing
+
+#### Scenario: Days split by timezone in SQL
+- **GIVEN** a minute at `2026-03-10T18:30:00Z`
+- **WHEN** `usage_by_day` is called with `Asia/Ho_Chi_Minh`
+- **THEN** the seconds are on day `2026-03-11`
+
+#### Scenario: Timeline returns one row per minute
+- **GIVEN** 1440 minutes of data on one day, two domains in some minutes
+- **WHEN** `usage_timeline` is called for that day
+- **THEN** it returns 1440 rows with `minute_of_day` 0 to 1439 and the domain and seconds arrays of each minute
+
+#### Scenario: Other family's child
+- **GIVEN** a child of another family
+- **WHEN** a parent calls either function with that child id
+- **THEN** zero rows are returned
+
+#### Scenario: Invalid timezone
+- **GIVEN** `tz` is `Mars/Base`
+- **WHEN** either function is called
+- **THEN** it raises `invalid_timezone`
+
+#### Scenario: Days out of range
+- **GIVEN** `days` is 0 or 32
+- **WHEN** `usage_by_day` is called
+- **THEN** it raises an error
+
+#### Scenario: Anonymous caller
+- **GIVEN** the `anon` role
+- **WHEN** either function is called
+- **THEN** permission is denied
+
 ### Requirement: Usage data loading and access
 
-The page `/dashboard/usage/[childId]` SHALL load usage only through the signed-in parent's session client (RLS), SHALL page past 1000 rows, and SHALL show an error instead of partial numbers if loading fails. Tests live in `apps/web/src/lib/usage.test.ts`.
+The page `/dashboard/usage/[childId]` SHALL load usage only through the signed-in parent's session client (RLS) and the SQL functions, SHALL read in explicit ranges until a short page, and SHALL show an error instead of partial numbers if any data call fails. Tests live in `apps/web/src/lib/usage.test.ts`.
 
 #### Scenario: Child of another family
 - **GIVEN** a child id that RLS does not return for the parent
 - **WHEN** the usage data is requested
-- **THEN** the result is "not found" and no usage query runs
+- **THEN** the result is "not found" and no function is called
 
 #### Scenario: More than 1000 rows
-- **GIVEN** the client returns 1000 rows then 250 rows
+- **GIVEN** the client returns 1000 rows then 250 rows for ranges 0-999 and 1000-1999
 - **WHEN** `loadUsage` is called
 - **THEN** all 1250 entries are returned
 
-#### Scenario: Query failure
-- **GIVEN** the usage query returns an error
+#### Scenario: Child lookup failure
+- **GIVEN** the child select returns an error
+- **WHEN** `loadUsage` is called
+- **THEN** it returns an error result (not "not found") and no function is called
+
+#### Scenario: Aggregation call failure
+- **GIVEN** the `usage_by_day` or `usage_timeline` call returns an error
 - **WHEN** `loadUsage` is called
 - **THEN** it returns an error result with no entries
+
+#### Scenario: Failure on a later page
+- **GIVEN** the first page returns 1000 rows and the second page returns an error
+- **WHEN** `loadUsage` is called
+- **THEN** it returns an error result and none of the first page's rows
+
+#### Scenario: Error state shown
+- **GIVEN** an error result
+- **WHEN** the page renders
+- **THEN** it shows "Could not load usage. Try again." and no totals, sites, bars or strip
 
 #### Scenario: Unauthenticated parent
 - **GIVEN** no session
