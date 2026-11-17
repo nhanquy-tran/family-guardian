@@ -87,7 +87,7 @@ When Claude stops, it posts the same summary on the issue and in chat:
 
 ## Where Claude works locally
 
-- Never on the main checkout's `main`: every local change goes in a worktree under `.worktrees/<branch>` and reaches `main` through a PR (branch protection requires the CI `check` job).
+- Never on the main checkout's `main`: every local change goes in a worktree under `.worktrees/<branch>` and reaches `main` through a PR (branch protection requires the CI `check` and `ci-build` jobs).
 - Read the `Factory state` issue first in a new session: it lists every `autopilot` issue, its state and what it waits for.
 
 ## Records
