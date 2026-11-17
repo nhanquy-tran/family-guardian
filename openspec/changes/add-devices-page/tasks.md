@@ -9,7 +9,7 @@ Prerequisite: changes `add-database-schema` (#7), `add-parent-google-sign-in` (#
 
 ## 2. Database
 
-- [x] 2.1 Add `supabase/migrations/20261117120000_devices_name.sql` per design.md decision 1 (only the `name` column and its select grant, revoke/grant update, `devices_update_own` policy; do not touch `extension_version`); verify `devices.test.ts` and the existing `schema.test.ts` pass
+- [x] 2.1 Add `supabase/migrations/20261118090000_devices_name.sql` per design.md decision 1 (only the `name` column and its select grant, revoke/grant update, `devices_update_own` policy; do not touch `extension_version`); verify `devices.test.ts` and the existing `schema.test.ts` pass
 
 ## 3. Web
 

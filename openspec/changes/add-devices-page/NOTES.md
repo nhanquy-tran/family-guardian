@@ -15,7 +15,7 @@ The script is React's own and is not a client-JS dependency: the confirm step wo
 
 ## What changed
 
-- `supabase/migrations/20261117120000_devices_name.sql`: nullable `devices.name` (1..40), select grant on `name`, update limited to the `name` column, `devices_update_own` policy scoped to the parent's family.
+- `supabase/migrations/20261118090000_devices_name.sql`: nullable `devices.name` (1..40), select grant on `name`, update limited to the `name` column, `devices_update_own` policy scoped to the parent's family.
 - `apps/web/src/lib/devices/status.ts`, `devices.ts`: status, labels, list, rename, remove, error messages.
 - `apps/web/src/components/device-list.tsx`: server-rendered list with rename form, Remove link and `?remove=` confirmation panel.
 - `apps/web/src/app/dashboard/devices/actions.ts`, `page.tsx`: server actions and page using `createClient()` (no service-role client).

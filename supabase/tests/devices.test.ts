@@ -59,8 +59,8 @@ describe("devices migration", () => {
     expect(fresh).toBeNull();
 
     const files = migrationFiles();
-    expect(files).toContain("20261117120000_devices_name.sql");
-    expect(files.indexOf("20261117120000_devices_name.sql")).toBeGreaterThan(
+    expect(files).toContain("20261118090000_devices_name.sql");
+    expect(files.indexOf("20261118090000_devices_name.sql")).toBeGreaterThan(
       files.indexOf("20261117100000_heartbeat.sql"),
     );
     await expect(createDb()).resolves.toBeDefined();
