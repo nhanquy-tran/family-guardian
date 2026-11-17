@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { card, container, pageTitle } from "../../components/ui";
 import { RETENTION_MONTHS } from "../../lib/retention";
 
 export const metadata: Metadata = {
@@ -7,9 +8,10 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <main className="mx-auto max-w-2xl space-y-6 p-6 leading-relaxed">
-      <h1 className="text-3xl font-semibold">Privacy policy</h1>
-      <p className="text-sm text-neutral-500">Last updated: 17 November 2026</p>
+    <main className={`${container} max-w-3xl`}>
+      <article className={`${card} space-y-6 leading-relaxed`}>
+      <h1 className={pageTitle}>Privacy policy</h1>
+      <p className="text-sm text-ink-2">Last updated: 17 November 2026</p>
 
       <p>
         Family Guardian helps parents see which websites their child uses on a computer, for how long, and to block
@@ -51,11 +53,12 @@ export default function PrivacyPage() {
       <h2 className="text-xl font-semibold">Contact</h2>
       <p>
         Questions or deletion requests:{" "}
-        <a className="underline" href="https://github.com/nhanquy-tran/family-guardian/issues">
+        <a className="font-medium text-accent-ink underline" href="https://github.com/nhanquy-tran/family-guardian/issues">
           open an issue on the project page
         </a>
         .
       </p>
+      </article>
     </main>
   );
 }

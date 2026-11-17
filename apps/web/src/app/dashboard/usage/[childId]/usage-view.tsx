@@ -15,6 +15,7 @@ import {
   type UsageResult,
   type UsageView as View,
 } from "../../../../lib/usage";
+import { alertError, card, cardTitle } from "../../../../components/ui";
 
 const label = (c: Category) => c.charAt(0).toUpperCase() + c.slice(1);
 const emptyCategories = () => Object.fromEntries(CATEGORIES.map((c) => [c, 0])) as Record<Category, number>;
@@ -35,10 +36,10 @@ function Legend({ byCategory }: { byCategory: Record<Category, number> }) {
 
 function Sites({ sites }: { sites: SiteSummary[] }) {
   return (
-    <section>
-      <h2 className="mb-2 text-lg font-medium">Top sites</h2>
+    <section className={card}>
+      <h2 className={cardTitle}>Top sites</h2>
       {sites.length === 0 ? (
-        <p className="text-sm text-gray-600">No activity yet.</p>
+        <p className="text-sm text-ink-2">No activity yet.</p>
       ) : (
         <ol className="space-y-1">
           {sites.map((s) => (
@@ -68,7 +69,7 @@ export function UsageView({
   tz: string;
   today: string;
 }): ReactElement {
-  if (result.status !== "ok") return <p role="alert">{USAGE_ERROR_TEXT}</p>;
+  if (result.status !== "ok") return <p role="alert" className={alertError}>{USAGE_ERROR_TEXT}</p>;
 
   if (view === "week") {
     const week = summarizeWeek(result.days, tz, today);
@@ -86,7 +87,7 @@ export function UsageView({
                 <span>{d.day}</span>
                 <span>{formatDuration(d.totalSeconds)}</span>
               </div>
-              <div className="flex h-4 w-full overflow-hidden rounded bg-gray-100">
+              <div className="flex h-4 w-full overflow-hidden rounded-sm bg-shell">
                 {barSegments(d.byCategory, max).map((s) => (
                   <div
                     key={s.category}
@@ -109,13 +110,13 @@ export function UsageView({
   return (
     <div className="space-y-6">
       <p className="text-lg">Total active time: {formatDuration(day.totalSeconds)}</p>
-      <section>
-        <h2 className="mb-2 text-lg font-medium">By category</h2>
+      <section className={card}>
+        <h2 className={cardTitle}>By category</h2>
         <Legend byCategory={day.byCategory} />
       </section>
-      <section>
-        <h2 className="mb-2 text-lg font-medium">Day timeline</h2>
-        <div className="relative h-6 w-full overflow-hidden rounded bg-gray-100">
+      <section className={card}>
+        <h2 className={cardTitle}>Day timeline</h2>
+        <div className="relative h-6 w-full overflow-hidden rounded-sm bg-shell">
           {slots.map((s) => (
             <div
               key={s.minuteOfDay}
@@ -130,7 +131,7 @@ export function UsageView({
             />
           ))}
         </div>
-        <div className="mt-1 flex justify-between text-xs text-gray-600">
+        <div className="mt-1 flex justify-between text-xs text-ink-2">
           <span>00:00</span>
           <span>12:00</span>
           <span>24:00</span>

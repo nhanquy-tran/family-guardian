@@ -1,16 +1,13 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { buttonPrimary, container } from "./ui";
+import { DASHBOARD_NAV, DashboardNav } from "./dashboard-nav";
+import { buttonSecondary, container, navLink } from "./ui";
 
-export const DASHBOARD_NAV: { label: string; href: string }[] = [
-  { label: "Overview", href: "/dashboard" },
-  { label: "Children", href: "/dashboard/children" },
-  { label: "Devices", href: "/dashboard/devices" },
-  { label: "Install", href: "/dashboard/install" },
-];
+export { DASHBOARD_NAV };
 
 export function DashboardShell({
   familyName,
+  currentPath,
   children,
 }: {
   familyName: string;
@@ -19,26 +16,27 @@ export function DashboardShell({
 }) {
   return (
     <div className={container}>
-      <header className="flex items-center justify-between gap-4">
-        <span className="text-xl font-semibold">{familyName}</span>
-        <div className="flex items-center gap-2">
-          <Link href="/dashboard/settings" className="px-2 py-2 text-sm font-medium">
+      <header className="sticky top-0 z-10 -mx-4 mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 bg-ground/80 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <span className="flex items-center gap-2 text-base font-semibold tracking-tight text-ink">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icon.svg" alt="" width={28} height={28} loading="lazy" />
+            Family Guardian
+          </span>
+          <DashboardNav currentPath={currentPath} />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-medium text-ink-2">{familyName}</span>
+          <Link href="/dashboard/settings" className={navLink}>
             Settings
           </Link>
           <form method="post" action="/auth/sign-out">
-            <button type="submit" className={buttonPrimary}>
+            <button type="submit" className={buttonSecondary}>
               Sign out
             </button>
           </form>
         </div>
       </header>
-      <nav className="my-4 flex flex-wrap gap-x-4 gap-y-2">
-        {DASHBOARD_NAV.map((item) => (
-          <Link key={item.href} href={item.href} className="px-2 py-2 text-sm font-medium">
-            {item.label}
-          </Link>
-        ))}
-      </nav>
       <main>{children}</main>
     </div>
   );

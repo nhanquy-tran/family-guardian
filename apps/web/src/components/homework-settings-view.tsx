@@ -1,7 +1,7 @@
 import { CATEGORIES, type Category } from "@fg/shared";
 import type { ReactElement } from "react";
 import type { HomeworkError } from "../lib/homework";
-import { pageTitle } from "./ui";
+import { alertError, buttonDanger, buttonPrimary, card, cardTitle, input, pageTitle } from "./ui";
 
 type FormAction = (formData: FormData) => void | Promise<void>;
 
@@ -23,17 +23,16 @@ const MESSAGES: Record<HomeworkError, string> = {
   failed: "Settings could not be loaded or saved. Please try again.",
 };
 
-const INPUT = "rounded border border-gray-300 px-2 py-1";
-const BUTTON = "rounded bg-gray-900 px-3 py-1 text-white";
+const LINK = "text-sm font-medium text-accent-ink underline";
 
 export function HomeworkSettingsView({ childId, childName, categories, extraDomains, error, actions }: HomeworkSettingsViewProps): ReactElement {
   return (
     <div className="space-y-6">
       <h1 className={pageTitle}>Homework for {childName}</h1>
-      <a href="/dashboard/children" className="text-sm underline">Back to children</a>
-      {error ? <p role="alert" className="text-red-700">{MESSAGES[error] ?? MESSAGES.failed}</p> : null}
+      <a href="/dashboard/children" className={LINK}>Back to children</a>
+      {error ? <p role="alert" className={alertError}>{MESSAGES[error] ?? MESSAGES.failed}</p> : null}
 
-      <form action={actions?.saveCategoriesAction} className="space-y-2">
+      <form action={actions?.saveCategoriesAction} className={`${card} space-y-3`}>
         <input type="hidden" name="childId" value={childId} />
         <fieldset className="grid grid-cols-1 gap-1 sm:grid-cols-2">
           <legend className="font-medium">Categories that count as homework</legend>
@@ -44,23 +43,23 @@ export function HomeworkSettingsView({ childId, childName, categories, extraDoma
             </label>
           ))}
         </fieldset>
-        <button type="submit" className={BUTTON}>Save categories</button>
+        <button type="submit" className={buttonPrimary}>Save categories</button>
       </form>
 
-      <section className="space-y-2">
-        <h2 className="font-medium">Extra homework sites</h2>
-        <form action={actions?.addDomainAction} className="flex gap-2">
+      <section className={`${card} space-y-3`}>
+        <h2 className={cardTitle}>Extra homework sites</h2>
+        <form action={actions?.addDomainAction} className="flex flex-wrap gap-2">
           <input type="hidden" name="childId" value={childId} />
-          <input type="text" name="domain" required maxLength={253} placeholder="example.com" aria-label="Homework site" className={INPUT} />
-          <button type="submit" className={BUTTON}>Add site</button>
+          <input type="text" name="domain" required maxLength={253} placeholder="example.com" aria-label="Homework site" className={input} />
+          <button type="submit" className={buttonPrimary}>Add site</button>
         </form>
-        {extraDomains.length === 0 ? <p className="text-sm text-gray-600">No extra sites</p> : null}
+        {extraDomains.length === 0 ? <p className="text-sm text-ink-2">No extra sites</p> : null}
         {extraDomains.map((domain) => (
           <form key={domain} action={actions?.removeDomainAction} className="flex items-center gap-2">
             <input type="hidden" name="childId" value={childId} />
             <input type="hidden" name="domain" value={domain} />
             <span>{domain}</span>
-            <button type="submit" className="text-sm text-red-700 underline">Remove</button>
+            <button type="submit" className={buttonDanger}>Remove</button>
           </form>
         ))}
       </section>
