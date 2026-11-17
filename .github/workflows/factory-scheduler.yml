@@ -1,0 +1,45 @@
+name: "Factory 6: scheduler"
+
+# Starts specs and builds for `autopilot` issues in dependency order (Depends on / Touches lines),
+# at most FACTORY_MAX_PARALLEL agent jobs, and updates the "Factory state" issue (ADR 0017).
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  issues:
+    types: [closed, labeled]
+  pull_request:
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Only print what would happen
+        type: boolean
+        default: false
+
+concurrency:
+  group: factory-scheduler
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+  actions: read
+
+jobs:
+  schedule:
+    if: >-
+      github.event_name != 'issues' || github.event.action == 'closed' ||
+      contains(fromJson('["autopilot","ready"]'), github.event.label.name)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Schedule
+        env:
+          GH_TOKEN: ${{ secrets.FACTORY_TOKEN || github.token }}
+          MAX_PARALLEL: ${{ vars.FACTORY_MAX_PARALLEL || 3 }}
+          DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+        run: node .github/scripts/scheduler.mjs | tee -a "$GITHUB_STEP_SUMMARY"

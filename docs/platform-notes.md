@@ -40,3 +40,11 @@ Facts about the platforms we build on that caused real defects or failures. Ever
 - **GitHub runs no PR workflows on a PR that conflicts with its base**, silently. The watchdog merges main or asks `@claude`. (#13)
 - Pushes and PRs made with `GITHUB_TOKEN` do not trigger other workflows; the factory uses `FACTORY_TOKEN`.
 - A PR created with a label fires `opened` and `labeled` at once: never let one cancel the other (concurrency groups).
+- Labels added with `GITHUB_TOKEN` do not trigger the router; the scheduler labels with `FACTORY_TOKEN`.
+- Agent steps get no repository token in their shell (`GH_TOKEN: ""`): pushes, PRs and labels are done by workflow steps.
+
+## OpenSpec
+
+- `openspec/specs/` is current behaviour. A change that alters existing behaviour uses MODIFIED (full requirement text, all scenarios kept or replaced) or REMOVED; ADDED for an existing requirement name fails archive.
+- MODIFIED cannot just drop a scenario: give a replacement scenario, or REMOVED plus ADDED.
+- `openspec validate --specs --strict` needs a real `## Purpose` in every spec; archive fails on placeholders.
