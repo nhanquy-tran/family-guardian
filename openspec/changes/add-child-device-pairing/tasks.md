@@ -19,7 +19,7 @@
 ## 4. Pair endpoint
 
 - [ ] 4.1 Add `apps/web/src/lib/pairing/pair-device.ts` (`pairDevice`, `clientIp`, `sha256Hex`); verify `pair-device.test.ts` passes
-- [ ] 4.2 Add `apps/web/src/lib/supabase/admin.ts` (service-role client, server only, error naming a missing env var) and `app/api/device/pair/route.ts` (POST, wires deps, returns JSON with the status from `pairDevice`)
+- [ ] 4.2 Add `apps/web/src/lib/device/token.ts` (`hashDeviceToken`, SHA-256 lowercase hex) and `apps/web/src/lib/supabase/admin.ts` (imports `server-only`, service-role client, error naming a missing env var), and `app/api/device/pair/route.ts` (POST, wires deps, returns JSON with the status from `pairDevice`). If #10 already created the token or admin file, reuse it
 
 ## 5. Verify
 
