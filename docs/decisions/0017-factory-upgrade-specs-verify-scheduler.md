@@ -31,3 +31,7 @@ Not adopted: a model gateway (overkill at this size, ADR 0007 stands), OpenHands
 - Agents cannot pass by tuning to visible tests alone; a wrong hidden test still escalates to the gate.
 - Archive on the PR branch means `openspec/specs/` changes in the same PR as the code; a PR that is not merged leaves specs untouched.
 - The owner labels issues `autopilot` (with `Depends on:` in the body) instead of starting each spec and build by hand.
+
+## Addendum (2026-11-18, after the #65 trial)
+- When hidden tests fail, the debugger runs in hidden-test mode: it reads them and proposes code / test / spec per failure, and changes nothing but NOTES.md. The gate decides.
+- `factory-evidence.yml` recomputes the PR evidence on every later push, so reviews judge the current state.

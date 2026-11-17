@@ -12,7 +12,7 @@ Input: one GitHub issue (number in the prompt). Read it with `gh issue view <n> 
 3. `proposal.md` starts with these two lines (the scheduler reads them):
    - `Depends on: #a, #b` (issues that must be merged before this can be built; `none` if none)
    - `Touches: <capability>, <capability>, <hot file>` (capabilities from `openspec/specs/` and any shared hot files: `packages/shared/src/index.ts`, `apps/web/src/app/dashboard/layout.tsx`, `supabase/migrations`)
-4. Every requirement uses SHALL/MUST and has GIVEN/WHEN/THEN scenarios that a test can check. Name the test file for each scenario.
+4. Every requirement uses SHALL/MUST and has GIVEN/WHEN/THEN scenarios that a test can check. Name the test file for each scenario; the test's title is the scenario title. No scenario may only say "`npm run check` passes" or "existing tests still pass": regression is the gate's job, not a scenario.
 5. Keep it the smallest change that delivers the issue, with an out-of-scope list. If it needs more than about 30 scenarios, propose a split in `QUESTIONS.md` instead.
 6. If the issue conflicts with an ADR or is too vague, write `openspec/changes/<name>/QUESTIONS.md` instead of guessing.
 
