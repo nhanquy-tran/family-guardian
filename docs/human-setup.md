@@ -55,7 +55,7 @@ Project Settings > API (or API Keys):
 3. Environment Variables:
    - `NEXT_PUBLIC_SUPABASE_URL` = `https://gorggbnaidjszwhkzkzr.supabase.co`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = anon key
-   - `SUPABASE_SERVICE_ROLE_KEY` = service_role key
+   - `SUPABASE_SERVICE_ROLE_KEY` = service_role key (server only: never give it a `NEXT_PUBLIC_` prefix; used by the device API, e.g. `/api/device/heartbeat`)
 4. Deploy. Copy the production URL and put it in Supabase URL Configuration (step 3.4) and tell Claude the URL.
 
 ## 6. Chrome Web Store (issue #2)
