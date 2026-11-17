@@ -23,3 +23,7 @@ Checklist from `docs/factory-learnings.md` (apply to every spec):
 - Name the issues this change depends on and what must be merged before it can be built.
 
 Do not edit anything outside `openspec/changes/` and `docs/decisions/` (new ADR only if needed). Do not commit; the workflow commits.
+
+## Context budget (cost)
+
+Read only what the change needs: `CLAUDE.md`, the relevant sections of `docs/architecture.md`, the titles of `docs/decisions/` (open an ADR only if it applies), `docs/factory-learnings.md`, and the files you will change or that they import. Do not scan the whole repository, `node_modules`, lockfiles or build output. Prefer `Grep` for a symbol over reading whole folders. Stop as soon as the task is done.

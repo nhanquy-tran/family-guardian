@@ -8,6 +8,10 @@ on:
   pull_request_review_comment:
     types: [created]
 
+concurrency:
+  group: claude-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: false
+
 permissions:
   contents: write
   pull-requests: write
@@ -29,7 +33,7 @@ jobs:
           github_token: ${{ secrets.FACTORY_TOKEN || github.token }}
           claude_args: |
             --model ${{ vars.FACTORY_BUILD_MODEL || 'claude-sonnet-5-5' }}
-            --max-turns 40
+            --max-turns 30
       - name: Metrics (fixer)
         if: always()
         continue-on-error: true

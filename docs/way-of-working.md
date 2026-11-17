@@ -60,6 +60,12 @@ When Claude stops, it posts the same summary on the issue and in chat:
 - the options and Claude's recommendation;
 - cost and time spent.
 
+## Cost rules (ADR 0014)
+
+- Spec writer on Sonnet; Claude's spec gate compensates.
+- The AI reviewer runs once per PR. Claude adds the `re-review` label only when a fix changed behaviour or a gate needs fresh eyes.
+- Prefer one combined fix request per round over several small `@claude` comments.
+
 ## Records
 
 - Every Claude gate decision is a PR comment starting `Gate (Claude):` with the verdict and reasons, so the audit trail stays in GitHub (Zühlke rule 3: every gate leaves evidence).

@@ -101,7 +101,7 @@ jobs:
             OpenSpec change: ${{ steps.change.outputs.name }}. Issue: #${{ matrix.issue }}.
           claude_args: |
             --model ${{ env.MODEL }}
-            --max-turns 40
+            --max-turns 30
             --permission-mode default
             --allowedTools "Read,Write,Edit,Glob,Grep,Bash(npx vitest:*),Bash(npm run typecheck:*),Bash(npm test:*),Bash(ls:*)"
 
@@ -151,7 +151,7 @@ jobs:
             OpenSpec change: ${{ steps.change.outputs.name }}. Issue: #${{ matrix.issue }}.
           claude_args: |
             --model ${{ env.MODEL }}
-            --max-turns ${{ vars.FACTORY_DEV_MAX_TURNS || 80 }}
+            --max-turns ${{ vars.FACTORY_DEV_MAX_TURNS || 60 }}
             --permission-mode default
             --allowedTools "Read,Write,Edit,Glob,Grep,Bash(npm run:*),Bash(npm test:*),Bash(npx vitest:*),Bash(npx openspec:*),Bash(npm install:*),Bash(ls:*),Bash(git status:*),Bash(git diff:*)"
 
