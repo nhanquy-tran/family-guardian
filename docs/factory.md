@@ -50,7 +50,7 @@ Owner writes issue ──label needs-spec──▶ Factory 0 router ──▶ Fa
 | Code and Git | This GitHub repo |
 | Traceability | Issue #n → `spec/n` PR → `openspec/changes/<name>` → `factory/n` PR (`Closes #n`) |
 | QA and security | CI (`ci.yml`), test-first gate, tests-not-weakened gate, gitleaks, reviewer agent |
-| Observability and metrics | Evidence table per PR (model, wall time, gates), Actions run summary, Anthropic Console usage |
+| Observability and metrics | Evidence table per PR (model, wall time, gates), metrics comment per agent step (cost, turns, time), control pane in `tools/factory-dashboard/`, Anthropic Console usage |
 
 The five rules: (1) no agent approves its own work: only the owner merges; (2) the checker is not the producer: tests by a separate agent before implementation, deterministic gates before AI review; (3) every gate leaves evidence in the PR; (4) everything is a versioned file; (5) gateway: not used, see ADR 0007.
 
@@ -61,6 +61,20 @@ Repo secrets: `CLAUDE_API_KEY` (required), `FACTORY_TOKEN` (recommended: fine-gr
 Repo variables (optional): `FACTORY_SPEC_MODEL` (default `claude-opus-5-5`), `FACTORY_BUILD_MODEL` and `FACTORY_REVIEW_MODEL` (default `claude-sonnet-5-5`), `FACTORY_MAX_PER_NIGHT` (default 3), `FACTORY_DEV_MAX_TURNS` (default 80).
 
 Security on a public repo: only the owner's labels and `@claude` comments trigger agents; dispatch needs write access. Issue text is treated as data by the agents.
+
+## Control pane (dashboard)
+
+`tools/factory-dashboard/` is a static page (HTML, CSS, one JS file, no build) that shows and drives the factory from the browser:
+
+- **Board**: open issues by factory label (backlog, `needs-spec` … `needs-human`, done), `human-task` issues apart, with the linked `spec/<n>` and `factory/<n>` PRs.
+- **Specs**: `spec` PRs, their OpenSpec change folder and task progress from `tasks.md` (read from the open factory branch, the open spec branch, `main` or the archive).
+- **Runs**: recent `Factory 1/3/4` and CI runs, with agent wall time today and this week.
+- **Cost**: per issue, per run, today, this week and total. After each agent step the workflows run `.github/scripts/post-metrics.sh`, which reads the action's `execution_file` and comments `Factory metrics: … <!-- factory-metrics {json} -->` on the issue (or PR for the reviewer). The dashboard reads those comments, trusting only the owner, collaborators and `github-actions[bot]`.
+- **Actions** (need a token, each behind a confirmation): squash-merge a PR (shows the evidence table and CI checks first, needs an explicit tick), add `needs-spec` or `build-now`, re-run failed jobs, comment.
+
+Where: GitHub Pages, deployed by `dashboard-pages.yml` on every push to `main` that touches the folder (one-time setup: Settings > Pages > Source: GitHub Actions). It also works locally: open `tools/factory-dashboard/index.html`, or serve the folder with any static server. `?repo=owner/name` points it at another repo.
+
+Token: read-only views work without one (60 GitHub API calls per hour per IP, about 12 per refresh). For actions and higher limits, paste a **fine-grained personal access token for this repository only** with read/write on **Actions, Contents, Issues and Pull requests** (Metadata read is added automatically). It is stored in the browser's `localStorage`, sent only to `api.github.com`, never committed, and removed with "Forget token". Give it a short expiry. Labels and merges made with it are the owner's own actions, so the router still accepts them.
 
 ## Writing a good issue for the factory
 

@@ -83,6 +83,7 @@ jobs:
           gh issue edit "$ISSUE" --remove-label ready --remove-label build-now --add-label in-progress
 
       - name: Test writer agent
+        id: test_writer
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.CLAUDE_API_KEY }}
@@ -97,6 +98,13 @@ jobs:
             --permission-mode default
             --allowedTools "Read,Write,Edit,Glob,Grep,Bash(npx vitest:*),Bash(npm run typecheck:*),Bash(npm test:*),Bash(ls:*)"
 
+      - name: Metrics (test-writer)
+        if: always()
+        continue-on-error: true
+        env:
+          EXEC_FILE: ${{ steps.test_writer.outputs.execution_file }}
+        run: bash .github/scripts/post-metrics.sh test-writer "$ISSUE" "$EXEC_FILE"
+
       - name: Commit tests
         id: tests
         run: |
@@ -108,6 +116,7 @@ jobs:
           git diff --name-only HEAD~1 | grep -E '\.(test|spec)\.tsx?$' > /tmp/test-files.txt || true
 
       - name: Developer agent
+        id: developer
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.CLAUDE_API_KEY }}
@@ -121,6 +130,13 @@ jobs:
             --max-turns ${{ vars.FACTORY_DEV_MAX_TURNS || 80 }}
             --permission-mode default
             --allowedTools "Read,Write,Edit,Glob,Grep,Bash(npm run:*),Bash(npm test:*),Bash(npx vitest:*),Bash(npx openspec:*),Bash(npm install:*),Bash(ls:*),Bash(git status:*),Bash(git diff:*)"
+
+      - name: Metrics (developer)
+        if: always()
+        continue-on-error: true
+        env:
+          EXEC_FILE: ${{ steps.developer.outputs.execution_file }}
+        run: bash .github/scripts/post-metrics.sh developer "$ISSUE" "$EXEC_FILE"
 
       - name: "Gate: tests not weakened"
         id: guard

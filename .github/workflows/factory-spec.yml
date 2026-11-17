@@ -42,6 +42,7 @@ jobs:
           git checkout -b "spec/${ISSUE}"
           gh issue edit "$ISSUE" --remove-label needs-spec --add-label spec-in-progress
       - name: Spec writer agent
+        id: agent
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.CLAUDE_API_KEY }}
@@ -55,6 +56,12 @@ jobs:
             --max-turns 40
             --permission-mode default
             --allowedTools "Read,Write,Edit,Glob,Grep,Bash(gh issue view:*),Bash(npx openspec:*),Bash(openspec:*),Bash(ls:*)"
+      - name: Metrics (spec-writer)
+        if: always()
+        continue-on-error: true
+        env:
+          EXEC_FILE: ${{ steps.agent.outputs.execution_file }}
+        run: bash .github/scripts/post-metrics.sh spec-writer "$ISSUE" "$EXEC_FILE"
       - name: Commit and open PR
         run: |
           git checkout -B "spec/${ISSUE}"

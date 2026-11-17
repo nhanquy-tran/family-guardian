@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Factory Control Pane</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <h1>Factory control pane</h1>
+      <a id="repo-link" class="muted" href="#"></a>
+    </div>
+    <div class="top-actions">
+      <span id="status" class="muted"></span>
+      <span id="rate" class="muted"></span>
+      <button id="refresh" type="button">Refresh</button>
+      <button id="token-btn" type="button">Token</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <a href="#board">Board</a>
+    <a href="#specs">Specs</a>
+    <a href="#runs">Runs</a>
+    <a href="#cost">Cost</a>
+  </nav>
+
+  <div id="banner" class="banner" hidden></div>
+
+  <main>
+    <section id="board">
+      <h2>Pipeline</h2>
+      <div id="board-cols" class="board"></div>
+      <h3>Human tasks</h3>
+      <div id="human-tasks" class="cards-row"></div>
+    </section>
+
+    <section id="specs">
+      <h2>Specs</h2>
+      <div id="specs-body" class="table-wrap"></div>
+    </section>
+
+    <section id="runs">
+      <h2>Factory runs</h2>
+      <div id="agent-time" class="tiles"></div>
+      <div id="runs-body" class="table-wrap"></div>
+    </section>
+
+    <section id="cost">
+      <h2>Cost</h2>
+      <div id="cost-tiles" class="tiles"></div>
+      <h3>Per issue</h3>
+      <div id="cost-issues" class="table-wrap"></div>
+      <h3>Per run</h3>
+      <div id="cost-runs" class="table-wrap"></div>
+      <p class="muted small">From <code>&lt;!-- factory-metrics --&gt;</code> comments posted by the factory workflows (last 300 comments, owner and bot authors only).</p>
+    </section>
+  </main>
+
+  <dialog id="token-dialog">
+    <form method="dialog" class="dialog-body">
+      <h2>GitHub token</h2>
+      <p class="small">A fine-grained personal access token for this repository only, with read/write on Actions, Contents, Issues and Pull requests. It stays in this browser's <code>localStorage</code> and is sent only to <code>api.github.com</code>.</p>
+      <input id="token-input" type="password" autocomplete="off" placeholder="github_pat_…">
+      <p id="token-who" class="small muted"></p>
+      <div class="dialog-actions">
+        <button value="forget" id="token-forget" class="danger" type="submit">Forget token</button>
+        <button value="cancel" type="submit">Cancel</button>
+        <button value="save" class="primary" type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="confirm-dialog">
+    <form method="dialog" class="dialog-body">
+      <h2 id="confirm-title"></h2>
+      <div id="confirm-content"></div>
+      <textarea id="confirm-text" rows="5" hidden></textarea>
+      <label id="confirm-ack-wrap" class="ack" hidden><input id="confirm-ack" type="checkbox"> <span id="confirm-ack-label"></span></label>
+      <p id="confirm-error" class="error" hidden></p>
+      <div class="dialog-actions">
+        <button value="cancel" type="submit">Cancel</button>
+        <button value="ok" id="confirm-ok" class="primary" type="submit"></button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
