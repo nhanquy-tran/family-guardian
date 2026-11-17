@@ -8,7 +8,13 @@
   <body>
     <main>
       <h1>Family Guardian</h1>
-      <p id="status">Not connected. Pairing arrives in a later change.</p>
+      <p id="status">Not connected.</p>
+      <form id="pair-form">
+        <label for="code">Pairing code</label>
+        <input id="code" type="text" autocomplete="off" maxlength="12" />
+        <button id="connect" type="submit">Connect</button>
+      </form>
+      <p id="error" role="alert"></p>
     </main>
     <script type="module" src="./main.ts"></script>
   </body>
