@@ -89,6 +89,7 @@ Alerts stay off until all of this exists: the cron function only logs a warning 
    select vault.create_secret('<the secret>', 'alert_cron_secret');
    ```
 4. To rotate the secret, update the Vault entry and the Vercel env together and redeploy; only one value works at a time.
+5. Digest e-mails (issue #58) reuse the same Vault secrets and mail settings. Also add the Vercel env `APP_URL` = the app's base URL (for example `https://family-guardian-one.vercel.app`, no trailing slash; used for the dashboard link in the digest) and redeploy. Without `APP_URL` the digest endpoint answers `500` and sends nothing.
 5. Check: `select jobname, schedule from cron.job;` lists `offline-alerts`, `purge-pair-attempts` and `purge-old-data`.
 
 An alert e-mail is sent at most once per device per 24 hours, and a laptop that is simply switched off also triggers it.

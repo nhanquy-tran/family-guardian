@@ -5,6 +5,7 @@ import { FocusOverviewView } from "../../components/focus-overview-view";
 import { pageTitle } from "../../components/ui";
 import { loadFocusOverview } from "../../lib/focus-overview";
 import { createClient } from "../../lib/supabase/server";
+import { TimezoneCapture } from "./timezone-capture";
 import { TimezoneSync } from "./usage/[childId]/timezone-sync";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -18,6 +19,7 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
       <Suspense>
         <TimezoneSync />
       </Suspense>
+      <TimezoneCapture />
       <h1 className={pageTitle}>Overview</h1>
       {overview.status === "error" ? (
         <p role="alert" className="text-red-700">Could not load</p>

@@ -159,7 +159,11 @@ describe("data retention", () => {
     const files = migrationFiles();
     const file = files.find((f) => f.endsWith("_data_retention.sql")) ?? "";
     expect(file).not.toBe("");
-    expect(files[files.length - 1]).toBe(file);
+    // newer than every migration that existed when it was built (later migrations may follow it)
+    const offlineAlerts = files.find((f) => f.endsWith("_offline_alerts.sql")) ?? "";
+    expect(offlineAlerts).not.toBe("");
+    expect(files.indexOf(file)).toBeGreaterThan(files.indexOf(offlineAlerts));
+    expect(files.slice(files.indexOf(file) + 1).every((f) => f > file)).toBe(true);
     const sql = readFileSync(join(MIGRATIONS_DIR, file), "utf8");
     expect(sql).toContain(`${RETENTION_MONTHS} months`);
     expect(sql).toContain("purge-old-data");

@@ -31,18 +31,6 @@ export function createOfflineAlertStore(client: SupabaseClient): OfflineAlertSto
       );
     },
 
-    async hasRecentEmail(deviceId, since) {
-      const { data, error } = await client
-        .from("alerts")
-        .select("id")
-        .eq("device_id", deviceId)
-        .eq("kind", "offline")
-        .gt("emailed_at", since)
-        .limit(1);
-      if (error) fail("alerts lookup");
-      return (data ?? []).length > 0;
-    },
-
     async claimAlert(deviceId, lastSeenAt, emailedAt) {
       const { data, error } = await client
         .from("alerts")
@@ -55,26 +43,9 @@ export function createOfflineAlertStore(client: SupabaseClient): OfflineAlertSto
       return (data ?? []).length > 0;
     },
 
-    async releaseAlert(deviceId, lastSeenAt) {
-      const { error } = await client
-        .from("alerts")
-        .delete()
-        .eq("device_id", deviceId)
-        .eq("incident_last_seen_at", lastSeenAt);
-      if (error) fail("alert release");
-    },
-
-    async listParentEmails(familyId) {
-      const { data, error } = await client.from("parents").select("user_id").eq("family_id", familyId);
-      if (error) fail("parents lookup");
-      const emails: string[] = [];
-      for (const row of (data ?? []) as { user_id: string }[]) {
-        const res = await client.auth.admin.getUserById(row.user_id);
-        if (res.error) fail("auth lookup");
-        const email = res.data.user?.email;
-        if (email) emails.push(email);
-      }
-      return emails;
+    async resolveReturned(now) {
+      const { error } = await client.rpc("resolve_offline_alerts", { p_now: now });
+      if (error) fail("resolve_offline_alerts");
     },
   };
 }
