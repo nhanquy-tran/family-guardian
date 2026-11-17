@@ -5,10 +5,10 @@ name: Supabase migrations
 
 on:
   pull_request:
-    paths: ["supabase/**"]
+    paths: ["supabase/**", ".github/workflows/supabase-migrate.yml"]
   push:
     branches: [main]
-    paths: ["supabase/**"]
+    paths: ["supabase/**", ".github/workflows/supabase-migrate.yml"]
   workflow_dispatch:
 
 concurrency:
