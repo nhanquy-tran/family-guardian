@@ -202,7 +202,7 @@ describe("controller rejected (401)", () => {
   });
 
   it("pruning continues while rejected", async () => {
-    const old = { minuteUtc: "2026-11-10T10:04:00.000Z", domain: "a.com", seconds: 30 };
+    const old = { minuteUtc: "2026-11-10T10:00:00.000Z", domain: "a.com", seconds: 30 };
     const recent = { minuteUtc: "2026-11-17T10:04:00.000Z", domain: "a.com", seconds: 30 };
     const { post } = always(ok);
     const { controller, data } = setup({ ...paired, authState: "rejected", queue: [old, recent] }, post);

@@ -22,3 +22,5 @@ Each scenario is covered by the committed unit tests (`config`, `browser-info`, 
 
 - Set `WXT_API_BASE_URL` in the environment that builds the extension zip. Background and options wiring is not unit-tested; try a real pairing in a browser.
 - Privacy: only domain, seconds, browser and extension version are sent; the tracker reduces URLs to the registrable domain before storage.
+
+Test data changed by gate decision (Claude, ADR 0013): old entry moved outside the 7-day window.
