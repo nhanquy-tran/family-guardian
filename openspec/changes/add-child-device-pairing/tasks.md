@@ -8,7 +8,7 @@
 ## 2. Shared and database
 
 - [ ] 2.1 Add `packages/shared/src/pairing.ts` (alphabet, constants, `generatePairingCode`, `normalizePairingCode`, `PairRequest`, `PairResponse`) and export it from `index.ts`; verify `pairing.test.ts` passes
-- [ ] 2.2 Add migration `supabase/migrations/<timestamp>_device_pairing.sql` (`pair_attempts`, `purge_pair_attempts` with the guarded daily `cron.schedule`, `register_pair_attempt`, `redeem_pairing_code`, grants) per design.md decision 5; verify `supabase/tests/pairing.test.ts` and the existing schema tests pass
+- [ ] 2.2 Add migration `supabase/migrations/<timestamp>_device_pairing.sql` (`pair_attempts`, `purge_pair_attempts` with the guarded daily `cron.schedule`, `register_pair_attempt`, `redeem_pairing_code`, grants) per design.md decision 6; verify `supabase/tests/pairing.test.ts` and the existing schema tests pass
 
 ## 3. Children
 
@@ -23,7 +23,7 @@
 
 ## 5. Verify
 
-- [ ] 5.0 Confirm `PAIR_RATE_LIMIT_SECRET` is in `apps/web/.env.example` and set in Vercel, and that ADR 0012 is approved by the human
+- [ ] 5.0 Confirm `PAIR_RATE_LIMIT_SECRET` is in `apps/web/.env.example` and set in Vercel (ADR 0012 is accepted)
 
 - [ ] 5.1 Update `docs/architecture.md` key flow 2 and data model (`pair_attempts`, rate limit storage, single-use redeem)
 - [ ] 5.2 Run `npm run check` and `npm run build` and fix all failures without weakening tests

@@ -61,13 +61,19 @@ Test files:
 - **AND** one insert into `pairing_codes` was made with `{ code: "AB2CD3", child_id: "child-1", expires_at: "2026-11-17T11:00:00.000Z" }`
 
 ### Requirement: A new code supersedes the child's earlier codes
-`createPairingCode` SHALL first delete all earlier `pairing_codes` rows of that child with the parent's client (RLS applies), then insert the new code. A child therefore has at most one code that can be redeemed.
+`createPairingCode` SHALL first delete all earlier `pairing_codes` rows of that child with the parent's client (RLS applies), then insert the new code. If the delete returns an error it SHALL return `{ ok: false, reason: "failed" }` and SHALL NOT insert. A child therefore has at most one code that can be redeemed.
 
 #### Scenario: Earlier codes are deleted before the insert
 - **GIVEN** a fake client that records calls in order and an insert that succeeds
 - **WHEN** `createPairingCode(client, "child-1", ...)` is called (`create-code.test.ts`)
 - **THEN** the first recorded call is `from("pairing_codes").delete().eq("child_id", "child-1")` and the insert comes after it
 - **AND** no delete or select targets another child
+
+#### Scenario: Failed delete of earlier codes does not insert
+- **GIVEN** a fake client whose `pairing_codes` delete resolves a non-null `error` and records every call
+- **WHEN** `createPairingCode(client, "child-1", ...)` is called (`create-code.test.ts`)
+- **THEN** it returns `{ ok: false, reason: "failed" }`
+- **AND** no insert into `pairing_codes` was made, so no second valid code exists
 
 #### Scenario: Old code A stops working when B is generated
 - **GIVEN** family A's child has active code `AAAAAA` and the service role can call `redeem_pairing_code` (`pairing.test.ts`, parent client via `asParent`)
@@ -185,22 +191,17 @@ For a code that is malformed, unknown, expired or already used, `pairDevice` SHA
 ### Requirement: Fail closed when the limiter or its secret fails
 If `hashIp` or `registerAttempt` throws or returns an error, or `PAIR_RATE_LIMIT_SECRET` is missing or empty, `pairDevice` and the route SHALL return `500 { error: "server_error" }`, SHALL NOT call `redeem`, SHALL NOT fall back to a plain hash of the IP, and the body SHALL NOT contain the error text.
 
-#### Scenario: registerAttempt throws
-- **GIVEN** `registerAttempt` throwing `Error("limiter down")` and a `redeem` spy
+#### Scenario: registerAttempt throws or rejects
+- **GIVEN** `registerAttempt` throwing `Error("limiter down")`, and in a second case returning a rejected promise (how `admin.ts` maps an RPC error), and a `redeem` spy
 - **WHEN** `pairDevice` is called with a valid request (`pair-device.test.ts`)
-- **THEN** it returns `500 { error: "server_error" }` and the body does not contain `limiter down`
+- **THEN** in both cases it returns `500 { error: "server_error" }` and the body does not contain `limiter down`
 - **AND** `redeem` was not called
-
-#### Scenario: registerAttempt reports an error
-- **GIVEN** `registerAttempt` resolving an error result (the RPC error mapped to a throw by `admin.ts`, here simulated by a rejected promise) and a `redeem` spy
-- **WHEN** `pairDevice` is called with a valid request (`pair-device.test.ts`)
-- **THEN** it returns `500 { error: "server_error" }` and `redeem` was not called
 
 #### Scenario: HMAC secret missing
 - **GIVEN** `PAIR_RATE_LIMIT_SECRET` unset (and, in a second case, set to `""`), and a `registerAttempt` spy
 - **WHEN** the deps are built through `admin.ts` and `pairDevice` is called with a valid request (`admin.test.ts`, `route.test.ts`)
 - **THEN** the route returns `500 { error: "server_error" }` and the body does not contain the variable value
-- **AND** neither `registerAttempt` nor `redeem` was called, and no plain SHA-256 of the IP was produced
+- **AND** `hashIp` throws, `registerAttempt` is not called and `redeem` is not called
 
 #### Scenario: RPC error becomes a thrown error
 - **GIVEN** a fake service-role client whose `rpc("register_pair_attempt")` resolves `{ data: null, error: { message: "boom" } }`

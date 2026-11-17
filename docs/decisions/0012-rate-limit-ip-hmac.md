@@ -1,6 +1,6 @@
 # 0012. Rate limit device pairing with a keyed IP hash
 
-Date: 2026-11-17. Status: proposed.
+Date: 2026-11-17. Status: accepted.
 
 ## Context
 `POST /api/device/pair` trades a 6-character code for a device token. Without a limit, codes can be guessed by brute force. The limit has to be per client IP, so the server must remember something about the caller IP for a short time. ADR 0005 limits what the extension sends; this data is not sent by the extension but derived by the server from the request, so it needs a decision of its own. Raised in the review of the spec for #9.
@@ -17,4 +17,4 @@ Date: 2026-11-17. Status: proposed.
 ## Consequences
 - One new secret to set in Vercel and in local `.env`; rotating it resets all counters, which is harmless.
 - Pupils behind one school NAT share the limit.
-- The human must approve this ADR before the implementation is merged.
+- Approved by the owner on the review of the spec for #9.

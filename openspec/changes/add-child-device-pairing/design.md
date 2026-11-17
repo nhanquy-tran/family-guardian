@@ -29,7 +29,7 @@ As in #8, pages, server actions and route handlers stay thin; logic lives in `.t
    - Page `app/dashboard/children/page.tsx` (Server Component) loads children and their newest active code (`pairing_codes.select("code, child_id, expires_at").gt("expires_at", now)`), renders `<ChildrenList items activeCodes error pairError confirmDelete actions />` (`src/components/children-list.tsx`; `items` instead of `children` to avoid the React prop; `activeCodes` maps child id to `{ code, expiresAt }`; `pairError` is `{ childId, reason }`; `confirmDelete` is a child id or `null`; `actions` holds the server action functions so tests can pass stubs). Server actions in `app/dashboard/children/actions.ts` call the lib, then `revalidatePath("/dashboard/children")` or `redirect` with a `?error=` / `?pairError=<childId>` query. Delete is two-step without client JS: the **Delete** button is a link to `/dashboard/children?confirmDelete=<id>`; when that id belongs to a listed child the page shows a confirmation form for it (`confirmDelete` prop) that names the child and says "This also deletes its devices and usage history.", with a **Confirm delete** submit button posting `deleteChildAction` and a **Cancel** link back to `/dashboard/children`. The action only calls `deleteChild` from the confirm form.
 
 3. **Code creation with retry** (`apps/web/src/lib/pairing/create-code.ts`): `createPairingCode(client, childId, { now, generate, customCode? })`.
-   - First deletes the child's earlier codes (`delete().eq("child_id", childId)`, parent client, RLS), so a child has at most one code and a superseded code stops working. Then inserts `{ code, child_id, expires_at: now + 1h }`. If the insert ultimately fails the old code is already gone; accepted, the parent can generate again. On `error.code === "23505"` without `customCode`, generates a new code and retries: at most 1 + 3 = 4 inserts. Result `{ ok: true, code, expiresAt }` or `{ ok: false, reason: "in-use" | "custom-in-use" | "failed" }`.
+   - First deletes the child's earlier codes (`delete().eq("child_id", childId)`, parent client, RLS), so a child has at most one code and a superseded code stops working. A delete error returns `{ ok: false, reason: "failed" }` and nothing is inserted. Then inserts `{ code, child_id, expires_at: now + 1h }`. If the insert ultimately fails the old code is already gone; accepted, the parent can generate again. On `error.code === "23505"` without `customCode`, generates a new code and retries: at most 1 + 3 = 4 inserts. Result `{ ok: true, code, expiresAt }` or `{ ok: false, reason: "in-use" | "custom-in-use" | "failed" }`.
    - `PAIRING_ERROR_MESSAGES`: `in-use` → "This code is already in use. Generate another code.", `custom-in-use` → "This code is already in use, please choose another", `failed` → "Could not create a code. Please try again.".
    - On `in-use` the page shows the message and a **Generate another code** button that posts the same action.
 
@@ -55,9 +55,15 @@ As in #8, pages, server actions and route handlers stay thin; logic lives in `.t
    - All three functions `set search_path = ''`; `revoke execute ... from public, anon, authenticated; grant execute ... to service_role`. `pair_attempts.ip_hash` is the HMAC only; ADR 0012 records purpose and retention.
    - Alternative: rate limit in memory; rejected, Vercel runs many short-lived instances. Alternative: Upstash/Vercel KV; rejected, new service.
 
+## Owner decisions
+
+- ADR 0012 (keyed IP hash for the rate limit) is approved; its status is accepted.
+- Losing the old code when the insert of the new code fails is acceptable; the parent generates again. If deleting the old codes fails, no code is inserted.
+- 10 attempts per IP per 10 minutes with 1-hour single-use codes is enough brute-force protection.
+
 ## Risks / Trade-offs
 
-- [IP-derived data is new stored data] → Not collected by the extension, derived from the request. Stored only as `HMAC-SHA256` with a server secret (not reversible by enumerating IPv4), purged on every call after 10 minutes and by a daily `pg_cron` job; max age 10 minutes plus 24 hours when idle. Decision in `docs/decisions/0012-rate-limit-ip-hmac.md` (proposed, human approves).
+- [IP-derived data is new stored data] → Not collected by the extension, derived from the request. Stored only as `HMAC-SHA256` with a server secret (not reversible by enumerating IPv4), purged on every call after 10 minutes and by a daily `pg_cron` job; max age 10 minutes plus 24 hours when idle. Decision in `docs/decisions/0012-rate-limit-ip-hmac.md` (accepted).
 - [Code consumed but device insert fails] → Same transaction, so the delete rolls back.
 - [Shared NAT (school) hits the IP limit] → 10 per 10 minutes is enough for one family; acceptable for MVP.
 - [No forwarding headers → everyone shares the `unknown` bucket] → Logged as a warning (no IP) and still limited; cannot happen on Vercel, so accepted.

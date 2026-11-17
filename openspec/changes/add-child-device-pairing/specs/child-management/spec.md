@@ -30,6 +30,12 @@ Test files:
 - **WHEN** `addChild(client, "Minh")` is called (`children.test.ts`)
 - **THEN** it returns `{ ok: false }` with a non-empty `error` that does not contain the database error message
 
+#### Scenario: No family for this account
+- **GIVEN** a fake client whose `parents.select("family_id").maybeSingle()` resolves `{ data: null, error: null }` and which records writes
+- **WHEN** `addChild(client, "Minh")` is called (`children.test.ts`)
+- **THEN** it returns `{ ok: false, error: "No family for this account" }`
+- **AND** no insert into `children` was made
+
 ### Requirement: Rename a child
 `renameChild(client, id, name)` SHALL apply the same name validation and update only `name` of the child with that `id`.
 
@@ -44,6 +50,11 @@ Test files:
 - **WHEN** `renameChild(client, "child-1", "")` is called (`children.test.ts`)
 - **THEN** it returns `{ ok: false, error: "Name must be 1 to 50 characters" }` and no update was made
 
+#### Scenario: Rename database error is reported
+- **GIVEN** a fake client whose `children` update resolves a non-null `error`
+- **WHEN** `renameChild(client, "child-1", "An")` is called (`children.test.ts`)
+- **THEN** it returns `{ ok: false }` with a non-empty `error` that does not contain the database error message
+
 ### Requirement: Delete a child
 `deleteChild(client, id)` SHALL delete the child row with that `id`; its devices and pairing codes are removed by the database cascade from issue #7.
 
@@ -52,6 +63,11 @@ Test files:
 - **WHEN** `deleteChild(client, "child-1")` is called (`children.test.ts`)
 - **THEN** it returns `{ ok: true }`
 - **AND** the client recorded `from("children").delete().eq("id", "child-1")`
+
+#### Scenario: Delete database error is reported
+- **GIVEN** a fake client whose `children` delete resolves a non-null `error`
+- **WHEN** `deleteChild(client, "child-1")` is called (`children.test.ts`)
+- **THEN** it returns `{ ok: false }` with a non-empty `error` that does not contain the database error message
 
 ### Requirement: Delete needs a confirmation step
 `ChildrenList` SHALL render for each child a "Delete" link to `?confirmDelete=<id>` and no direct delete form. For a listed `confirmDelete` id it SHALL render one confirmation form that names the child, states "This also deletes its devices and usage history.", and has "Confirm delete" and "Cancel" controls; only that form posts the delete action.
@@ -68,15 +84,17 @@ Test files:
 - **THEN** the markup contains one "Confirm delete" button inside a form with a hidden `id` input `c1`, the text "Minh" in the confirmation, and "This also deletes its devices and usage history."
 - **AND** it contains a "Cancel" link to `/dashboard/children` and no "Confirm delete" for `An`
 
-#### Scenario: Cancel deletes nothing
-- **GIVEN** the confirmation view of `c1` and a stub delete action
-- **WHEN** a test renders `ChildrenList` and follows Cancel, that is renders it again with `confirmDelete` `null` (`children-list.test.ts`)
-- **THEN** the stub delete action was never called and the markup shows `Minh` and `An` with no confirmation form
+#### Scenario: Cancel is a plain link
+- **GIVEN** `confirmDelete` `"c1"` and a stub delete action
+- **WHEN** a test renders `ChildrenList` (`children-list.test.ts`)
+- **THEN** the Cancel control is an `<a href="/dashboard/children">` and is not a `<button>` and not inside a `<form>`
+- **AND** the stub delete action was never called
 
 #### Scenario: Confirm deletes
 - **GIVEN** a fake client whose `children` delete resolves without error
-- **WHEN** the delete action runs with the form data from the confirmation form, `id` = `c1` (`children.test.ts`)
-- **THEN** `deleteChild` is called once and the client recorded `from("children").delete().eq("id", "c1")`
+- **WHEN** `deleteChild(client, "c1")` is called, which is what the confirm form's server action calls (`children.test.ts`)
+- **THEN** it returns `{ ok: true }` and the client recorded `from("children").delete().eq("id", "c1")`
+- **AND** the server action in `actions.ts` is only a thin wrapper (read `id` from the form, call `deleteChild`, `revalidatePath` or `redirect`) and is not unit-tested
 
 #### Scenario: Unknown confirmDelete id
 - **GIVEN** children `Minh` (`c1`) and `confirmDelete` `"other"`
