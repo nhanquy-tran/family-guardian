@@ -22,7 +22,7 @@ export const HeartbeatEnvelope = z.object({
   extensionVersion: z.string().max(32),
 });
 
-export const HeartbeatResponse =z.object({
+export const HeartbeatResponse = z.object({
   rulesVersion: z.number().int().nonnegative(),
 });
 
