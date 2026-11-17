@@ -28,6 +28,9 @@ export function browserStore(area: {
   };
 }
 
+export const fetchGet: Get = (url, init) =>
+  fetch(url, { method: "GET", headers: init.headers, signal: AbortSignal.timeout(30_000) });
+
 export const fetchPost: Post = (url, init) =>
   fetch(url, {
     method: "POST",

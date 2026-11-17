@@ -5,6 +5,11 @@ export interface ManifestParts {
   incognito: "not_allowed";
 }
 
-export function buildManifest(_apiOrigin: string): ManifestParts {
-  throw new Error("not implemented");
+export function buildManifest(apiOrigin: string): ManifestParts {
+  return {
+    permissions: ["tabs", "idle", "storage", "alarms", "declarativeNetRequest"],
+    host_permissions: [`${apiOrigin}/*`, "<all_urls>"],
+    web_accessible_resources: [{ resources: ["blocked.html"], matches: ["<all_urls>"] }],
+    incognito: "not_allowed",
+  };
 }

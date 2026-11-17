@@ -2,7 +2,8 @@ import type { BrowserName } from "./browser-info";
 import { type PairResult, pairWithCode, readToken } from "./pairing";
 import { enqueue, parseQueue, pruneQueue } from "./queue";
 import { flushQueue } from "./sender";
-import type { Dnr } from "./rules";
+import { addBlocked, parseBlockedQueue } from "./blocked";
+import { type Dnr, syncRules } from "./rules";
 import type { Get, KeyValueStore, Post } from "./storage";
 import {
   applyEvent,
@@ -117,6 +118,12 @@ export function createController(deps: ControllerDeps): Controller {
       post: deps.post,
     });
     if (result.kind === "unauthorized") await store.set("authState", "rejected");
+    if (result.kind === "ok" && deps.get !== undefined && deps.dnr !== undefined) {
+      const stored = await store.get("rulesVersion");
+      if (stored !== result.rulesVersion) {
+        await syncRules({ baseUrl: deps.baseUrl, token, store, get: deps.get, dnr: deps.dnr });
+      }
+    }
   }
 
   return {
@@ -134,8 +141,14 @@ export function createController(deps: ControllerDeps): Controller {
         else await alarmNormal(token, now);
       }, undefined);
     },
-    recordBlocked() {
-      return Promise.reject(new Error("not implemented"));
+    recordBlocked(domain, now) {
+      return serialize(async () => {
+        if ((await readToken(store)) === null) return;
+        const known = await store.get("rulesDomains");
+        if (!Array.isArray(known) || !known.includes(domain)) return;
+        const queue = parseBlockedQueue(await store.get("blockedQueue"));
+        await store.set("blockedQueue", addBlocked(queue, { at: new Date(now).toISOString(), domain }, now));
+      }, undefined);
     },
     pair(code, browser) {
       return serialize(
