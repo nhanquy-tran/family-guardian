@@ -1,4 +1,5 @@
-import type { Category, RulesResponse } from "@fg/shared";
+import { expandBlockRules, MAX_RULE_DOMAINS, RulesResponse, type Category } from "@fg/shared";
+import { hashDeviceToken } from "./token";
 
 export interface RulesStore {
   findChild(tokenHash: string): Promise<{ childId: string; familyId: string; rulesVersion: number } | null>;
@@ -15,7 +16,34 @@ export type RulesResult = {
   headers: Record<string, string>;
 };
 
-// Stub: implemented by the developer (add-site-blocking-rules).
-export async function handleRules(_input: RulesInput): Promise<RulesResult> {
-  throw new Error("not implemented");
+const HEADERS = { "Cache-Control": "no-store" };
+const fail = (status: 401 | 500, error: string): RulesResult => ({ status, body: { error }, headers: HEADERS });
+
+export async function handleRules({ authorization, store }: RulesInput): Promise<RulesResult> {
+  const match = /^bearer (\S+)$/i.exec(authorization ?? "");
+  if (!match) return fail(401, "unauthorized");
+
+  try {
+    const child = await store.findChild(hashDeviceToken(match[1]));
+    if (!child) return fail(401, "unauthorized");
+
+    const rules = await store.listRules(child.childId);
+    const rows = await store.listCategoryOverrides(child.familyId);
+    const overrides: Record<string, Category> = {};
+    for (const row of rows) if (row.familyId === null) overrides[row.domain] = row.category;
+    for (const row of rows) if (row.familyId !== null) overrides[row.domain] = row.category;
+
+    const explicit = [...new Set(rules.filter((r) => r.kind === "domain").map((r) => r.value))].sort();
+    const explicitSet = new Set(explicit);
+    const expanded = expandBlockRules(rules, overrides).filter((d) => !explicitSet.has(d));
+    const all = [...explicit, ...expanded];
+    const body = RulesResponse.parse({
+      rulesVersion: child.rulesVersion,
+      domains: all.slice(0, MAX_RULE_DOMAINS),
+      truncated: all.length > MAX_RULE_DOMAINS,
+    });
+    return { status: 200, body, headers: HEADERS };
+  } catch {
+    return fail(500, "server_error");
+  }
 }

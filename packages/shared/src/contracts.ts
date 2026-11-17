@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 export const MAX_HEARTBEAT_ENTRIES = 1440;
+export const MAX_BLOCKED_ATTEMPTS = 1000;
+export const MAX_RULE_DOMAINS = 5000;
 
 export const UsageEntry = z.object({
   minuteUtc: z.iso.datetime(),
@@ -8,11 +10,17 @@ export const UsageEntry = z.object({
   seconds: z.number().int().min(1).max(60),
 });
 
+export const BlockedAttempt = z.object({
+  at: z.iso.datetime(),
+  domain: z.string().min(1).max(253),
+});
+
 export const HeartbeatRequest = z.object({
   entries: z.array(UsageEntry).max(MAX_HEARTBEAT_ENTRIES),
   currentDomain: z.string().max(253).nullable(),
   browser: z.enum(["chrome", "edge", "brave", "other"]),
   extensionVersion: z.string().max(32),
+  blocked: z.array(BlockedAttempt).max(MAX_BLOCKED_ATTEMPTS).optional(),
 });
 
 export const HeartbeatEnvelope = z.object({
@@ -20,24 +28,16 @@ export const HeartbeatEnvelope = z.object({
   currentDomain: z.string().max(253).nullable(),
   browser: z.enum(["chrome", "edge", "brave", "other"]),
   extensionVersion: z.string().max(32),
+  blocked: z.array(z.unknown()).optional(),
 });
 
 export const HeartbeatResponse = z.object({
   rulesVersion: z.number().int().nonnegative(),
 });
 
-// Stubs: real limits and the `blocked` field are added by the developer (add-site-blocking-rules).
-export const MAX_BLOCKED_ATTEMPTS = 0;
-export const MAX_RULE_DOMAINS = 0;
-
-export const BlockedAttempt = z.object({
-  at: z.iso.datetime(),
-  domain: z.string().min(1).max(253),
-});
-
 export const RulesResponse = z.object({
   rulesVersion: z.number().int().nonnegative(),
-  domains: z.array(z.string()),
+  domains: z.array(z.string()).max(MAX_RULE_DOMAINS),
   truncated: z.boolean(),
 });
 

@@ -1,4 +1,11 @@
-import { HeartbeatEnvelope, MAX_HEARTBEAT_ENTRIES, UsageEntry, type HeartbeatResponse } from "@fg/shared";
+import {
+  BlockedAttempt,
+  HeartbeatEnvelope,
+  MAX_BLOCKED_ATTEMPTS,
+  MAX_HEARTBEAT_ENTRIES,
+  UsageEntry,
+  type HeartbeatResponse,
+} from "@fg/shared";
 import { hashDeviceToken } from "./token";
 
 export interface HeartbeatStore {
@@ -41,6 +48,15 @@ function keepEntry(raw: unknown, nowMinute: number): { minuteUtc: string; domain
   return { minuteUtc: new Date(ms).toISOString(), domain, seconds };
 }
 
+function keepBlocked(raw: unknown, now: number): { at: string; domain: string } | null {
+  const parsed = BlockedAttempt.safeParse(raw);
+  if (!parsed.success) return null;
+  const ms = Date.parse(parsed.data.at);
+  if (Number.isNaN(ms) || ms < now - MAX_AGE_MS || ms > now + MAX_AHEAD_MS) return null;
+  if (!DOMAIN.test(parsed.data.domain)) return null;
+  return { at: new Date(ms).toISOString(), domain: parsed.data.domain };
+}
+
 export async function handleHeartbeat(input: HeartbeatInput): Promise<HeartbeatResult> {
   const { store, now } = input;
 
@@ -64,7 +80,10 @@ export async function handleHeartbeat(input: HeartbeatInput): Promise<HeartbeatR
   const envelope = HeartbeatEnvelope.safeParse(json);
   if (!envelope.success) return fail(400, "invalid_request");
   const { entries, browser, extensionVersion } = envelope.data;
-  if (entries.length > MAX_HEARTBEAT_ENTRIES) return fail(413, "too_many_entries");
+  const blockedRaw = envelope.data.blocked ?? [];
+  if (entries.length > MAX_HEARTBEAT_ENTRIES || blockedRaw.length > MAX_BLOCKED_ATTEMPTS) {
+    return fail(413, "too_many_entries");
+  }
 
   const nowMinute = Math.floor(now.getTime() / MINUTE_MS) * MINUTE_MS;
   const rows = new Map<string, UsageRow>();
@@ -83,8 +102,19 @@ export async function handleHeartbeat(input: HeartbeatInput): Promise<HeartbeatR
     });
   }
 
+  const blocked = new Map<string, { device_id: string; at: string; domain: string }>();
+  for (const raw of blockedRaw) {
+    const kept = keepBlocked(raw, now.getTime());
+    if (!kept) {
+      skipped += 1;
+      continue;
+    }
+    blocked.set(`${kept.at}|${kept.domain}`, { device_id: device.deviceId, ...kept });
+  }
+
   try {
     if (rows.size > 0) await store.upsertUsage([...rows.values()]);
+    if (blocked.size > 0) await store.insertBlocked([...blocked.values()]);
     await store.updateDevice(device.deviceId, {
       last_seen_at: now.toISOString(),
       browser,
