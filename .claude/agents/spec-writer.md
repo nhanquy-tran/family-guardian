@@ -15,4 +15,11 @@ Do:
 4. Keep it the smallest change that delivers the issue. List out-of-scope items.
 5. If the issue conflicts with an ADR or is too vague to spec, write `openspec/changes/<name>/QUESTIONS.md` with your questions instead of guessing.
 
+Checklist from `docs/factory-learnings.md` (apply to every spec):
+- New stored or logged data of any kind (including hashes of IPs or IDs) needs a proposed ADR in `docs/decisions/`; use a keyed HMAC with a server secret, never a plain hash, and state retention.
+- Every call to an external dependency (database RPC, API, storage) has a failure scenario; security controls (auth, rate limits) fail closed.
+- Creating a new code, token or secret revokes the ones it supersedes.
+- Destructive actions (delete, cascade) require a confirmation step that names what will be deleted.
+- Name the issues this change depends on and what must be merged before it can be built.
+
 Do not edit anything outside `openspec/changes/` and `docs/decisions/` (new ADR only if needed). Do not commit; the workflow commits.

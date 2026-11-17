@@ -5,6 +5,15 @@ set -euo pipefail
 
 git add -A
 git diff --cached --quiet || git commit -m "feat: ${CHANGE} (#${ISSUE})"
+# Rebase onto the latest main so the branch never carries an older copy of files changed on main
+# meanwhile (GitHub rejects pushes that appear to edit workflow files without the workflow scope).
+git fetch -q origin main
+if ! git rebase -q origin/main; then
+  git rebase --abort
+  gh issue comment "$ISSUE" --body "Factory: the build could not be rebased onto main (conflict). Needs a human."
+  gh issue edit "$ISSUE" --remove-label in-progress --add-label needs-human
+  exit 1
+fi
 git push -u origin "factory/${ISSUE}" --force-with-lease
 
 MINUTES=$(( ( $(date +%s) - STARTED ) / 60 ))
@@ -46,8 +55,9 @@ for RESULT in "${GUARD:-}" "${GATE:-}" "${RED:-}" "${GREEN:-}" "${COVERAGE:-}"; 
   case "$RESULT" in pass*) ;; *) LABELS="factory,needs-human" ;; esac
 done
 
-if gh pr view "factory/${ISSUE}" > /dev/null 2>&1; then
-  gh pr edit "factory/${ISSUE}" --body-file /tmp/pr-body.md --add-label "$LABELS"
+OPEN_PR=$(gh pr list --head "factory/${ISSUE}" --state open --json number -q '.[0].number')
+if [ -n "$OPEN_PR" ]; then
+  gh pr edit "$OPEN_PR" --body-file /tmp/pr-body.md --add-label "$LABELS"
 else
   gh pr create --title "feat: ${TITLE} (#${ISSUE})" --body-file /tmp/pr-body.md \
     --label "$LABELS" --base main --head "factory/${ISSUE}"

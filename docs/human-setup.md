@@ -67,3 +67,11 @@ Project Settings > API (or API Keys):
 
 1. https://resend.com > sign up > API Keys > Create (Sending access). Add as Vercel env `RESEND_API_KEY`.
 2. Anthropic Console > Settings > Limits: set a monthly spend limit on the workspace of the key behind `CLAUDE_API_KEY` (e.g. $50 for week 1).
+
+## 8. Supabase migrations from CI (ADR 0011)
+
+1. Supabase > Account > Access Tokens: https://supabase.com/dashboard/account/tokens > Generate new token, name `family-guardian-ci`. Copy it.
+2. Database password: the one you set when creating the project. If you did not keep it: Project Settings > Database > Reset database password (nothing uses it yet, so resetting is safe now).
+3. GitHub repo secrets (https://github.com/nhanquy-tran/family-guardian/settings/secrets/actions/new):
+   - `SUPABASE_ACCESS_TOKEN` = the token
+   - `SUPABASE_DB_PASSWORD` = the database password
