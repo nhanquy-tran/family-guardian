@@ -7,12 +7,10 @@ const TOKEN_KEY = "factory-dashboard-token";
 const COLUMNS = ["needs-spec", "spec-in-progress", "spec-review", "ready", "in-progress", "in-review", "needs-human"];
 const AGENT_WORKFLOWS = /^Factory [134]:/;
 const SHOWN_WORKFLOWS = /^(Factory [134]:|CI$)/;
-const AGENTS = ["spec-writer", "test-writer", "developer", "reviewer"];
+const HISTORY_WORKFLOWS = ["factory-spec.yml", "factory-build.yml", "claude.yml"];
 const TRUSTED_AUTHORS = ["OWNER", "MEMBER", "COLLABORATOR"];
 
-const FACTORY_AUTHORS = ["claude[bot]", "family-guardian-factory"];
-
-const state = { issues: [], pulls: [], runs: [], metrics: [], reviews: new Map(), linked: new Map(), byNumber: new Map() };
+const state = { issues: [], pulls: [], runs: [], history: [], metrics: [], reviews: new Map(), gates: [], models: [], linked: new Map(), byNumber: new Map() };
 const shaCache = new Map();
 
 // ---------- helpers ----------
@@ -124,7 +122,7 @@ function parseMetrics(comments) {
 
 // Reviewer comments, newest first per PR. Verdict from the hidden factory-review marker, else from the text.
 function parseReview(c) {
-  if (c.user?.login !== "github-actions[bot]" || !/Verdict:|factory-review/.test(c.body || "")) return null;
+  if (c.user?.login !== "github-actions[bot]" || /factory-metrics/.test(c.body || "") || !/Verdict:|factory-review/.test(c.body || "")) return null;
   const body = c.body || "";
   let data = null;
   const m = /<!-- factory-review (\{[^}]*\}) -->/.exec(body);
@@ -174,11 +172,13 @@ async function load() {
   $("status").textContent = "Loading…";
   $("banner").hidden = true;
   try {
-    const [items, pulls, runs, comments] = await Promise.all([
+    const [items, pulls, runs, comments, history] = await Promise.all([
       ghPages(`/repos/${REPO}/issues?state=all`, 3),
       ghPages(`/repos/${REPO}/pulls?state=all`, 2),
       gh(`/repos/${REPO}/actions/runs?per_page=100`).then((r) => r.workflow_runs),
       ghPages(`/repos/${REPO}/issues/comments?sort=created&direction=desc`, 3),
+      Promise.all(HISTORY_WORKFLOWS.map((w) => gh(`/repos/${REPO}/actions/workflows/${w}/runs?per_page=100&exclude_pull_requests=true`)
+        .then((r) => r.workflow_runs).catch(() => []))).then((lists) => lists.flat()),
     ]);
     state.issues = items.filter((i) => !i.pull_request);
     state.byNumber = new Map(items.map((i) => [i.number, i]));
@@ -186,13 +186,16 @@ async function load() {
     state.runs = runs.filter((r) => SHOWN_WORKFLOWS.test(r.name) && r.conclusion !== "skipped");
     state.metrics = parseMetrics(comments);
     state.reviews = parseReviews(comments);
+    state.gates = parseGates(comments);
+    state.history = history.filter((r) => r.conclusion !== "skipped");
     linkPulls();
+    state.models = buildIssueModels();
     renderBoard();
     renderRuns();
     renderCost();
+    renderHealth();
     $("status").textContent = `Updated ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
     await renderSpecs();
-    await renderHealth();
   } catch (e) {
     showBanner(`Could not load: ${e.message}`);
     $("status").textContent = "";
@@ -393,59 +396,199 @@ function tile(value, label) {
   return html`<div class="tile"><div class="v">${value}</div><div class="l">${label}</div></div>`;
 }
 
+// ---------- per-issue model (cost, health, timeline) ----------
+
+// The steps of one issue in workflow order. Agent steps come from metrics comments and runs; wait steps from PR times.
+const STEPS = [
+  { key: "spec", label: "Spec writer", phase: "spec", kind: "agent" },
+  { key: "spec-review", label: "AI review", phase: "spec", kind: "review" },
+  { key: "spec-fix", label: "Fixes", phase: "spec", kind: "fix" },
+  { key: "spec-gate", label: "Spec gate", phase: "spec", kind: "wait" },
+  { key: "queue", label: "Queue", phase: "build", kind: "wait" },
+  { key: "tests", label: "Test writer", phase: "build", kind: "agent" },
+  { key: "dev", label: "Developer", phase: "build", kind: "agent" },
+  { key: "build-review", label: "AI review", phase: "build", kind: "review" },
+  { key: "build-fix", label: "Fixes", phase: "build", kind: "fix" },
+  { key: "build-gate", label: "Build gate", phase: "build", kind: "wait" },
+];
+const AGENT_STEPS = STEPS.filter((s) => s.kind !== "wait");
+const stepLabel = (key) => {
+  const s = STEPS.find((x) => x.key === key);
+  return s.kind === "wait" ? s.label : `${s.label} (${s.phase})`;
+};
+
+function short(ms) {
+  if (ms === null || ms === undefined) return "";
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.round(s / 60);
+  return m < 60 ? `${m}m` : `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m`;
+}
+const sumOf = (list, f) => list.reduce((s, x) => s + (f(x) || 0), 0);
+
+// Claude Gate comments, written by the interactive Claude session that takes the gates (ADR 0013).
+function parseGates(comments) {
+  return comments
+    .filter((c) => TRUSTED_AUTHORS.includes(c.author_association) && /^Gate \(Claude\)/.test(c.body || ""))
+    .map((c) => {
+      const first = c.body.split("\n")[0];
+      return { target: Number(c.issue_url.split("/").pop()), at: Date.parse(c.created_at), url: c.html_url, approved: /approved/i.test(first) && !/changes needed/i.test(first), text: first.slice(0, 200) };
+    });
+}
+
+// Finds the issue a run without metrics belongs to: "#n" in the run name, else a PR or issue with the run's title.
+function runTarget(run) {
+  const title = run.display_title || "";
+  const pr = state.pulls.find((p) => p.title === title);
+  if (pr) return pr.number;
+  const issue = state.issues.find((i) => i.title === title);
+  if (issue) return issue.number;
+  const m = /#(\d+)\)?$/.exec(title);
+  return m ? Number(m[1]) : null;
+}
+
+function buildIssueModels() {
+  const models = new Map();
+  const model = (n) => {
+    if (!models.has(n)) models.set(n, { n, acts: [], gates: [], prs: state.linked.get(n) || {} });
+    return models.get(n);
+  };
+  const isBuildPr = (n, target) => (state.linked.get(n) || {}).factory?.number === target;
+  const measured = new Set();
+  const failedRuns = new Set(state.history.filter((r) => ["failure", "timed_out", "cancelled"].includes(r.conclusion)).map((r) => r.id));
+
+  for (const m of state.metrics) {
+    const n = issueOf(m.target);
+    const end = Date.parse(m.at);
+    const step = m.agent === "spec-writer" ? "spec" : m.agent === "test-writer" ? "tests" : m.agent === "developer" ? "dev"
+      : m.agent === "reviewer" ? (isBuildPr(n, m.target) ? "build-review" : "spec-review")
+      : isBuildPr(n, m.target) ? "build-fix" : "spec-fix";
+    measured.add(`${m.run_id}:${m.agent === "fixer" ? "fix" : "factory"}`);
+    model(n).acts.push({ step, start: end - (m.duration_ms || 0), end, cost: m.cost_usd || 0, turns: m.turns || 0, run: m.run_id, attempt: m.run_attempt || 1, ok: !m.is_error && !failedRuns.has(m.run_id), url: m.url, agent: m.agent });
+  }
+
+  // Runs that posted no metrics: @claude fix rounds (before they were measured) and factory runs that failed early.
+  for (const run of state.history) {
+    const fix = run.path.endsWith("claude.yml");
+    if (measured.has(`${run.id}:${fix ? "fix" : "factory"}`)) continue;
+    const target = runTarget(run);
+    if (!target) continue;
+    const n = issueOf(target);
+    if (!state.byNumber.has(n)) continue;
+    const start = Date.parse(run.run_started_at || run.created_at);
+    const end = run.status === "completed" ? Date.parse(run.updated_at) : Date.now();
+    let step = run.path.endsWith("factory-spec.yml") ? "spec" : "tests";
+    if (fix) {
+      const specMerged = model(n).prs.spec?.merged_at;
+      step = isBuildPr(n, target) || (target === n && specMerged && start > Date.parse(specMerged)) ? "build-fix" : "spec-fix";
+    }
+    model(n).acts.push({ step, start, end, cost: null, turns: null, run: run.id, attempt: run.run_attempt || 1, ok: run.conclusion === "success" || run.status !== "completed", url: run.html_url, agent: fix ? "@claude" : run.name, unmeasured: true });
+  }
+
+  for (const g of state.gates) {
+    const n = issueOf(g.target);
+    model(n).gates.push({ ...g, phase: isBuildPr(n, g.target) ? "build" : model(n).prs.spec?.merged_at && g.at > Date.parse(model(n).prs.spec.merged_at) ? "build" : "spec" });
+  }
+
+  for (const m of models.values()) deriveIssue(m);
+  const issueNumbers = new Set(state.issues.map((i) => i.number));
+  return [...models.values()].filter((m) => issueNumbers.has(m.n)).sort((a, b) => b.n - a.n);
+}
+
+// Waits: gate = from the last agent activity of a phase to the PR merge; queue = spec merged to first build activity.
+function deriveIssue(m) {
+  const now = Date.now();
+  const t = (iso) => (iso ? Date.parse(iso) : null);
+  const { spec, factory } = m.prs;
+  m.acts.sort((a, b) => a.start - b.start);
+  const inPhase = (phase) => m.acts.filter((a) => STEPS.find((s) => s.key === a.step).phase === phase);
+  const lastEnd = (acts, until) => Math.max(0, ...acts.filter((a) => !until || a.end <= until).map((a) => a.end));
+
+  m.waits = {};
+  const specMerged = t(spec?.merged_at);
+  const buildActs = inPhase("build");
+  if (spec) {
+    const from = Math.max(t(spec.created_at), lastEnd(inPhase("spec"), specMerged));
+    m.waits["spec-gate"] = { start: t(spec.created_at), from, end: specMerged || (spec.state === "open" ? now : t(spec.closed_at)), open: !specMerged };
+  }
+  if (specMerged) {
+    const firstBuild = buildActs.length ? buildActs[0].start : t(factory?.created_at);
+    m.waits.queue = { start: specMerged, from: specMerged, end: firstBuild || now, open: !firstBuild };
+  }
+  if (factory) {
+    const merged = t(factory.merged_at);
+    const from = Math.max(t(factory.created_at), lastEnd(buildActs, merged));
+    m.waits["build-gate"] = { start: t(factory.created_at), from, end: merged || (factory.state === "open" ? now : t(factory.closed_at)), open: !merged };
+  }
+
+  m.stepMs = {};
+  m.stepCost = {};
+  m.stepCount = {};
+  for (const s of STEPS) {
+    const acts = m.acts.filter((a) => a.step === s.key);
+    m.stepCount[s.key] = acts.length;
+    m.stepMs[s.key] = s.kind === "wait" ? (m.waits[s.key] ? m.waits[s.key].end - m.waits[s.key].from : null) : acts.length ? sumOf(acts, (a) => a.end - a.start) : null;
+    m.stepCost[s.key] = acts.some((a) => a.cost !== null) ? sumOf(acts, (a) => a.cost) : null;
+  }
+  m.claudeMs = sumOf(m.acts, (a) => a.end - a.start);
+  m.cost = sumOf(m.acts, (a) => a.cost);
+  m.unmeasured = m.acts.filter((a) => a.unmeasured).length;
+  m.start = Math.min(...m.acts.map((a) => a.start), spec ? t(spec.created_at) : Infinity);
+  m.done = !!factory?.merged_at;
+  m.end = m.done ? t(factory.merged_at) : now;
+  m.e2e = Number.isFinite(m.start) ? m.end - m.start : null;
+  m.waitMs = sumOf(Object.values(m.waits), (w) => w.end - w.from);
+
+  const runsOf = (steps) => new Set(m.acts.filter((a) => steps.includes(a.step)).map((a) => a.run)).size;
+  const reruns = [...new Map(m.acts.map((a) => [a.run, a.attempt])).values()].reduce((s, x) => s + x - 1, 0);
+  m.retry = {
+    spec: Math.max(0, runsOf(["spec"]) - 1),
+    build: Math.max(0, runsOf(["tests", "dev"]) - 1),
+    specFix: m.stepCount["spec-fix"],
+    buildFix: m.stepCount["build-fix"],
+    reruns,
+    specGateRounds: m.gates.filter((g) => g.phase === "spec" && !g.approved).length,
+    buildGateRounds: m.gates.filter((g) => g.phase === "build" && !g.approved).length,
+  };
+  m.retries = m.retry.spec + m.retry.build + m.retry.specFix + m.retry.buildFix + m.retry.reruns;
+}
+
+function issueButton(m) {
+  const issue = state.byNumber.get(m.n);
+  return html`<button type="button" class="link" data-act="issue" data-n="${m.n}" title="Show the timeline of #${m.n}">#${m.n}</button> ${issue ? issue.title : ""}`;
+}
+
+function phaseHeader(steps, extra) {
+  const spec = steps.filter((s) => s.phase === "spec").length;
+  const build = steps.length - spec;
+  return html`<tr class="group"><th></th><th colspan="${spec}" class="phase spec">Spec</th><th colspan="${build}" class="phase build">Build</th><th colspan="${extra}"></th></tr>`;
+}
+
 // ---------- cost ----------
 
 function renderCost() {
   const ms = state.metrics;
   const total = (list) => list.reduce((s, m) => s + (m.cost_usd || 0), 0);
   const since = (from) => ms.filter((m) => Date.parse(m.at) >= from);
+  const done = state.models.filter((m) => m.done && m.cost);
   put("cost-tiles", [
     tile(money(total(since(startOfToday()))), "today"),
     tile(money(total(since(startOfWeek()))), "this week"),
     tile(money(total(ms)), "total"),
-    tile(String(ms.length), "agent steps measured"),
+    tile(done.length ? money(sumOf(done, (m) => m.cost) / done.length) : "—", "per issue done end to end"),
   ]);
-  if (!ms.length) {
+  const rows = state.models.filter((m) => m.acts.length);
+  if (!rows.length) {
     put("cost-issues", html`<p class="muted">No metrics yet. They appear after the next factory run that includes the metrics step.</p>`);
-    put("cost-runs", "");
     return;
   }
-
-  const perIssue = new Map();
-  for (const m of ms) {
-    const n = issueOf(m.target);
-    const row = perIssue.get(n) || { n, agents: {}, turns: 0, cost: 0 };
-    row.agents[m.agent] = (row.agents[m.agent] || 0) + (m.cost_usd || 0);
-    row.turns += m.turns || 0;
-    row.cost += m.cost_usd || 0;
-    perIssue.set(n, row);
-  }
-  put("cost-issues", html`<table>
-    <thead><tr><th>Issue</th>${AGENTS.map((a) => html`<th class="num">${a}</th>`)}<th class="num">Turns</th><th class="num">Total</th></tr></thead>
-    <tbody>${[...perIssue.values()].sort((a, b) => b.n - a.n).map((r) => {
-      const issue = state.byNumber.get(r.n);
-      return html`<tr>
-        <td class="wrap"><a href="${ghUrl(`issues/${r.n}`)}" target="_blank" rel="noopener">#${r.n}</a> ${issue ? issue.title : ""}</td>
-        ${AGENTS.map((a) => html`<td class="num">${r.agents[a] ? money(r.agents[a]) : ""}</td>`)}
-        <td class="num">${r.turns}</td><td class="num"><strong>${money(r.cost)}</strong></td>
-      </tr>`;
-    })}</tbody></table>`);
-
-  const perRun = new Map();
-  for (const m of ms) {
-    const row = perRun.get(m.run_id) || { id: m.run_id, workflow: m.workflow, n: issueOf(m.target), at: m.at, agents: [], turns: 0, cost: 0, ms: 0 };
-    row.agents.push(m.agent);
-    row.turns += m.turns || 0;
-    row.cost += m.cost_usd || 0;
-    row.ms += m.duration_ms || 0;
-    perRun.set(m.run_id, row);
-  }
-  put("cost-runs", html`<table>
-    <thead><tr><th>Run</th><th>Workflow</th><th>Issue</th><th>Agents</th><th class="num">Turns</th><th class="num">Agent time</th><th class="num">Cost</th></tr></thead>
-    <tbody>${[...perRun.values()].sort((a, b) => Date.parse(b.at) - Date.parse(a.at)).map((r) => html`<tr>
-      <td><a href="${ghUrl(`actions/runs/${r.id}`)}" target="_blank" rel="noopener">${r.id}</a> <span class="muted">${age(r.at)} ago</span></td>
-      <td>${r.workflow}</td><td>#${r.n}</td><td>${r.agents.join(", ")}</td>
-      <td class="num">${r.turns}</td><td class="num">${duration(r.ms)}</td><td class="num">${money(r.cost)}</td>
+  put("cost-issues", html`<table class="steps">
+    <thead>${phaseHeader(AGENT_STEPS, 1)}
+      <tr><th>Issue</th>${AGENT_STEPS.map((s) => html`<th class="num ${s.phase}">${s.label}</th>`)}<th class="num">Total</th></tr></thead>
+    <tbody>${rows.map((m) => html`<tr data-issue="${m.n}">
+      <td class="wrap">${issueButton(m)}</td>
+      ${AGENT_STEPS.map((s) => html`<td class="num ${s.phase}">${m.stepCost[s.key] === null ? (m.stepCount[s.key] ? html`<span class="muted" title="Ran before its cost was measured">n/a</span>` : "") : money(m.stepCost[s.key])}</td>`)}
+      <td class="num"><strong>${money(m.cost)}</strong></td>
     </tr>`)}</tbody></table>`);
 }
 
@@ -455,88 +598,138 @@ function median(xs) {
   const sorted = [...xs].sort((a, b) => a - b);
   return sorted.length ? sorted[Math.floor((sorted.length - 1) / 2)] : null;
 }
-const span = (ms) => (ms === null || ms === undefined ? "—" : duration(ms));
-const between = (a, b) => (a && b ? Math.max(0, Date.parse(b) - Date.parse(a)) : null);
 
-// Fix-up commits on a factory PR (human or @claude); 0 means the PR went through on the first pass.
-// The Claude action commits as claude[bot] for both the factory and @claude, so the factory's commits are
-// recognised by count: one on a spec PR, test + implementation on a build PR.
-async function humanCommits(pr) {
-  const commits = await ghBySha(`commits:${pr.number}:${pr.head.sha}`, `/repos/${REPO}/pulls/${pr.number}/commits?per_page=100`);
-  const expected = pr.head.ref.startsWith("spec/") ? 1 : 2;
-  const byOthers = commits.filter((c) => !FACTORY_AUTHORS.includes(c.commit.author?.name)).length;
-  return Math.max(commits.length - expected, byOthers);
-}
-
-async function renderHealth() {
-  const rows = [];
-  for (const [n, prs] of state.linked) {
-    if (!prs.spec) continue;
-    const factory = prs.factory;
-    const ms = state.metrics.filter((m) => issueOf(m.target) === n);
-    rows.push({
-      n,
-      reviewed: [prs.spec, factory].filter(Boolean).map((pr) => ({ pr, review: reviewAt(pr.number, pr.merged_at) })),
-      cost: ms.length ? ms.reduce((s, m) => s + (m.cost_usd || 0), 0) : null,
-      agentMs: ms.length ? ms.reduce((s, m) => s + (m.duration_ms || 0), 0) : null,
-      specWait: between(prs.spec.created_at, prs.spec.merged_at),
-      queue: factory ? between(prs.spec.merged_at, factory.created_at) : null,
-      buildWait: factory ? between(factory.created_at, factory.merged_at) : null,
-      lead: factory ? between(prs.spec.created_at, factory.merged_at) : null,
-    });
-  }
-  const merged = rows.flatMap((r) => r.reviewed.map((x) => x.pr)).filter((pr) => pr.merged_at).slice(0, 16);
-  const edits = new Map(await Promise.all(merged.map(async (pr) => [pr.number, await humanCommits(pr).catch(() => null)])));
-  const known = merged.filter((pr) => edits.get(pr.number) !== null);
-  const firstPass = known.filter((pr) => edits.get(pr.number) === 0).length;
-  const mergedReviews = merged.map((pr) => reviewAt(pr.number, pr.merged_at)).filter(Boolean);
-  const overridden = mergedReviews.filter((r) => r.verdict === "changes-needed").length;
-  const allReviews = rows.flatMap((r) => r.reviewed.map((x) => x.review)).filter(Boolean);
-  const done = rows.filter((r) => r.lead !== null);
-  const costed = done.filter((r) => r.cost !== null);
-  const timed = done.filter((r) => r.agentMs !== null);
-  const timedLead = timed.reduce((s, r) => s + r.lead, 0);
-
+function renderHealth() {
+  const rows = state.models.filter((m) => m.acts.length || m.prs.spec);
+  const done = rows.filter((m) => m.done);
+  const mergedPrs = rows.flatMap((m) => [m.prs.spec, m.prs.factory]).filter((pr) => pr?.merged_at);
+  const mergedReviews = mergedPrs.map((pr) => reviewAt(pr.number, pr.merged_at)).filter(Boolean);
+  const claudeDone = sumOf(done, (m) => m.claudeMs);
   put("health-tiles", [
-    tile(known.length ? `${firstPass}/${known.length}` : "—", "merged PRs with no human commits"),
-    tile(`${overridden}/${mergedReviews.length}`, "merged over an AI \"changes needed\""),
-    tile(allReviews.length ? (allReviews.reduce((s, r) => s + r.findings, 0) / allReviews.length).toFixed(1) : "—", "AI review findings per PR"),
-    tile(costed.length ? money(costed.reduce((s, r) => s + r.cost, 0) / costed.length) : "—", "cost per merged issue"),
-    tile(span(median(done.map((r) => r.lead))), "median lead time, spec PR to build merged"),
-    tile(timedLead ? `${Math.round((timed.reduce((s, r) => s + r.agentMs, 0) / timedLead) * 100)}%` : "—", "share of lead time spent by agents"),
+    tile(`${done.length}`, "issues done end to end"),
+    tile(done.length ? short(median(done.map((m) => m.e2e))) : "—", "median end to end"),
+    tile(done.length ? short(median(done.map((m) => m.claudeMs))) : "—", "median Claude agent time per issue"),
+    tile(claudeDone ? `${Math.round((claudeDone / sumOf(done, (m) => m.e2e)) * 100)}%` : "—", "of end to end spent running agents"),
+    tile(rows.length ? (sumOf(rows, (m) => m.retries) / rows.length).toFixed(1) : "—", "retries per issue (reruns, fix rounds)"),
+    tile(`${mergedReviews.filter((r) => r.verdict === "changes-needed").length}/${mergedReviews.length}`, "PRs merged over an AI \"changes needed\""),
   ]);
 
-  const prCell = (x) => {
-    if (!x) return "";
-    const edited = edits.get(x.pr.number);
-    const v = x.review?.verdict;
-    return html`<a href="${x.pr.html_url}" target="_blank" rel="noopener">#${x.pr.number}</a>${x.review
-      ? html`<span class="verdict ${v === "looks-good" ? "good" : "bad"}" title="${x.review.findings} findings">${v === "looks-good" ? "ok" : v === "changes-needed" ? "changes" : "?"}</span>` : ""}${edited
-      ? html` <span class="muted" title="Commits not made by the factory">+${edited} human</span>` : ""}`;
+  const cell = (m, s) => {
+    const v = m.stepMs[s.key];
+    if (v === null) return html`<td class="num ${s.phase}"></td>`;
+    const count = m.stepCount[s.key];
+    const open = s.kind === "wait" && m.waits[s.key]?.open;
+    return html`<td class="num ${s.phase}${s.kind === "wait" ? " wait" : ""}" title="${open ? "still waiting" : ""}">${short(v)}${open ? "…" : ""}${count > 1 ? html` <span class="muted">×${count}</span>` : ""}</td>`;
   };
-  put("health-issues", rows.length ? html`<table>
-    <thead><tr><th>Issue</th><th>Spec PR</th><th>Build PR</th><th class="num">Spec review wait</th><th class="num">Queue</th><th class="num">Build review wait</th><th class="num">Lead time</th><th class="num">Agent time</th><th class="num">Cost</th></tr></thead>
-    <tbody>${rows.sort((a, b) => b.n - a.n).map((r) => html`<tr>
-      <td class="wrap"><a href="${ghUrl(`issues/${r.n}`)}" target="_blank" rel="noopener">#${r.n}</a> ${state.byNumber.get(r.n)?.title || ""}</td>
-      <td>${prCell(r.reviewed[0])}</td><td>${prCell(r.reviewed[1])}</td>
-      <td class="num">${span(r.specWait)}</td><td class="num">${span(r.queue)}</td><td class="num">${span(r.buildWait)}</td>
-      <td class="num"><strong>${span(r.lead)}</strong></td><td class="num">${span(r.agentMs)}</td><td class="num">${r.cost === null ? "—" : money(r.cost)}</td>
-    </tr>`)}</tbody></table>` : html`<p class="muted">No issue has a spec PR yet.</p>`);
+  put("health-issues", rows.length ? html`<table class="steps">
+    <thead>${phaseHeader(STEPS, 3)}
+      <tr><th>Issue</th>${STEPS.map((s) => html`<th class="num ${s.phase}">${s.label}</th>`)}<th class="num">Claude time</th><th class="num">Retries</th><th class="num">End to end</th></tr></thead>
+    <tbody>${rows.map((m) => html`<tr data-issue="${m.n}">
+      <td class="wrap">${issueButton(m)}</td>
+      ${STEPS.map((s) => cell(m, s))}
+      <td class="num">${short(m.claudeMs)}</td>
+      <td class="num">${m.retries || ""}</td>
+      <td class="num"><strong>${m.e2e === null ? "" : short(m.e2e)}</strong>${m.done ? "" : html` <span class="muted" title="Not merged yet: time so far">running</span>`}</td>
+    </tr>`)}</tbody></table>` : html`<p class="muted">No issue has gone through the factory yet.</p>`);
+}
 
-  const denied = new Map();
-  for (const m of state.metrics) {
-    for (const call of m.denied || []) {
-      const key = JSON.stringify([m.agent, call]);
-      denied.set(key, (denied.get(key) || 0) + 1);
+// ---------- issue timeline ----------
+
+function tickStep(spanMs) {
+  const minutes = [1, 2, 5, 10, 15, 30, 60, 120, 240, 360, 720, 1440, 2880, 10080];
+  const maxTicks = window.innerWidth < 720 ? 3 : 8;
+  return (minutes.find((m) => spanMs / (m * 60000) <= maxTicks) || 10080) * 60000;
+}
+
+function gantt(m) {
+  const t0 = m.start;
+  const t1 = Math.max(m.end, ...m.acts.map((a) => a.end));
+  const total = Math.max(60000, t1 - t0);
+  const pct = (t) => ((t - t0) / total) * 100;
+  const multiDay = new Date(t0).toDateString() !== new Date(t1).toDateString();
+  const clock = (t) => new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", ...(multiDay ? { weekday: "short" } : {}) });
+  const step = tickStep(total);
+  const ticks = [];
+  for (let t = Math.ceil(t0 / step) * step; t <= t1; t += step) ticks.push(t);
+
+  const bar = (start, end, cls, title, url) => {
+    const style = `left:${pct(start).toFixed(2)}%;width:${Math.max(0.5, pct(end) - pct(start)).toFixed(2)}%`;
+    return url
+      ? html`<a class="bar ${cls}" style="${style}" title="${title}" href="${url}" target="_blank" rel="noopener"></a>`
+      : html`<span class="bar ${cls}" style="${style}" title="${title}"></span>`;
+  };
+  const rows = STEPS.map((s) => {
+    let marks = [];
+    if (s.kind === "wait") {
+      const w = m.waits[s.key];
+      if (w) {
+        marks.push(bar(w.start, w.end, "pr-open", `${s.label}: PR open ${short(w.end - w.start)}`));
+        marks.push(bar(w.from, w.end, "wait", `${s.label}: waiting ${short(w.end - w.from)}${w.open ? " so far" : ""}`));
+      }
+      for (const g of m.gates.filter((x) => x.phase === s.phase && s.key !== "queue")) {
+        marks.push(html`<a class="gate ${g.approved ? "ok" : "no"}" style="left:${pct(g.at).toFixed(2)}%" href="${g.url}" target="_blank" rel="noopener" title="${clock(g.at)} ${g.text}"></a>`);
+      }
+    } else {
+      marks = m.acts.filter((a) => a.step === s.key).map((a) => bar(a.start, a.end, `${s.kind} ${s.phase}${a.ok ? "" : " failed"}`,
+        `${stepLabel(s.key)} · ${clock(a.start)} · ${short(a.end - a.start)}${a.cost !== null ? ` · ${money(a.cost)}` : ""}${a.turns ? ` · ${a.turns} turns` : ""}${a.attempt > 1 ? ` · attempt ${a.attempt}` : ""}${a.ok ? "" : " · failed"}`, a.url));
     }
-  }
-  put("health-denied", denied.size ? html`<table>
-    <thead><tr><th>Agent</th><th>Denied tool call</th><th class="num">Count</th></tr></thead>
-    <tbody>${[...denied].sort((a, b) => b[1] - a[1]).map(([key, count]) => {
-      const [agent, call] = JSON.parse(key);
-      return html`<tr><td>${agent}</td><td class="wrap"><code>${call}</code></td><td class="num">${count}</td></tr>`;
-    })}</tbody></table>`
-    : html`<p class="muted">None recorded yet. The metrics step logs them from now on; widen an agent's allowlist when one keeps coming back.</p>`);
+    const ms = m.stepMs[s.key];
+    return html`<div class="g-row${marks.length ? "" : " none"}">
+      <div class="g-label"><span class="${s.phase}">${s.label}</span><span class="muted">${ms === null ? "" : short(ms)}</span></div>
+      <div class="g-track">${marks}</div>
+    </div>`;
+  });
+  return html`<div class="gantt">
+    <div class="g-row g-axis"><div class="g-label"></div><div class="g-track">${ticks.map((t) => html`<span style="left:${pct(t).toFixed(2)}%">${clock(t)}</span>`)}</div></div>
+    ${rows}
+    <div class="g-row g-axis end"><div class="g-label"></div><div class="g-track"><span style="left:0">${clock(t0)} start</span><span class="right">${m.done ? "merged" : "now"} ${clock(m.end)}</span></div></div>
+  </div>
+  <p class="legend small muted"><span class="bar agent spec"></span> agent <span class="bar review spec"></span> AI review <span class="bar fix spec"></span> fix round <span class="bar wait"></span> waiting on gate or queue <span class="bar pr-open"></span> PR open <span class="gate ok"></span> gate approved <span class="gate no"></span> gate: changes <span class="bar agent spec failed"></span> failed</p>`;
+}
+
+function issueDetail(n) {
+  const m = state.models.find((x) => x.n === n);
+  const issue = state.byNumber.get(n);
+  if (!m || !issue) return;
+  const r = m.retry;
+  const retryParts = [
+    r.spec && `${r.spec} extra spec run${r.spec > 1 ? "s" : ""}`,
+    r.specFix && `${r.specFix} spec fix round${r.specFix > 1 ? "s" : ""}`,
+    r.build && `${r.build} extra build attempt${r.build > 1 ? "s" : ""}`,
+    r.buildFix && `${r.buildFix} build fix round${r.buildFix > 1 ? "s" : ""}`,
+    r.reruns && `${r.reruns} job re-run${r.reruns > 1 ? "s" : ""}`,
+  ].filter(Boolean);
+  const gates = [r.specGateRounds && `${r.specGateRounds} spec gate round${r.specGateRounds > 1 ? "s" : ""} with changes`, r.buildGateRounds && `${r.buildGateRounds} build gate round${r.buildGateRounds > 1 ? "s" : ""} with changes`].filter(Boolean);
+  $("issue-title").textContent = `#${n} ${issue.title}`;
+  put("issue-body", html`
+    <p class="small"><a href="${issue.html_url}" target="_blank" rel="noopener">Issue on GitHub</a>
+      ${m.prs.spec ? html` · ${prLink("spec", m.prs.spec)}` : ""}${m.prs.factory ? html` · ${prLink("build", m.prs.factory)}` : ""}</p>
+    <div class="tiles">
+      ${tile(m.e2e === null ? "—" : short(m.e2e), m.done ? "end to end, first activity to merged" : "so far, not merged yet")}
+      ${tile(short(m.claudeMs) || "0s", "Claude agent time")}
+      ${tile(short(m.waitMs) || "0s", "waiting on gates and queue")}
+      ${tile(String(m.retries), "retries")}
+      ${tile(money(m.cost), m.unmeasured ? "cost (some runs not measured)" : "cost")}
+    </div>
+    ${gantt(m)}
+    <p class="small">${retryParts.length ? `Retries: ${retryParts.join(", ")}.` : "No retries: every step passed on the first run."}${gates.length ? ` Claude gate: ${gates.join(", ")}.` : ""}</p>
+    <h3>Activities</h3>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Step</th><th>Agent</th><th>Started</th><th class="num">Time</th><th class="num">Cost</th><th class="num">Turns</th><th>Result</th></tr></thead>
+      <tbody>${m.acts.map((a) => html`<tr>
+        <td>${stepLabel(a.step)}</td><td>${a.agent}</td>
+        <td>${new Date(a.start).toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" })}</td>
+        <td class="num">${short(a.end - a.start)}</td>
+        <td class="num">${a.cost === null ? html`<span class="muted">n/a</span>` : money(a.cost)}</td>
+        <td class="num">${a.turns ?? ""}</td>
+        <td><a href="${a.url}" target="_blank" rel="noopener" class="${a.ok ? "st-success" : "st-failure"}">${a.ok ? "ok" : "failed"}</a>${a.attempt > 1 ? html` <span class="muted">attempt ${a.attempt}</span>` : ""}</td>
+      </tr>`)}
+      ${m.gates.map((g) => html`<tr><td>${g.phase === "spec" ? "Spec gate" : "Build gate"}</td><td>Claude</td>
+        <td>${new Date(g.at).toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" })}</td><td></td><td></td><td></td>
+        <td><a href="${g.url}" target="_blank" rel="noopener" class="${g.approved ? "st-success" : "st-open"}">${g.approved ? "approved" : "changes"}</a></td></tr>`)}
+      </tbody></table></div>
+    <p class="small muted">Agent times are the Claude Code run time from each step's metrics comment. Runs without one (older @claude fix rounds, factory runs that failed early) use the GitHub run time and have no cost. Waits run from the last agent activity of a phase to the merge.</p>`);
+  if (!$("issue-dialog").open) $("issue-dialog").showModal();
 }
 
 // ---------- dialogs and actions ----------
@@ -709,7 +902,12 @@ document.addEventListener("click", (ev) => {
   if (btn.dataset.act === "label") labelAction(n, btn.dataset.label);
   else if (btn.dataset.act === "comment") commentAction(n);
   else if (btn.dataset.act === "merge") mergeAction(n);
+  else if (btn.dataset.act === "issue") issueDetail(n);
   else if (btn.dataset.act === "rerun") rerunAction(Number(btn.dataset.run), btn.dataset.name);
+});
+document.addEventListener("click", (ev) => {
+  const row = ev.target.closest("tr[data-issue]");
+  if (row && !ev.target.closest("a, button")) issueDetail(Number(row.dataset.issue));
 });
 $("token-input").addEventListener("keydown", (ev) => {
   if (ev.key === "Enter") { ev.preventDefault(); $("token-dialog").close("save"); }
@@ -721,4 +919,4 @@ $("repo-link").href = `https://github.com/${REPO}`;
 
 updateTokenButton();
 load();
-setInterval(() => { if (getToken() && !document.hidden && !$("confirm-dialog").open) load(); }, 120000);
+setInterval(() => { if (getToken() && !document.hidden && !$("confirm-dialog").open && !$("issue-dialog").open) load(); }, 120000);

@@ -2,7 +2,11 @@
 
 How Family Guardian is built: people set the target and decide at the gates, agents do the work, often overnight. Modelled on the Zühlke AI Factory production model (eight elements, five rules, six maturity steps) using only open-source parts. Decision: [ADR 0006](decisions/0006-ai-factory.md), auth and cost: [ADR 0007](decisions/0007-factory-auth-and-cost.md).
 
-## Flow of one change (maturity step 03, human on the loop)
+## Flow of one change
+
+Current operating mode: **step 04, Claude as delegated gate**, see [way-of-working.md](way-of-working.md) and ADR 0013. The diagram below shows the gates; in step 04 Claude takes GATE 1 and GATE 2.
+
+### Gates
 
 ```
 Owner writes issue ──label needs-spec──▶ Factory 0 router ──▶ Factory 1: spec-writer agent
@@ -72,7 +76,7 @@ Deterministic checks run by the workflow, not by the agent that produced the wor
 
 The router refuses `build-now` on an issue whose spec is not approved yet (no `ready`, `in-review` or `needs-human`): it removes the label and comments instead of starting a build that fails.
 
-The metrics comment of each agent step also lists the tool calls the agent was denied, so allowlists can be widened on evidence.
+The metrics comment of each agent step also lists the tool calls the agent was denied, so allowlists can be widened on evidence. `@claude` fix rounds (`claude.yml`) post one too, as agent `fixer`. Factory 1 and 3 runs are named with their issue number so the dashboard can attribute runs that failed before posting metrics.
 
 ## Configuration
 
@@ -89,8 +93,9 @@ Security on a public repo: only the owner's labels and `@claude` comments trigge
 - **Board**: open issues by factory label (backlog, `needs-spec` … `needs-human`, done), `human-task` issues apart, with the linked `spec/<n>` and `factory/<n>` PRs.
 - **Specs**: `spec` PRs, their OpenSpec change folder and task progress from `tasks.md` (read from the open factory branch, the open spec branch, `main` or the archive).
 - **Runs**: recent `Factory 1/3/4` and CI runs, with agent wall time today and this week.
-- **Health**: how the factory itself performs. Merged PRs that needed no fix-up commits (first pass), merges over an AI "changes needed", AI findings per PR, cost per merged issue, median lead time and the agents' share of it, and per issue the waits at each human gate. Also denied tool calls per agent.
-- **Cost**: per issue, per run, today, this week and total. After each agent step the workflows run `.github/scripts/post-metrics.sh`, which reads the action's `execution_file` and comments `Factory metrics: … <!-- factory-metrics {json} -->` on the issue (or PR for the reviewer). The dashboard reads those comments, trusting only the owner, collaborators and `github-actions[bot]`.
+- **Health**: per issue, the time of each step (spec writer, AI review, fixes, spec gate, queue, test writer, developer, AI review, fixes, build gate), Claude agent time, retries and end-to-end time; tiles for the median end to end, Claude time, retries per issue and merges over an AI "changes needed".
+- **Issue timeline**: click an issue in Health or Cost for a Gantt chart of its steps, with `Gate (Claude):` decisions as markers, the retries (extra spec or build runs, `@claude` fix rounds, job re-runs) and every activity with its time and cost.
+- **Cost**: per issue and step, today, this week and total. After each agent step the workflows run `.github/scripts/post-metrics.sh`, which reads the action's `execution_file` and comments `Factory metrics: … <!-- factory-metrics {json} -->` on the issue (or PR for the reviewer). The dashboard reads those comments, trusting only the owner, collaborators and `github-actions[bot]`.
 - **Actions** (need a token, each behind a confirmation): squash-merge a PR (shows the evidence table, CI checks, commit statuses and the AI review first, needs an explicit tick, worded as an override when the review is not "looks good"), add `needs-spec` or `build-now`, re-run failed jobs, comment.
 
 Where: GitHub Pages, deployed by `dashboard-pages.yml` on every push to `main` that touches the folder (one-time setup: Settings > Pages > Source: GitHub Actions). It also works locally: open `tools/factory-dashboard/index.html`, or serve the folder with any static server. `?repo=owner/name` points it at another repo.
@@ -102,3 +107,11 @@ Token: read-only views work without one (60 GitHub API calls per hour per IP, ab
 - One user-visible outcome per issue, small enough for one night.
 - Acceptance criteria as bullet points; the spec writer turns them into scenarios.
 - Name the area (`area:web`, `area:extension`, `area:infra`) and any dependency (`Depends on #n`).
+
+## Learn loop
+
+When a gate or the human catches something an earlier step should have caught, add a row to [factory-learnings.md](factory-learnings.md) and turn it into a rule in the relevant `.claude/agents/*.md` file. The spec writer and reviewer read both.
+
+## When to stop the review loop
+
+The reviewer can always find something. A PR is ready for the human gate when it has **no high or medium findings**; low and info findings are optional and may be fixed later. At most two fix rounds per PR; after that the human decides.

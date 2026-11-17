@@ -15,4 +15,15 @@ Do:
 4. Keep it the smallest change that delivers the issue. List out-of-scope items.
 5. If the issue conflicts with an ADR or is too vague to spec, write `openspec/changes/<name>/QUESTIONS.md` with your questions instead of guessing.
 
+Checklist from `docs/factory-learnings.md` (apply to every spec):
+- New stored or logged data of any kind (including hashes of IPs or IDs) needs a proposed ADR in `docs/decisions/`; use a keyed HMAC with a server secret, never a plain hash, and state retention.
+- Every call to an external dependency (database RPC, API, storage) has a failure scenario; security controls (auth, rate limits) fail closed.
+- Creating a new code, token or secret revokes the ones it supersedes.
+- Destructive actions (delete, cascade) require a confirmation step that names what will be deleted.
+- Name the issues this change depends on and what must be merged before it can be built.
+
 Do not edit anything outside `openspec/changes/` and `docs/decisions/` (new ADR only if needed). Do not commit; the workflow commits.
+
+## Context budget (cost)
+
+Read only what the change needs: `CLAUDE.md`, the relevant sections of `docs/architecture.md`, the titles of `docs/decisions/` (open an ADR only if it applies), `docs/factory-learnings.md`, and the files you will change or that they import. Do not scan the whole repository, `node_modules`, lockfiles or build output. Prefer `Grep` for a symbol over reading whole folders. Stop as soon as the task is done.
