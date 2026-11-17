@@ -45,10 +45,12 @@ jobs:
       - name: Spec writer agent
         id: agent
         uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ github.token }} # read-only use (gh issue view); never the owner PAT (ADR 0017)
         with:
           anthropic_api_key: ${{ secrets.CLAUDE_API_KEY }}
           allowed_bots: github-actions # the router dispatches as github-actions
-          github_token: ${{ secrets.FACTORY_TOKEN || github.token }}
+          github_token: ${{ github.token }}
           prompt: |
             Follow .claude/agents/spec-writer.md exactly.
             Repository: ${{ github.repository }}. Issue number: ${{ env.ISSUE }}.

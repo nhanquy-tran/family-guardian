@@ -1,6 +1,7 @@
 name: "Factory 4: AI review"
 
-# CI runs the deterministic checks; this adds AI judgement as a PR comment. The reviewer never approves.
+# CI runs the deterministic checks; this adds AI judgement as PR comments. Reviewers never approve.
+# Two stages (ADR 0017): 1 spec compliance, then 2 code quality only if stage 1 has no high/medium findings.
 # Cost rule (ADR 0014): one review when a PR opens; later pushes are not reviewed automatically.
 # Re-review on demand with the `re-review` label or a manual dispatch. Docs-only PRs are not reviewed.
 
@@ -33,41 +34,84 @@ jobs:
       (github.actor == github.repository_owner && !github.event.pull_request.draft &&
        (github.event.action != 'labeled' || github.event.label.name == 're-review'))
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+    env:
+      PR: ${{ github.event.pull_request.number || inputs.pr }}
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: anthropics/claude-code-action@v1
-        id: agent
+      - name: "Stage 1: spec compliance"
+        id: spec
+        uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.CLAUDE_API_KEY }}
           github_token: ${{ github.token }}
           prompt: |
-            Follow .claude/agents/reviewer.md exactly.
-            Repository: ${{ github.repository }}. PR number: ${{ github.event.pull_request.number || inputs.pr }}.
+            Follow .claude/agents/spec-reviewer.md exactly.
+            Repository: ${{ github.repository }}. PR number: ${{ env.PR }}.
+          claude_args: |
+            --model ${{ vars.FACTORY_REVIEW_MODEL || 'claude-sonnet-5-5' }}
+            --max-turns 20
+            --permission-mode default
+            --allowedTools "Read,Glob,Grep,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(gh issue view:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*)"
+      - name: Stage 1 verdict
+        id: stage1
+        if: always() && steps.spec.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments?per_page=100" --jq '[.[] | select(.user.login == "github-actions[bot]" and (.body | test("stage.:.spec")))] | last | .body // ""' | grep -o '"verdict":"[a-z-]*"' | tail -1 | cut -d'"' -f4)
+          HEAD=$(gh pr view "$PR" --json headRefName -q .headRefName)
+          echo "verdict=${V:-unknown}" >> "$GITHUB_OUTPUT"
+          # Spec-only PRs have no code to review for quality.
+          case "$HEAD" in spec/*) echo "quality=skip" >> "$GITHUB_OUTPUT" ;; *) [ "$V" = "looks-good" ] && echo "quality=run" >> "$GITHUB_OUTPUT" || echo "quality=skip" >> "$GITHUB_OUTPUT" ;; esac
+          echo "Stage 1 verdict: ${V:-unknown}" >> "$GITHUB_STEP_SUMMARY"
+      - name: "Stage 2: code quality"
+        id: quality
+        if: always() && steps.stage1.outputs.quality == 'run'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.CLAUDE_API_KEY }}
+          github_token: ${{ github.token }}
+          prompt: |
+            Follow .claude/agents/quality-reviewer.md exactly.
+            Repository: ${{ github.repository }}. PR number: ${{ env.PR }}.
           claude_args: |
             --model ${{ vars.FACTORY_REVIEW_MODEL || 'claude-sonnet-5-5' }}
             --max-turns 15
             --permission-mode default
-            --allowedTools "Read,Glob,Grep,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(gh issue view:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*)"
+            --allowedTools "Read,Glob,Grep,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*)"
       - name: Review verdict
-        if: always() && steps.agent.outcome == 'success'
+        if: always() && steps.spec.outcome == 'success'
         continue-on-error: true
         env:
-          PR: ${{ github.event.pull_request.number || inputs.pr }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: bash .github/scripts/review-verdict.sh "$PR"
-      - name: Metrics (reviewer)
+      - name: Metrics (spec reviewer)
         if: always()
         continue-on-error: true
         env:
-          EXEC_FILE: ${{ steps.agent.outputs.execution_file }}
-          PR: ${{ github.event.pull_request.number || inputs.pr }}
+          EXEC_FILE: ${{ steps.spec.outputs.execution_file }}
           GH_TOKEN: ${{ github.token }}
-        run: bash .github/scripts/post-metrics.sh reviewer "$PR" "$EXEC_FILE"
+        run: bash .github/scripts/post-metrics.sh spec-reviewer "$PR" "$EXEC_FILE"
+      - name: Metrics (quality reviewer)
+        if: always() && steps.quality.outcome != 'skipped'
+        continue-on-error: true
+        env:
+          EXEC_FILE: ${{ steps.quality.outputs.execution_file }}
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/post-metrics.sh quality-reviewer "$PR" "$EXEC_FILE"
+      - name: Transcripts
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: transcript-pr-${{ env.PR }}-review
+          path: /home/runner/work/_temp/claude-execution-output.json
+          retention-days: 14
       - name: Clear re-review label
         if: always() && github.event.action == 'labeled'
         continue-on-error: true

@@ -34,6 +34,8 @@ jobs:
           claude_args: |
             --model ${{ vars.FACTORY_BUILD_MODEL || 'claude-sonnet-5-5' }}
             --max-turns 30
+            --allowedTools "Read,Glob,Grep,Edit,Write,Bash(npm run check),Bash(npm run build),Bash(npx vitest run:*),Bash(git status),Bash(git diff:*),Bash(git log:*),Bash(git add:*),Bash(git commit:*),Bash(git push),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(gh issue view:*),Bash(gh issue comment:*)"
+            --disallowedTools "Edit(.env*),Write(.env*),Edit(.github/**),Write(.github/**)"
       - name: Metrics (fixer)
         if: always()
         continue-on-error: true

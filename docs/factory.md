@@ -8,42 +8,53 @@ Current operating mode: **step 04, Claude as delegated gate**, see [way-of-worki
 
 ### Gates
 
+Factory upgrade: [ADR 0017](decisions/0017-factory-upgrade-specs-verify-scheduler.md).
+
 ```
-Owner writes issue ──label needs-spec──▶ Factory 0 router ──▶ Factory 1: spec-writer agent
+Owner writes issue (Depends on: #a, #b) ──label autopilot──▶ Factory 6 scheduler (every 30 min, on merges)
+   or label needs-spec by hand                                │ dependencies specified? parallel limit (3)?
+                                                              ▼
+                     Factory 0 router ──▶ Factory 1: spec-writer (reads openspec/specs/, writes ADDED/MODIFIED/REMOVED)
                                                                │ eval: spec structure + openspec validate --strict
-                                                               │ opens PR "spec: …" (label spec, + needs-human if the eval failed)
-                    Factory 4 reviewer ──▶ verdict as `factory/review` status + label
-                    GATE 1 (human): review + merge spec PR ◀────┘
+                     Factory 4 review, stage 1 (spec) ──▶ GATE 1 (Claude, ADR 0013): merge spec PR
                                 │
-                    Factory 2 labels issue `ready`
+                     Factory 2 labels issue `ready` ──▶ scheduler: dependencies merged? no Touches overlap? ──▶ build-now
                                 │
-   22:00 nightly (or label build-now, only once the issue is ready) ──▶ Factory 3: build
-        1. test-writer agent writes failing tests from the scenarios   (checker ≠ producer)
-        2. eval: those tests fail before implementation; every scenario has a test with its title
-        3. developer agent implements until check + build pass
-        4. gate: tests not weakened (deterministic diff check)
-        5. eval: the same tests pass; gate: npm run check + npm run build
-        6. PR with evidence table, label factory (+ needs-human if a gate or eval failed)
+   Factory 3: build
+        1. test-writer: visible tests + hidden acceptance tests (acceptance/<change>/)
+        2. evals: visible and hidden tests fail first; every scenario has a test; hidden tests removed from the tree
+        3. developer (cannot edit tests, applied migrations, architecture, .env); lint auto-fix
+        4. gates: tests not weakened, npm run check + build, same tests pass
+        5. debugger (only if gates fail): systematic debugging, code/test/spec, max 3 attempts
+        6. gate: hidden acceptance tests restored and run
+        7. verifier: openspec verify → VERIFY.md; all pass → openspec archive into openspec/specs/
+        8. PR with evidence table (+ needs-human if anything failed)
                                 │
-   CI (typecheck, lint, tests, build, gitleaks) ──▶ Factory 4: reviewer agent comments, verdict as status + label
+   CI (check, build, gitleaks, migration checks, CodeQL) ──▶ Factory 4 review: stage 1 spec, stage 2 quality
                                 │
-                    GATE 2 (human): read evidence + review, merge in the morning
+                    GATE 2 (Claude, ADR 0013): read evidence + review, merge
+                                │
+   Factory 7 docs (nightly): applies "Docs to update" notes ──▶ docs PR
 ```
 
 ## Labels (state machine)
 
 | Label | Meaning | Set by |
 |---|---|---|
-| `needs-spec` | Write a spec for this issue | Owner |
+| `autopilot` | Let the scheduler specify and build this issue in dependency order | Owner |
+| `needs-spec` | Write a spec for this issue | Owner or scheduler |
 | `spec-in-progress` | Spec writer running | Factory |
 | `spec-review` | Spec PR waiting for the owner | Factory |
 | `ready` | Spec approved, queued for the nightly build | Factory (on spec merge) |
-| `build-now` | Build this ready issue now | Owner |
+| `build-now` | Build this ready issue now | Owner or scheduler |
 | `in-progress` | Build running | Factory |
 | `in-review` | PR open, waiting for the owner | Factory |
 | `needs-human` | A gate failed or the agent has questions | Factory |
 | `spec`, `factory` | PR types | Factory |
 | `review-changes-needed` | The AI reviewer's latest verdict on the PR is "changes needed" (also the red `factory/review` status) | Factory 4 |
+| `test-arbitrated` | The debugger changed a test; the gate checks it | Factory 3 |
+| `re-review` | Run the AI review again on the latest push | Owner or Claude |
+| `factory-state` | The single issue the scheduler rewrites with the current state | Factory 6 |
 | `human-task` | Only the owner can do this (accounts, secrets, devices) | Owner |
 | `area:*`, `bug` | Classification | Anyone |
 
@@ -51,13 +62,13 @@ Owner writes issue ──label needs-spec──▶ Factory 0 router ──▶ Fa
 
 | Element | Here |
 |---|---|
-| Agents | `.claude/agents/`: spec-writer, test-writer, developer, reviewer (Claude Code via `anthropics/claude-code-action@v1`) |
+| Agents | `.claude/agents/`: spec-writer, test-writer, developer, debugger, verifier, spec-reviewer, quality-reviewer, docs-writer (Claude Code via `anthropics/claude-code-action@v1`) |
 | Workflows | `.github/workflows/factory-*.yml` |
-| Specification | OpenSpec: `openspec/changes/`, `openspec/specs/` |
-| Knowledge | `CLAUDE.md`, `docs/architecture.md`, `docs/decisions/` |
+| Specification | OpenSpec: `openspec/specs/` is current behaviour (source of truth), `openspec/changes/` is work in progress, archived on a passing build |
+| Knowledge | `CLAUDE.md` index + area `CLAUDE.md` files, skills in `.claude/skills/`, `docs/platform-notes.md`, `docs/decisions/README.md` |
 | Code and Git | This GitHub repo |
 | Traceability | Issue #n → `spec/n` PR → `openspec/changes/<name>` → `factory/n` PR (`Closes #n`) |
-| QA and security | CI (`ci.yml`), test-first gate, tests-not-weakened gate, gitleaks, reviewer agent |
+| QA and security | CI (`ci.yml`), CodeQL, Dependabot, test-first gate, tests-not-weakened gate, hidden acceptance tests, verify gate, gitleaks, two-stage review, branch protection on `main` |
 | Observability and metrics | Evidence table per PR (model, wall time, gates), metrics comment per agent step (cost, turns, time), control pane in `tools/factory-dashboard/`, Anthropic Console usage |
 
 The five rules: (1) no agent approves its own work: only the owner merges; (2) the checker is not the producer: tests by a separate agent before implementation, deterministic gates before AI review; (3) every gate leaves evidence in the PR; (4) everything is a versioned file; (5) gateway: not used, see ADR 0007.
@@ -72,6 +83,8 @@ Deterministic checks run by the workflow, not by the agent that produced the wor
 | Tests fail first | Factory 3, on the test-writer commit | the new test files run and fail before any implementation (not on a syntax error, not "no test files found") |
 | Scenario coverage | Factory 3, `factory-eval.mjs coverage` | every scenario title has a test named after it |
 | Same tests pass | Factory 3, after the developer | the test-writer's files pass, so tests vitest does not pick up cannot slip through |
+| Hidden acceptance tests | Factory 3, after the developer (and debugger) | the tests in `acceptance/<change>/`, which the developer never saw, pass |
+| OpenSpec verify | Factory 3, verifier agent | `VERIFY.md` starts with `VERIFY: PASS`; only then the change is archived into `openspec/specs/` |
 | AI review verdict | Factory 4, `.github/scripts/review-verdict.sh` | the reviewer ends its comment with `<!-- factory-review {...} -->`; the workflow sets the `factory/review` commit status and the `review-changes-needed` label from it |
 
 The router refuses `build-now` on an issue whose spec is not approved yet (no `ready`, `in-review` or `needs-human`): it removes the label and comments instead of starting a build that fails.
@@ -82,7 +95,9 @@ The metrics comment of each agent step also lists the tool calls the agent was d
 
 Repo secrets: `CLAUDE_API_KEY` (required), `FACTORY_TOKEN` (recommended: fine-grained PAT on this repo with Contents, Issues, Pull requests read/write. Without it, PRs opened by the factory do not trigger CI and AI review; the build job still runs its own gates).
 
-Repo variables (optional): `FACTORY_SPEC_MODEL` (default `claude-opus-5-5`), `FACTORY_BUILD_MODEL` and `FACTORY_REVIEW_MODEL` (default `claude-sonnet-5-5`), `FACTORY_MAX_PER_NIGHT` (default 3), `FACTORY_DEV_MAX_TURNS` (default 80).
+Repo variables (optional): `FACTORY_SPEC_MODEL` (default `claude-opus-5-5`), `FACTORY_BUILD_MODEL` and `FACTORY_REVIEW_MODEL` (default `claude-sonnet-5-5`), `FACTORY_MAX_PER_NIGHT` (default 3), `FACTORY_MAX_PARALLEL` (scheduler, default 3), `FACTORY_DEV_MAX_TURNS` (default 80).
+
+Agents never get `FACTORY_TOKEN` in their shell: the workflow does the pushes, PRs and labels. Only the owner-triggered `@claude` job keeps it, with a tool allowlist.
 
 Security on a public repo: only the owner's labels and `@claude` comments trigger agents; dispatch needs write access. Issue text is treated as data by the agents.
 
@@ -106,7 +121,8 @@ Token: read-only views work without one (60 GitHub API calls per hour per IP, ab
 
 - One user-visible outcome per issue, small enough for one night.
 - Acceptance criteria as bullet points; the spec writer turns them into scenarios.
-- Name the area (`area:web`, `area:extension`, `area:infra`) and any dependency (`Depends on #n`).
+- Name the area (`area:web`, `area:extension`, `area:infra`).
+- Put dependencies on their own line at the start of the body, `Depends on: #a, #b` (or `Depends on: none`); the scheduler reads it. Label `autopilot` to let the scheduler run the issue.
 
 ## Learn loop
 

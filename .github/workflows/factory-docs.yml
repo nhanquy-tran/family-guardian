@@ -1,0 +1,75 @@
+name: "Factory 7: docs"
+
+# Nightly: applies the "## Docs to update" notes from changes merged in the last day and opens one docs PR (ADR 0017).
+
+on:
+  schedule:
+    - cron: "30 2 * * *"
+  workflow_dispatch:
+    inputs:
+      since:
+        description: Look back this far (git date, e.g. "3 days ago")
+        default: "1 day ago"
+
+concurrency:
+  group: factory-docs
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.FACTORY_TOKEN || github.token }}
+      - name: Collect docs notes
+        id: collect
+        env:
+          SINCE: ${{ inputs.since || '1 day ago' }}
+        run: |
+          : > /tmp/docs-todo.md
+          for f in $(git log --since="$SINCE" --diff-filter=A --name-only --format= -- 'openspec/changes/archive/*/NOTES.md' | sort -u); do
+            [ -f "$f" ] || continue
+            SECTION=$(awk '/^## Docs to update/{on=1;next} /^## /{on=0} on' "$f" | grep -v '^\s*$' || true)
+            echo "$SECTION" | grep -qiE '^\s*-\s*(none|n/a)\s*$' && continue
+            [ -n "$SECTION" ] && printf '## %s\n%s\n\n' "$(dirname "$f" | xargs basename)" "$SECTION" >> /tmp/docs-todo.md
+          done
+          if [ -s /tmp/docs-todo.md ]; then echo "todo=yes" >> "$GITHUB_OUTPUT"; else echo "todo=no" >> "$GITHUB_OUTPUT"; fi
+          cat /tmp/docs-todo.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Docs writer agent
+        id: agent
+        if: steps.collect.outputs.todo == 'yes'
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ""
+        with:
+          anthropic_api_key: ${{ secrets.CLAUDE_API_KEY }}
+          github_token: ${{ github.token }}
+          prompt: Follow .claude/agents/docs-writer.md exactly.
+          claude_args: |
+            --model ${{ vars.FACTORY_REVIEW_MODEL || 'claude-sonnet-5-5' }}
+            --max-turns 25
+            --permission-mode default
+            --allowedTools "Read,Glob,Grep,Edit(docs/**),Write(docs/**),Write(/tmp/docs-report.md),Bash(git log:*),Bash(git show:*)"
+            --disallowedTools "Edit(docs/decisions/**),Write(docs/decisions/**)"
+      - name: Open docs PR
+        if: steps.collect.outputs.todo == 'yes'
+        env:
+          GH_TOKEN: ${{ secrets.FACTORY_TOKEN || github.token }}
+        run: |
+          git add docs
+          git diff --cached --quiet && { echo "No doc changes."; exit 0; }
+          BRANCH="docs/nightly-$(date -u +%Y%m%d)"
+          git config user.name "family-guardian-factory"
+          git config user.email "factory@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git commit -m "docs: apply docs notes from merged changes"
+          git push -u origin "$BRANCH"
+          { echo "Docs notes from changes merged recently."; echo; echo "## Notes"; cat /tmp/docs-todo.md; echo; echo "## Report"; cat /tmp/docs-report.md 2>/dev/null || echo "no report"; } > /tmp/body.md
+          gh pr create --title "docs: apply docs notes from merged changes" --body-file /tmp/body.md --label docs --base main
