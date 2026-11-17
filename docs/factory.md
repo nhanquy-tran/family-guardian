@@ -6,19 +6,22 @@ How Family Guardian is built: people set the target and decide at the gates, age
 
 ```
 Owner writes issue ──label needs-spec──▶ Factory 0 router ──▶ Factory 1: spec-writer agent
-                                                               │ opens PR "spec: …" (label spec)
+                                                               │ eval: spec structure + openspec validate --strict
+                                                               │ opens PR "spec: …" (label spec, + needs-human if the eval failed)
+                    Factory 4 reviewer ──▶ verdict as `factory/review` status + label
                     GATE 1 (human): review + merge spec PR ◀────┘
                                 │
                     Factory 2 labels issue `ready`
                                 │
-   22:00 nightly (or label build-now) ──▶ Factory 3: build
+   22:00 nightly (or label build-now, only once the issue is ready) ──▶ Factory 3: build
         1. test-writer agent writes failing tests from the scenarios   (checker ≠ producer)
-        2. developer agent implements until check + build pass
-        3. gate: tests not weakened (deterministic diff check)
-        4. gate: npm run check + npm run build
-        5. PR with evidence table, label factory (+ needs-human if a gate failed)
+        2. eval: those tests fail before implementation; every scenario has a test with its title
+        3. developer agent implements until check + build pass
+        4. gate: tests not weakened (deterministic diff check)
+        5. eval: the same tests pass; gate: npm run check + npm run build
+        6. PR with evidence table, label factory (+ needs-human if a gate or eval failed)
                                 │
-   CI (typecheck, lint, tests, build, gitleaks) ──▶ Factory 4: reviewer agent comments
+   CI (typecheck, lint, tests, build, gitleaks) ──▶ Factory 4: reviewer agent comments, verdict as status + label
                                 │
                     GATE 2 (human): read evidence + review, merge in the morning
 ```
@@ -36,6 +39,7 @@ Owner writes issue ──label needs-spec──▶ Factory 0 router ──▶ Fa
 | `in-review` | PR open, waiting for the owner | Factory |
 | `needs-human` | A gate failed or the agent has questions | Factory |
 | `spec`, `factory` | PR types | Factory |
+| `review-changes-needed` | The AI reviewer's latest verdict on the PR is "changes needed" (also the red `factory/review` status) | Factory 4 |
 | `human-task` | Only the owner can do this (accounts, secrets, devices) | Owner |
 | `area:*`, `bug` | Classification | Anyone |
 
@@ -54,6 +58,22 @@ Owner writes issue ──label needs-spec──▶ Factory 0 router ──▶ Fa
 
 The five rules: (1) no agent approves its own work: only the owner merges; (2) the checker is not the producer: tests by a separate agent before implementation, deterministic gates before AI review; (3) every gate leaves evidence in the PR; (4) everything is a versioned file; (5) gateway: not used, see ADR 0007.
 
+## Evals and evidence
+
+Deterministic checks run by the workflow, not by the agent that produced the work. Each result goes in the PR's evidence table, and a failure adds `needs-human`.
+
+| Eval | Where | Passes when |
+|---|---|---|
+| Spec structure | Factory 1, `.github/scripts/factory-eval.mjs spec` | proposal, design, tasks and spec files exist, every requirement has scenarios, every scenario has WHEN and THEN, `tasks.md` names a test file, `openspec validate --strict` passes |
+| Tests fail first | Factory 3, on the test-writer commit | the new test files run and fail before any implementation (not on a syntax error, not "no test files found") |
+| Scenario coverage | Factory 3, `factory-eval.mjs coverage` | every scenario title has a test named after it |
+| Same tests pass | Factory 3, after the developer | the test-writer's files pass, so tests vitest does not pick up cannot slip through |
+| AI review verdict | Factory 4, `.github/scripts/review-verdict.sh` | the reviewer ends its comment with `<!-- factory-review {...} -->`; the workflow sets the `factory/review` commit status and the `review-changes-needed` label from it |
+
+The router refuses `build-now` on an issue whose spec is not approved yet (no `ready`, `in-review` or `needs-human`): it removes the label and comments instead of starting a build that fails.
+
+The metrics comment of each agent step also lists the tool calls the agent was denied, so allowlists can be widened on evidence.
+
 ## Configuration
 
 Repo secrets: `CLAUDE_API_KEY` (required), `FACTORY_TOKEN` (recommended: fine-grained PAT on this repo with Contents, Issues, Pull requests read/write. Without it, PRs opened by the factory do not trigger CI and AI review; the build job still runs its own gates).
@@ -69,8 +89,9 @@ Security on a public repo: only the owner's labels and `@claude` comments trigge
 - **Board**: open issues by factory label (backlog, `needs-spec` … `needs-human`, done), `human-task` issues apart, with the linked `spec/<n>` and `factory/<n>` PRs.
 - **Specs**: `spec` PRs, their OpenSpec change folder and task progress from `tasks.md` (read from the open factory branch, the open spec branch, `main` or the archive).
 - **Runs**: recent `Factory 1/3/4` and CI runs, with agent wall time today and this week.
+- **Health**: how the factory itself performs. Merged PRs that needed no fix-up commits (first pass), merges over an AI "changes needed", AI findings per PR, cost per merged issue, median lead time and the agents' share of it, and per issue the waits at each human gate. Also denied tool calls per agent.
 - **Cost**: per issue, per run, today, this week and total. After each agent step the workflows run `.github/scripts/post-metrics.sh`, which reads the action's `execution_file` and comments `Factory metrics: … <!-- factory-metrics {json} -->` on the issue (or PR for the reviewer). The dashboard reads those comments, trusting only the owner, collaborators and `github-actions[bot]`.
-- **Actions** (need a token, each behind a confirmation): squash-merge a PR (shows the evidence table and CI checks first, needs an explicit tick), add `needs-spec` or `build-now`, re-run failed jobs, comment.
+- **Actions** (need a token, each behind a confirmation): squash-merge a PR (shows the evidence table, CI checks, commit statuses and the AI review first, needs an explicit tick, worded as an override when the review is not "looks good"), add `needs-spec` or `build-now`, re-run failed jobs, comment.
 
 Where: GitHub Pages, deployed by `dashboard-pages.yml` on every push to `main` that touches the folder (one-time setup: Settings > Pages > Source: GitHub Actions). It also works locally: open `tools/factory-dashboard/index.html`, or serve the folder with any static server. `?repo=owner/name` points it at another repo.
 

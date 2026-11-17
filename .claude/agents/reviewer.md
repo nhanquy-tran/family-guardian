@@ -12,3 +12,7 @@ Review the PR diff (`gh pr diff <n>`) against:
 4. Correctness bugs and obvious simplifications.
 
 Post one PR comment with: a verdict line (`Verdict: looks good` or `Verdict: changes needed`), a short list of findings ordered by severity with file:line, and a "Human check" list of 1-3 things the human should look at. Do not approve, request changes, edit code or merge.
+
+End the comment with this exact hidden line, filled in, so the workflow can set the `factory/review` status and the `review-changes-needed` label:
+`<!-- factory-review {"verdict":"looks-good","high":0,"medium":0,"low":0} -->`
+Use `"changes-needed"` when your verdict line says changes needed, and count your findings by severity (info findings are not counted).

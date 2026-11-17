@@ -19,9 +19,12 @@ METRICS=$(jq -c \
   --arg run "$GITHUB_RUN_ID" --arg attempt "$GITHUB_RUN_ATTEMPT" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   '{agent: $agent, number: ($number | tonumber), workflow: $workflow, run_id: ($run | tonumber),
     run_attempt: ($attempt | tonumber), at: $at, cost_usd: (.total_cost_usd // 0), turns: (.num_turns // 0),
-    duration_ms: (.duration_ms // 0), is_error: (.is_error // false)}' <<< "$RESULT")
+    duration_ms: (.duration_ms // 0), is_error: (.is_error // false),
+    denied: [(.permission_denials // [])[] | .tool_name + (if .tool_input.command? then
+      "(" + (.tool_input.command | gsub("[\\n<>{}]"; " ") | .[0:80]) + ")" else "" end)]}' <<< "$RESULT")
 
-SUMMARY=$(jq -r '"Factory metrics: **\(.agent)** · $\(.cost_usd * 100 | round / 100) · \(.turns) turns · \(.duration_ms / 60000 * 10 | round / 10) min"' <<< "$METRICS")
+SUMMARY=$(jq -r '"Factory metrics: **\(.agent)** · $\(.cost_usd * 100 | round / 100) · \(.turns) turns · \(.duration_ms / 60000 * 10 | round / 10) min"
+  + (if (.denied | length) > 0 then " · \(.denied | length) denied tool calls" else "" end)' <<< "$METRICS")
 RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
 printf '%s · [run](%s)\n\n<!-- factory-metrics %s -->\n' "$SUMMARY" "$RUN_URL" "$METRICS" > /tmp/metrics-comment.md
 
