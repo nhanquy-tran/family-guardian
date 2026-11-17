@@ -1,4 +1,10 @@
-import { HeartbeatRequest, HeartbeatResponse, MAX_HEARTBEAT_ENTRIES } from "@fg/shared";
+import {
+  type BlockedAttempt,
+  HeartbeatRequest,
+  HeartbeatResponse,
+  MAX_HEARTBEAT_ENTRIES,
+} from "@fg/shared";
+import { parseBlockedQueue, pruneBlocked } from "./blocked";
 import type { BrowserName } from "./browser-info";
 import { parseQueue, pruneQueue } from "./queue";
 import type { KeyValueStore, Post } from "./storage";
@@ -22,7 +28,11 @@ export type FlushResult =
 
 type SendOutcome = FlushResult | { kind: "too_many" };
 
-async function send(deps: FlushDeps, entries: HeartbeatRequest["entries"]): Promise<SendOutcome> {
+async function send(
+  deps: FlushDeps,
+  entries: HeartbeatRequest["entries"],
+  blocked: BlockedAttempt[] = [],
+): Promise<SendOutcome> {
   try {
     const body = JSON.stringify(
       HeartbeatRequest.parse({
@@ -30,6 +40,7 @@ async function send(deps: FlushDeps, entries: HeartbeatRequest["entries"]): Prom
         currentDomain: deps.currentDomain,
         browser: deps.browser,
         extensionVersion: deps.extensionVersion,
+        ...(blocked.length > 0 ? { blocked } : {}),
       }),
     );
     const response = await deps.post(`${deps.baseUrl}/api/device/heartbeat`, {
@@ -48,21 +59,41 @@ async function send(deps: FlushDeps, entries: HeartbeatRequest["entries"]): Prom
 
 export async function flushQueue(deps: FlushDeps): Promise<FlushResult> {
   let queue: ReturnType<typeof parseQueue>;
+  let blocked: BlockedAttempt[] = [];
   try {
     queue = pruneQueue(parseQueue(await deps.store.get("queue")), deps.now);
+    if (!deps.keepAliveOnly) {
+      blocked = pruneBlocked(parseBlockedQueue(await deps.store.get("blockedQueue")), deps.now);
+    }
   } catch {
     return { kind: "failed" };
   }
+
+  // Sent only with the first request; cleared after its 200.
+  async function clearBlocked(): Promise<boolean> {
+    if (blocked.length === 0) return true;
+    try {
+      const current = pruneBlocked(parseBlockedQueue(await deps.store.get("blockedQueue")), deps.now);
+      await deps.store.set("blockedQueue", current.slice(blocked.length));
+      blocked = [];
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   if (deps.keepAliveOnly || queue.length === 0) {
-    const outcome = await send(deps, []);
-    return outcome.kind === "too_many" ? { kind: "failed" } : outcome;
+    const outcome = await send(deps, [], blocked);
+    if (outcome.kind === "too_many") return { kind: "failed" };
+    if (outcome.kind === "ok" && !(await clearBlocked())) return { kind: "failed" };
+    return outcome;
   }
 
   let size = MAX_HEARTBEAT_ENTRIES;
   let last: FlushResult = { kind: "failed" };
   while (queue.length > 0) {
     const chunk = queue.slice(0, Math.min(size, queue.length));
-    const outcome = await send(deps, chunk);
+    const outcome = await send(deps, chunk, blocked);
     if (outcome.kind === "too_many") {
       size = Math.floor(chunk.length / 2);
       if (size === 0) return { kind: "failed" };
@@ -75,6 +106,7 @@ export async function flushQueue(deps: FlushDeps): Promise<FlushResult> {
     } catch {
       return { kind: "failed" };
     }
+    if (!(await clearBlocked())) return { kind: "failed" };
     last = outcome;
   }
   return last;

@@ -9,6 +9,11 @@ export type Post = (
   init: { headers: Record<string, string>; body: string },
 ) => Promise<{ status: number; json(): Promise<unknown> }>;
 
+export type Get = (
+  url: string,
+  init: { headers: Record<string, string> },
+) => Promise<{ status: number; json(): Promise<unknown> }>;
+
 export function browserStore(area: {
   get(key: string): Promise<Record<string, unknown>>;
   set(items: Record<string, unknown>): Promise<void>;
@@ -22,6 +27,9 @@ export function browserStore(area: {
     remove: (keys) => area.remove(keys),
   };
 }
+
+export const fetchGet: Get = (url, init) =>
+  fetch(url, { method: "GET", headers: init.headers, signal: AbortSignal.timeout(30_000) });
 
 export const fetchPost: Post = (url, init) =>
   fetch(url, {

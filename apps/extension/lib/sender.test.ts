@@ -25,6 +25,11 @@ function run(
   return { result, data: fake.data };
 }
 
+const two = [
+  { at: "2026-11-17T09:00:00.000Z", domain: "tiktok.com" },
+  { at: "2026-11-17T09:30:00.000Z", domain: "roblox.com" },
+];
+
 const sent = (call: { body: Record<string, unknown> } | undefined) => call?.body["entries"];
 
 describe("flushQueue", () => {
@@ -134,6 +139,61 @@ describe("flushQueue", () => {
     expect(await result).toEqual({ kind: "unauthorized" });
     expect(calls).toHaveLength(1);
     expect(data.get("queue")).toEqual(entries(1, 2));
+  });
+
+  it("Attempts included and cleared", async () => {
+    const { post, calls } = always(ok);
+    const { result, data } = run({ queue: [], blockedQueue: two }, post);
+    await result;
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.body["blocked"]).toEqual(two);
+    expect(() => HeartbeatRequest.parse(calls[0]?.body)).not.toThrow();
+    expect(data.get("blockedQueue")).toEqual([]);
+  });
+
+  it("No attempts, no key", async () => {
+    const { post, calls } = always(ok);
+    await run({ queue: entries(1, 2), blockedQueue: [] }, post).result;
+    expect(Object.keys(calls[0]?.body ?? {}).sort()).toEqual([
+      "browser",
+      "currentDomain",
+      "entries",
+      "extensionVersion",
+    ]);
+  });
+
+  it("Failure keeps attempts", async () => {
+    const replies: Reply[] = [
+      { status: 500, body: { error: "server_error" } },
+      { status: 401, body: { error: "unauthorized" } },
+      { status: 413, body: { error: "too_many_entries" } },
+      "network",
+    ];
+    for (const reply of replies) {
+      const { post } = always(reply);
+      const { result, data } = run({ queue: [], blockedQueue: two }, post);
+      await result;
+      expect(data.get("blockedQueue")).toEqual(two);
+    }
+  });
+
+  it("Only the first chunk carries attempts", async () => {
+    const { post, calls } = always(ok);
+    const { result, data } = run({ queue: entries(1, 1441), blockedQueue: [two[0]] }, post);
+    await result;
+    expect(calls).toHaveLength(2); // 1441 entries = chunks of 1440 + 1
+    expect(calls[0]?.body["blocked"]).toEqual([two[0]]);
+    expect(Object.keys(calls[1]?.body ?? {})).not.toContain("blocked");
+    expect(data.get("blockedQueue")).toEqual([]);
+  });
+
+  it("Keep-alive carries none", async () => {
+    const { post, calls } = always(ok);
+    const { result, data } = run({ queue: [], blockedQueue: [two[0]] }, post, { keepAliveOnly: true });
+    await result;
+    expect(calls).toHaveLength(1);
+    expect(Object.keys(calls[0]?.body ?? {})).not.toContain("blocked");
+    expect(data.get("blockedQueue")).toEqual([two[0]]);
   });
 
   it("keep-alive only leaves the queue untouched", async () => {

@@ -109,6 +109,27 @@ describe("pairWithCode", () => {
     expect(data.get("deviceToken")).toBe("old");
   });
 
+  it("Successful re-pair", async () => {
+    const { store, data } = createStore({
+      deviceToken: "old",
+      rulesVersion: 4,
+      blockedQueue: [{ at: "2026-11-17T10:00:00.000Z", domain: "tiktok.com" }],
+    });
+    const { post } = always({ status: 200, body: { deviceToken: "tok-2" } });
+    expect(await pairWithCode(deps(store, post), "AB2CD3")).toEqual({ ok: true });
+    expect(data.has("rulesVersion")).toBe(false);
+    expect(data.has("blockedQueue")).toBe(false);
+  });
+
+  it("Failed pair", async () => {
+    const blockedQueue = [{ at: "2026-11-17T10:00:00.000Z", domain: "tiktok.com" }];
+    const { store, data } = createStore({ deviceToken: "old", rulesVersion: 4, blockedQueue });
+    const { post } = always({ status: 400, body: { error: "invalid_code" } });
+    expect(await pairWithCode(deps(store, post), "ZZZZZZ")).toEqual({ ok: false, reason: "invalid_code" });
+    expect(data.get("rulesVersion")).toBe(4);
+    expect(data.get("blockedQueue")).toEqual(blockedQueue);
+  });
+
   it("messages", () => {
     for (const key of ["invalid_code", "rate_limited", "failed", "misconfigured"] as const) {
       const message = PAIR_MESSAGES[key];

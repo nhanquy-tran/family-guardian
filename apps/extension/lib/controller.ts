@@ -2,7 +2,9 @@ import type { BrowserName } from "./browser-info";
 import { type PairResult, pairWithCode, readToken } from "./pairing";
 import { enqueue, parseQueue, pruneQueue } from "./queue";
 import { flushQueue } from "./sender";
-import type { KeyValueStore, Post } from "./storage";
+import { addBlocked, parseBlockedQueue } from "./blocked";
+import { type Dnr, syncRules } from "./rules";
+import type { Get, KeyValueStore, Post } from "./storage";
 import {
   applyEvent,
   createTracker,
@@ -14,6 +16,8 @@ import {
 export interface ControllerDeps {
   store: KeyValueStore;
   post: Post;
+  get?: Get;
+  dnr?: Dnr;
   baseUrl: string;
   extensionVersion: string;
   os: string;
@@ -24,6 +28,7 @@ export interface Controller {
   handleEvent(event: TrackerEvent): Promise<void>;
   onAlarm(now: number): Promise<void>;
   pair(code: string, browser: BrowserName): Promise<PairResult>;
+  recordBlocked(domain: string, now: number): Promise<void>;
 }
 
 const MINUTE_MS = 60_000;
@@ -113,6 +118,12 @@ export function createController(deps: ControllerDeps): Controller {
       post: deps.post,
     });
     if (result.kind === "unauthorized") await store.set("authState", "rejected");
+    if (result.kind === "ok" && deps.get !== undefined && deps.dnr !== undefined) {
+      const stored = await store.get("rulesVersion");
+      if (stored !== result.rulesVersion) {
+        await syncRules({ baseUrl: deps.baseUrl, token, store, get: deps.get, dnr: deps.dnr });
+      }
+    }
   }
 
   return {
@@ -128,6 +139,15 @@ export function createController(deps: ControllerDeps): Controller {
         if (token === null) return;
         if (await isRejected()) await alarmWhileRejected(token, now);
         else await alarmNormal(token, now);
+      }, undefined);
+    },
+    recordBlocked(domain, now) {
+      return serialize(async () => {
+        if ((await readToken(store)) === null) return;
+        const known = await store.get("rulesDomains");
+        if (!Array.isArray(known) || !known.includes(domain)) return;
+        const queue = parseBlockedQueue(await store.get("blockedQueue"));
+        await store.set("blockedQueue", addBlocked(queue, { at: new Date(now).toISOString(), domain }, now));
       }, undefined);
     },
     pair(code, browser) {

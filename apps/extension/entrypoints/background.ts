@@ -1,7 +1,8 @@
 import { type BrowserName, osName } from "../lib/browser-info";
 import { resolveApiBaseUrl } from "../lib/config";
 import { type Controller, createController, registerSchedule } from "../lib/controller";
-import { browserStore, fetchPost } from "../lib/storage";
+import { parseBlockedMessage } from "../lib/blocked";
+import { browserStore, fetchGet, fetchPost } from "../lib/storage";
 
 const BROWSERS: readonly string[] = ["chrome", "edge", "brave", "other"];
 
@@ -20,6 +21,8 @@ export default defineBackground(() => {
           createController({
             store: browserStore(browser.storage.local),
             post: fetchPost,
+            get: fetchGet,
+            dnr: browser.declarativeNetRequest,
             baseUrl: baseUrl as string,
             extensionVersion: browser.runtime.getManifest().version,
             os: osName(os),
@@ -67,6 +70,11 @@ export default defineBackground(() => {
   });
 
   browser.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
+    const blocked = parseBlockedMessage(message);
+    if (blocked !== null) {
+      void withController((c) => c.recordBlocked(blocked.domain, Date.now()));
+      return undefined;
+    }
     const m = message as { type?: unknown; code?: unknown; browser?: unknown } | null;
     if (m?.type !== "pair" || typeof m.code !== "string") return undefined;
     const code = m.code;
