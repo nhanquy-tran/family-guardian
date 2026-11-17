@@ -19,6 +19,7 @@ permissions:
   contents: read
   pull-requests: write
   issues: write
+  statuses: write # factory/review commit status
 
 jobs:
   review:
@@ -44,6 +45,15 @@ jobs:
             --max-turns 30
             --permission-mode default
             --allowedTools "Read,Glob,Grep,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(gh issue view:*)"
+      - name: Review verdict
+        if: always() && steps.agent.outcome == 'success'
+        continue-on-error: true
+        env:
+          PR: ${{ github.event.pull_request.number || inputs.pr }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: bash .github/scripts/review-verdict.sh "$PR"
       - name: Metrics (reviewer)
         if: always()
         continue-on-error: true

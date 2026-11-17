@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Commits remaining work, pushes the factory branch and opens or updates the PR with the gate evidence.
-# Env: ISSUE CHANGE STARTED TESTS_SHA GUARD GATE MODEL RUN_URL
+# Env: ISSUE CHANGE STARTED TESTS_SHA GUARD GATE RED GREEN COVERAGE MODEL RUN_URL
 set -euo pipefail
 
 git add -A
@@ -21,9 +21,14 @@ NOTES_FILE="openspec/changes/${CHANGE}/NOTES.md"
   echo "|---|---|"
   echo "| Tests written first by a separate agent | commit ${TESTS_SHA:-none} |"
   echo "| Tests not weakened by the developer | ${GUARD:-not run} |"
+  echo "| Eval: tests fail before implementation | ${RED:-not run} |"
+  echo "| Eval: every scenario has a test with its title | ${COVERAGE:-not run} |"
+  echo "| Eval: same tests pass after implementation | ${GREEN:-not run} |"
   echo "| npm run check + build | ${GATE:-not run} |"
   echo "| Model / wall time | ${MODEL} / ${MINUTES} min |"
   echo "| Run | ${RUN_URL} |"
+  echo
+  cat /tmp/evals.md 2>/dev/null || true
   echo
   echo "## Developer notes"
   if [ -f "$NOTES_FILE" ]; then cat "$NOTES_FILE"; else echo "_No notes written._"; fi
@@ -37,7 +42,9 @@ NOTES_FILE="openspec/changes/${CHANGE}/NOTES.md"
 } > /tmp/pr-body.md
 
 LABELS="factory"
-if [ "${GUARD:-}" != "pass" ] || [ "${GATE:-}" != "pass" ]; then LABELS="factory,needs-human"; fi
+for RESULT in "${GUARD:-}" "${GATE:-}" "${RED:-}" "${GREEN:-}" "${COVERAGE:-}"; do
+  case "$RESULT" in pass*) ;; *) LABELS="factory,needs-human" ;; esac
+done
 
 if gh pr view "factory/${ISSUE}" > /dev/null 2>&1; then
   gh pr edit "factory/${ISSUE}" --body-file /tmp/pr-body.md --add-label "$LABELS"

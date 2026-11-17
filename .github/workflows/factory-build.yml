@@ -115,6 +115,23 @@ jobs:
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           git diff --name-only HEAD~1 | grep -E '\.(test|spec)\.tsx?$' > /tmp/test-files.txt || true
 
+      # Evals on the test-writer's commit, before the developer starts (the checker is not the producer).
+      - name: "Eval: tests fail before implementation"
+        id: red
+        continue-on-error: true
+        run: |
+          FILES=$(tr '\n' ' ' < /tmp/test-files.txt)
+          if [ -z "${FILES// }" ]; then R="fail (no unit test files)"
+          elif npx vitest run $FILES > /tmp/red.log 2>&1; then R="fail (tests already pass without the implementation)"
+          elif grep -qE "No test files found|SyntaxError|Transform failed" /tmp/red.log; then R="fail (tests do not run, see the run log)"; cat /tmp/red.log
+          else R="pass (tests fail before implementation)"; fi
+          echo "result=$R" >> "$GITHUB_OUTPUT"
+
+      - name: "Eval: scenario coverage"
+        id: coverage
+        continue-on-error: true
+        run: node .github/scripts/factory-eval.mjs coverage "${{ steps.change.outputs.name }}" $(cat /tmp/test-files.txt) > /tmp/evals.md
+
       - name: Developer agent
         id: developer
         uses: anthropics/claude-code-action@v1
@@ -162,6 +179,16 @@ jobs:
           fi
           tail -n 40 /tmp/check.log /tmp/build.log > /tmp/gate-tail.txt 2>/dev/null || true
 
+      - name: "Eval: same tests pass after implementation"
+        id: green
+        if: always() && steps.tests.outcome == 'success'
+        run: |
+          FILES=$(tr '\n' ' ' < /tmp/test-files.txt)
+          if [ -z "${FILES// }" ]; then R="fail (no unit test files)"
+          elif npx vitest run $FILES > /tmp/green.log 2>&1; then R="pass"
+          else R="fail (see the run log)"; tail -n 40 /tmp/green.log; fi
+          echo "result=$R" >> "$GITHUB_OUTPUT"
+
       - name: Open PR with evidence
         if: always() && steps.tests.outcome == 'success'
         env:
@@ -170,6 +197,9 @@ jobs:
           TESTS_SHA: ${{ steps.tests.outputs.sha }}
           GUARD: ${{ steps.guard.outputs.result }}
           GATE: ${{ steps.gate.outputs.result }}
+          RED: ${{ steps.red.outputs.result }}
+          GREEN: ${{ steps.green.outputs.result }}
+          COVERAGE: ${{ steps.coverage.outputs.result }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: bash .github/scripts/open-factory-pr.sh
 

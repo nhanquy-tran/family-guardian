@@ -11,7 +11,7 @@ on:
 
 permissions:
   actions: write
-  issues: read
+  issues: write # to undo a build-now on an issue that is not ready
 
 jobs:
   route:
@@ -21,8 +21,15 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       LABEL: ${{ github.event.label.name }}
       ISSUE: ${{ github.event.issue.number }}
+      # A build needs an approved spec: ready, or a later state when rebuilding (in-review, needs-human).
+      READY: ${{ contains(github.event.issue.labels.*.name, 'ready') || contains(github.event.issue.labels.*.name, 'in-review') || contains(github.event.issue.labels.*.name, 'needs-human') }}
     steps:
       - run: |
+          if [ "$LABEL" = "build-now" ] && [ "$READY" != "true" ]; then
+            gh issue edit "$ISSUE" --repo "$GITHUB_REPOSITORY" --remove-label build-now
+            gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" --body "Factory: \`build-now\` needs an approved spec first (label \`ready\`, set when the spec PR is merged). Nothing was started."
+            exit 0
+          fi
           if [ "$LABEL" = "needs-spec" ]; then WF=factory-spec.yml; else WF=factory-build.yml; fi
           gh workflow run "$WF" --repo "$GITHUB_REPOSITORY" --ref main -f issue="$ISSUE"
           echo "Dispatched $WF for #$ISSUE"

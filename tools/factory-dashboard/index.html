@@ -26,6 +26,7 @@
     <a href="#specs">Specs</a>
     <a href="#runs">Runs</a>
     <a href="#cost">Cost</a>
+    <a href="#health">Health</a>
   </nav>
 
   <div id="banner" class="banner" hidden></div>
@@ -55,6 +56,16 @@
       <h3>Per run</h3>
       <div id="cost-runs" class="table-wrap"></div>
       <p class="muted small">From <code>&lt;!-- factory-metrics --&gt;</code> comments posted by the factory workflows (last 300 comments, owner and bot authors only).</p>
+    </section>
+
+    <section id="health">
+      <h2>Factory health</h2>
+      <div id="health-tiles" class="tiles"></div>
+      <h3>Per issue</h3>
+      <div id="health-issues" class="table-wrap"></div>
+      <p class="muted small">Waits: spec PR opened to merged, spec merged to build PR opened, build PR opened to merged. "Human" counts PR commits not made by the factory. Verdicts are the AI review's latest before the merge.</p>
+      <h3>Denied tool calls</h3>
+      <div id="health-denied" class="table-wrap"></div>
     </section>
   </main>
 

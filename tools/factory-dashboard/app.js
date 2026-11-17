@@ -10,7 +10,9 @@ const SHOWN_WORKFLOWS = /^(Factory [134]:|CI$)/;
 const AGENTS = ["spec-writer", "test-writer", "developer", "reviewer"];
 const TRUSTED_AUTHORS = ["OWNER", "MEMBER", "COLLABORATOR"];
 
-const state = { issues: [], pulls: [], runs: [], metrics: [], linked: new Map(), byNumber: new Map() };
+const FACTORY_AUTHORS = ["claude[bot]", "family-guardian-factory"];
+
+const state = { issues: [], pulls: [], runs: [], metrics: [], reviews: new Map(), linked: new Map(), byNumber: new Map() };
 const shaCache = new Map();
 
 // ---------- helpers ----------
@@ -120,6 +122,35 @@ function parseMetrics(comments) {
   return out;
 }
 
+// Reviewer comments, newest first per PR. Verdict from the hidden factory-review marker, else from the text.
+function parseReview(c) {
+  if (c.user?.login !== "github-actions[bot]" || !/Verdict:|factory-review/.test(c.body || "")) return null;
+  const body = c.body || "";
+  let data = null;
+  const m = /<!-- factory-review (\{[^}]*\}) -->/.exec(body);
+  if (m) { try { data = JSON.parse(m[1]); } catch { /* fall back to the text */ } }
+  const verdict = data?.verdict || (/verdict:[* ]*changes needed/i.test(body) ? "changes-needed" : /verdict:[* ]*looks good/i.test(body) ? "looks-good" : "unknown");
+  const findingsText = body.split(/human check/i)[0];
+  const findings = data ? (data.high || 0) + (data.medium || 0) + (data.low || 0) : (findingsText.match(/^\s*\d+\.\s/gm) || []).length;
+  return { verdict, findings, at: c.created_at, url: c.html_url, body: body.replace(/<!-- factory-review[^>]*-->/, "").trim() };
+}
+
+function parseReviews(comments) {
+  const map = new Map();
+  for (const c of comments) {
+    const review = parseReview(c);
+    if (!review) continue;
+    const n = Number(c.issue_url.split("/").pop());
+    map.set(n, [...(map.get(n) || []), review].sort((a, b) => Date.parse(b.at) - Date.parse(a.at)));
+  }
+  return map;
+}
+
+// The newest review at a moment (for example at the merge), or the newest overall.
+function reviewAt(prNumber, iso) {
+  return (state.reviews.get(prNumber) || []).find((r) => !iso || Date.parse(r.at) <= Date.parse(iso)) || null;
+}
+
 function linkPulls() {
   state.linked = new Map();
   for (const pr of state.pulls) {
@@ -154,12 +185,14 @@ async function load() {
     state.pulls = pulls;
     state.runs = runs.filter((r) => SHOWN_WORKFLOWS.test(r.name) && r.conclusion !== "skipped");
     state.metrics = parseMetrics(comments);
+    state.reviews = parseReviews(comments);
     linkPulls();
     renderBoard();
     renderRuns();
     renderCost();
     $("status").textContent = `Updated ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
     await renderSpecs();
+    await renderHealth();
   } catch (e) {
     showBanner(`Could not load: ${e.message}`);
     $("status").textContent = "";
@@ -182,7 +215,9 @@ function prLink(kind, pr) {
 function prChip(kind, pr) {
   if (!pr) return "";
   const st = pr.merged_at ? "merged" : pr.state;
-  return html`<a class="pr st-${st}" href="${pr.html_url}" target="_blank" rel="noopener" title="${kind} PR #${pr.number}: ${st}">${kind[0].toUpperCase()}#${pr.number}</a>`;
+  const review = reviewAt(pr.number, pr.merged_at);
+  const flag = review && review.verdict === "changes-needed" ? html`<span class="verdict bad" title="AI review: changes needed (${review.findings} findings)">!</span>` : "";
+  return html`<a class="pr st-${st}" href="${pr.html_url}" target="_blank" rel="noopener" title="${kind} PR #${pr.number}: ${st}">${kind[0].toUpperCase()}#${pr.number}${flag}</a>`;
 }
 
 function issueCard(issue) {
@@ -414,6 +449,96 @@ function renderCost() {
     </tr>`)}</tbody></table>`);
 }
 
+// ---------- factory health ----------
+
+function median(xs) {
+  const sorted = [...xs].sort((a, b) => a - b);
+  return sorted.length ? sorted[Math.floor((sorted.length - 1) / 2)] : null;
+}
+const span = (ms) => (ms === null || ms === undefined ? "—" : duration(ms));
+const between = (a, b) => (a && b ? Math.max(0, Date.parse(b) - Date.parse(a)) : null);
+
+// Fix-up commits on a factory PR (human or @claude); 0 means the PR went through on the first pass.
+// The Claude action commits as claude[bot] for both the factory and @claude, so the factory's commits are
+// recognised by count: one on a spec PR, test + implementation on a build PR.
+async function humanCommits(pr) {
+  const commits = await ghBySha(`commits:${pr.number}:${pr.head.sha}`, `/repos/${REPO}/pulls/${pr.number}/commits?per_page=100`);
+  const expected = pr.head.ref.startsWith("spec/") ? 1 : 2;
+  const byOthers = commits.filter((c) => !FACTORY_AUTHORS.includes(c.commit.author?.name)).length;
+  return Math.max(commits.length - expected, byOthers);
+}
+
+async function renderHealth() {
+  const rows = [];
+  for (const [n, prs] of state.linked) {
+    if (!prs.spec) continue;
+    const factory = prs.factory;
+    const ms = state.metrics.filter((m) => issueOf(m.target) === n);
+    rows.push({
+      n,
+      reviewed: [prs.spec, factory].filter(Boolean).map((pr) => ({ pr, review: reviewAt(pr.number, pr.merged_at) })),
+      cost: ms.length ? ms.reduce((s, m) => s + (m.cost_usd || 0), 0) : null,
+      agentMs: ms.length ? ms.reduce((s, m) => s + (m.duration_ms || 0), 0) : null,
+      specWait: between(prs.spec.created_at, prs.spec.merged_at),
+      queue: factory ? between(prs.spec.merged_at, factory.created_at) : null,
+      buildWait: factory ? between(factory.created_at, factory.merged_at) : null,
+      lead: factory ? between(prs.spec.created_at, factory.merged_at) : null,
+    });
+  }
+  const merged = rows.flatMap((r) => r.reviewed.map((x) => x.pr)).filter((pr) => pr.merged_at).slice(0, 16);
+  const edits = new Map(await Promise.all(merged.map(async (pr) => [pr.number, await humanCommits(pr).catch(() => null)])));
+  const known = merged.filter((pr) => edits.get(pr.number) !== null);
+  const firstPass = known.filter((pr) => edits.get(pr.number) === 0).length;
+  const mergedReviews = merged.map((pr) => reviewAt(pr.number, pr.merged_at)).filter(Boolean);
+  const overridden = mergedReviews.filter((r) => r.verdict === "changes-needed").length;
+  const allReviews = rows.flatMap((r) => r.reviewed.map((x) => x.review)).filter(Boolean);
+  const done = rows.filter((r) => r.lead !== null);
+  const costed = done.filter((r) => r.cost !== null);
+  const timed = done.filter((r) => r.agentMs !== null);
+  const timedLead = timed.reduce((s, r) => s + r.lead, 0);
+
+  put("health-tiles", [
+    tile(known.length ? `${firstPass}/${known.length}` : "—", "merged PRs with no human commits"),
+    tile(`${overridden}/${mergedReviews.length}`, "merged over an AI \"changes needed\""),
+    tile(allReviews.length ? (allReviews.reduce((s, r) => s + r.findings, 0) / allReviews.length).toFixed(1) : "—", "AI review findings per PR"),
+    tile(costed.length ? money(costed.reduce((s, r) => s + r.cost, 0) / costed.length) : "—", "cost per merged issue"),
+    tile(span(median(done.map((r) => r.lead))), "median lead time, spec PR to build merged"),
+    tile(timedLead ? `${Math.round((timed.reduce((s, r) => s + r.agentMs, 0) / timedLead) * 100)}%` : "—", "share of lead time spent by agents"),
+  ]);
+
+  const prCell = (x) => {
+    if (!x) return "";
+    const edited = edits.get(x.pr.number);
+    const v = x.review?.verdict;
+    return html`<a href="${x.pr.html_url}" target="_blank" rel="noopener">#${x.pr.number}</a>${x.review
+      ? html`<span class="verdict ${v === "looks-good" ? "good" : "bad"}" title="${x.review.findings} findings">${v === "looks-good" ? "ok" : v === "changes-needed" ? "changes" : "?"}</span>` : ""}${edited
+      ? html` <span class="muted" title="Commits not made by the factory">+${edited} human</span>` : ""}`;
+  };
+  put("health-issues", rows.length ? html`<table>
+    <thead><tr><th>Issue</th><th>Spec PR</th><th>Build PR</th><th class="num">Spec review wait</th><th class="num">Queue</th><th class="num">Build review wait</th><th class="num">Lead time</th><th class="num">Agent time</th><th class="num">Cost</th></tr></thead>
+    <tbody>${rows.sort((a, b) => b.n - a.n).map((r) => html`<tr>
+      <td class="wrap"><a href="${ghUrl(`issues/${r.n}`)}" target="_blank" rel="noopener">#${r.n}</a> ${state.byNumber.get(r.n)?.title || ""}</td>
+      <td>${prCell(r.reviewed[0])}</td><td>${prCell(r.reviewed[1])}</td>
+      <td class="num">${span(r.specWait)}</td><td class="num">${span(r.queue)}</td><td class="num">${span(r.buildWait)}</td>
+      <td class="num"><strong>${span(r.lead)}</strong></td><td class="num">${span(r.agentMs)}</td><td class="num">${r.cost === null ? "—" : money(r.cost)}</td>
+    </tr>`)}</tbody></table>` : html`<p class="muted">No issue has a spec PR yet.</p>`);
+
+  const denied = new Map();
+  for (const m of state.metrics) {
+    for (const call of m.denied || []) {
+      const key = JSON.stringify([m.agent, call]);
+      denied.set(key, (denied.get(key) || 0) + 1);
+    }
+  }
+  put("health-denied", denied.size ? html`<table>
+    <thead><tr><th>Agent</th><th>Denied tool call</th><th class="num">Count</th></tr></thead>
+    <tbody>${[...denied].sort((a, b) => b[1] - a[1]).map(([key, count]) => {
+      const [agent, call] = JSON.parse(key);
+      return html`<tr><td>${agent}</td><td class="wrap"><code>${call}</code></td><td class="num">${count}</td></tr>`;
+    })}</tbody></table>`
+    : html`<p class="muted">None recorded yet. The metrics step logs them from now on; widen an agent's allowlist when one keeps coming back.</p>`);
+}
+
 // ---------- dialogs and actions ----------
 
 // Opens the shared confirm dialog; resolves with the textarea value (or true) on OK, null on cancel.
@@ -501,11 +626,24 @@ async function mergeAction(n) {
   confirmDialog({ title: `Merge #${n}`, content: html`<p class="muted">Loading PR, evidence and CI…</p>`, okLabel: "Squash and merge", ack: "I have read the evidence and CI results and approve this merge.", run: async () => { throw new Error("Still loading"); } });
   try {
     const pr = await gh(`/repos/${REPO}/pulls/${n}`);
-    const checks = (await gh(`/repos/${REPO}/commits/${pr.head.sha}/check-runs?per_page=100`)).check_runs;
+    const [checkRuns, combined, prComments] = await Promise.all([
+      gh(`/repos/${REPO}/commits/${pr.head.sha}/check-runs?per_page=100`),
+      gh(`/repos/${REPO}/commits/${pr.head.sha}/status`),
+      gh(`/repos/${REPO}/issues/${n}/comments?per_page=100`),
+    ]);
+    // Commit statuses (such as factory/review) are listed with the check runs.
+    const checks = [...checkRuns.check_runs, ...combined.statuses.map((st) => ({
+      name: st.context,
+      status: st.state === "pending" ? "in_progress" : "completed",
+      conclusion: st.state === "error" ? "failure" : st.state,
+      description: st.description,
+    }))];
+    const review = prComments.map(parseReview).filter(Boolean).pop() || null;
+    const reviewBad = !review || review.verdict !== "looks-good";
     const allGreen = checks.length > 0 && checks.every((c) => c.status === "completed" && ["success", "skipped", "neutral"].includes(c.conclusion));
     const ciRows = checks.map((c) => {
       const st = c.status === "completed" ? c.conclusion : c.status;
-      return html`<tr><td>${c.name}</td><td class="st-${st}">${st}</td></tr>`;
+      return html`<tr><td>${c.name}</td><td class="st-${st}">${st}</td><td class="wrap muted">${c.description || ""}</td></tr>`;
     });
     if (seq !== mergeSeq || !$("confirm-dialog").open) return;
     const blocked = pr.state !== "open" || pr.mergeable === false;
@@ -515,13 +653,19 @@ async function mergeAction(n) {
         <p><a href="${pr.html_url}" target="_blank" rel="noopener">Open on GitHub</a> · ${pr.head.ref} → ${pr.base.ref} · ${pr.changed_files} files, +${pr.additions} −${pr.deletions}</p>
         <h3>Evidence</h3>
         <div class="table-wrap">${evidence(pr.body)}</div>
+        <h3>AI review</h3>
+        ${review ? html`<p><span class="verdict ${review.verdict === "looks-good" ? "good" : "bad"}">${review.verdict}</span> ${review.findings} findings · <a href="${review.url}" target="_blank" rel="noopener">${age(review.at)} ago</a></p>
+          <div class="pre">${review.body.slice(0, 2500)}</div>` : html`<p class="warn">No AI review comment found.</p>`}
+        ${reviewBad ? html`<p class="warn">The AI reviewer did not say "looks good". Merging overrides it.</p>` : ""}
         <h3>CI</h3>
         ${checks.length ? html`<div class="table-wrap"><table><tbody>${ciRows}</tbody></table></div>` : html`<p class="warn">No CI checks found on the head commit.</p>`}
         ${allGreen ? "" : html`<p class="warn">CI is not fully green.</p>`}
         ${blocked ? html`<p class="warn">GitHub reports this PR is not mergeable (${pr.state}, ${pr.mergeable_state}).</p>` : ""}
         <p class="small muted">Squash merge of head ${pr.head.sha.slice(0, 7)}. Merging is the human gate.</p>`,
       okLabel: `Squash and merge #${n}`,
-      ack: "I have read the evidence and CI results and approve this merge.",
+      ack: reviewBad
+        ? "I have read the evidence, the CI results and the AI review findings, and approve this merge anyway."
+        : "I have read the evidence and CI results and approve this merge.",
       run: () => gh(`/repos/${REPO}/pulls/${n}/merge`, { method: "PUT", body: { merge_method: "squash", sha: pr.head.sha } }),
     });
   } catch (e) {
