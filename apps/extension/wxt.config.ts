@@ -1,7 +1,7 @@
 import { defineConfig } from "wxt";
 import { buildManifest } from "./lib/manifest";
 
-const apiOrigin = (process.env.WXT_API_BASE_URL ?? "https://family-guardian-one.vercel.app").replace(/\/$/, "");
+const apiOrigin = (process.env.WXT_API_BASE_URL ?? "https://family-guardian.co").replace(/\/$/, "");
 
 export default defineConfig({
   manifest: {

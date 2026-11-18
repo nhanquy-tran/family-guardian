@@ -11,7 +11,7 @@ npm run zip -w extension
 Build with the production API URL and upload `apps/extension/.output/extension-<version>-chrome.zip`:
 
 ```bash
-WXT_API_BASE_URL=https://family-guardian-one.vercel.app npm run zip -w extension
+WXT_API_BASE_URL=https://family-guardian.co npm run zip -w extension
 ```
 
 ## Store listing
@@ -26,17 +26,19 @@ WXT_API_BASE_URL=https://family-guardian-one.vercel.app npm run zip -w extension
 
   - See which websites are used and for how long, by day and week
   - Block websites or whole categories
+  - Daily time limits per category (e.g. games 60 minutes), with the minutes left shown on the toolbar icon
+  - Allowed hours: no browsing outside a daily window set by the parent
   - A daily focus score: homework time versus distractions
-  - Alert when the extension is removed or stops reporting
+  - A daily or weekly e-mail digest for parents
 
   Privacy first: only the website domain (e.g. youtube.com) and time are sent to the parent's dashboard. Never full addresses, page content, searches, messages, keystrokes or screenshots.
 
-  Requires a parent account at https://family-guardian-one.vercel.app.
+  Requires a parent account at https://family-guardian.co.
 
 - Icon: `apps/extension/public/icon/128.png`
 - Screenshots (1280x800): add once the dashboard shows data
-- Privacy policy URL: https://family-guardian-one.vercel.app/privacy
-- Homepage URL: https://family-guardian-one.vercel.app
+- Privacy policy URL: https://family-guardian.co/privacy
+- Homepage URL: https://family-guardian.co
 
 ## Privacy practices tab
 
@@ -46,11 +48,19 @@ WXT_API_BASE_URL=https://family-guardian-one.vercel.app npm run zip -w extension
   - `idle`: stop counting time when the computer is idle or locked
   - `storage`: keep the device token, block rules and unsent usage while offline
   - `alarms`: send a usage report once a minute
-  - Host permission `https://family-guardian-one.vercel.app/*`: send usage reports to the parent's dashboard (our own API only)
-  - (Blocking, issue #15, will add `declarativeNetRequest` and broader host access in a later version, with its own justification.)
+  - `declarativeNetRequest` (since 0.3.0): block the websites and categories the parent chose, apply daily time limits and allowed hours by redirecting blocked pages to the extension's own "blocked" page. Rules are applied in the browser; no page content is read.
+  - Host permission `https://family-guardian.co/*`: send usage reports to the parent's dashboard and fetch the parent's rules (our own API only)
+  - Host permission `<all_urls>` (since 0.3.0): required by `declarativeNetRequest` redirect rules so a blocked site on any domain can be redirected to the blocked page. Pages are never read or modified otherwise.
 - Remote code: No
 - Data usage: "Web history" (domains only) and "User activity" (time spent). Not sold, not used for unrelated purposes, not used for creditworthiness.
 - Certify the developer program policies.
+
+## Versions
+
+| Version | Contents |
+|---|---|
+| 0.2.0 | Tracking, pairing, heartbeat (minimal permissions) |
+| 0.3.0 | Site and category blocking, daily limits per category, minutes-left badge, allowed hours, API origin `https://family-guardian.co` |
 
 ## Plan
 
