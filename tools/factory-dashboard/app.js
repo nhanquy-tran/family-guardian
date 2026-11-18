@@ -746,7 +746,23 @@ function issueDetail(n, { keepScroll = false } = {}) {
   const gates = [r.specGateRounds && `${r.specGateRounds} spec gate round${r.specGateRounds > 1 ? "s" : ""} with changes`, r.buildGateRounds && `${r.buildGateRounds} build gate round${r.buildGateRounds > 1 ? "s" : ""} with changes`].filter(Boolean);
   $("issue-title").textContent = `#${n} ${issue.title}`;
   const dlg = $("issue-dialog");
-  const top = dlg.scrollTop;
+  const scrollers = () => [dlg, dlg.querySelector(".dialog-body"), dlg.querySelector(".activities")];
+  const scrolled = scrollers().map((el) => el?.scrollTop || 0);
+  const when = (t) => new Date(t).toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" });
+  // One list of agent activities and gate decisions, newest first.
+  const rows = [
+    ...m.acts.map((a) => ({ at: a.start, row: html`<tr>
+        <td>${stepLabel(a.step)}</td><td>${a.agent}</td>
+        <td>${when(a.start)}</td>
+        <td class="num">${short(a.end - a.start)}</td>
+        <td class="num">${a.live ? "" : a.cost === null ? html`<span class="muted">n/a</span>` : money(a.cost)}</td>
+        <td class="num">${a.turns ?? ""}</td>
+        <td><a href="${a.url}" target="_blank" rel="noopener" class="${a.live ? "st-in_progress" : a.ok ? "st-success" : "st-failure"}">${a.live ? "running" : a.ok ? "ok" : "failed"}</a>${a.attempt > 1 ? html` <span class="muted">attempt ${a.attempt}</span>` : ""}</td>
+      </tr>` })),
+    ...m.gates.map((g) => ({ at: g.at, row: html`<tr><td>${g.phase === "spec" ? "Spec gate" : "Build gate"}</td><td>Claude</td>
+        <td>${when(g.at)}</td><td></td><td></td><td></td>
+        <td><a href="${g.url}" target="_blank" rel="noopener" class="${g.approved ? "st-success" : "st-open"}">${g.approved ? "approved" : "changes"}</a></td></tr>` })),
+  ].sort((a, b) => b.at - a.at).map((x) => x.row);
   put("issue-body", html`
     <div id="issue-live" class="live-line" aria-live="polite"></div>
     <p class="small"><a href="${issue.html_url}" target="_blank" rel="noopener">Issue on GitHub</a>
@@ -760,24 +776,13 @@ function issueDetail(n, { keepScroll = false } = {}) {
     </div>
     ${gantt(m)}
     <p class="small">${retryParts.length ? `Retries: ${retryParts.join(", ")}.` : "No retries: every step passed on the first run."}${gates.length ? ` Claude gate: ${gates.join(", ")}.` : ""}</p>
-    <h3>Activities</h3>
-    <div class="table-wrap"><table>
+    <div class="act-head"><h3>Activities <span class="muted small">newest first</span></h3>
+      <details class="small muted"><summary>How times are measured</summary>Agent times are the Claude Code run time from each step's metrics comment. Runs without one (older @claude fix rounds, factory runs that failed early) use the GitHub run time and have no cost. Waits run from the last agent activity of a phase to the merge.</details></div>
+    <div class="table-wrap activities"><table>
       <thead><tr><th>Step</th><th>Agent</th><th>Started</th><th class="num">Time</th><th class="num">Cost</th><th class="num">Turns</th><th>Result</th></tr></thead>
-      <tbody>${m.acts.map((a) => html`<tr>
-        <td>${stepLabel(a.step)}</td><td>${a.agent}</td>
-        <td>${new Date(a.start).toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" })}</td>
-        <td class="num">${short(a.end - a.start)}</td>
-        <td class="num">${a.live ? "" : a.cost === null ? html`<span class="muted">n/a</span>` : money(a.cost)}</td>
-        <td class="num">${a.turns ?? ""}</td>
-        <td><a href="${a.url}" target="_blank" rel="noopener" class="${a.live ? "st-in_progress" : a.ok ? "st-success" : "st-failure"}">${a.live ? "running" : a.ok ? "ok" : "failed"}</a>${a.attempt > 1 ? html` <span class="muted">attempt ${a.attempt}</span>` : ""}</td>
-      </tr>`)}
-      ${m.gates.map((g) => html`<tr><td>${g.phase === "spec" ? "Spec gate" : "Build gate"}</td><td>Claude</td>
-        <td>${new Date(g.at).toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" })}</td><td></td><td></td><td></td>
-        <td><a href="${g.url}" target="_blank" rel="noopener" class="${g.approved ? "st-success" : "st-open"}">${g.approved ? "approved" : "changes"}</a></td></tr>`)}
-      </tbody></table></div>
-    <p class="small muted">Agent times are the Claude Code run time from each step's metrics comment. Runs without one (older @claude fix rounds, factory runs that failed early) use the GitHub run time and have no cost. Waits run from the last agent activity of a phase to the merge.</p>`);
+      <tbody>${rows}</tbody></table></div>`);
   if (!dlg.open) dlg.showModal();
-  if (keepScroll) dlg.scrollTop = top;
+  if (keepScroll) scrollers().forEach((el, i) => { if (el) el.scrollTop = scrolled[i]; });
   startLive(n);
   renderLiveLine();
 }
