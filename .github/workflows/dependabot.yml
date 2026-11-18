@@ -26,6 +26,10 @@ jobs:
           gh pr merge --auto --squash "$PR" || gh pr comment "$PR" --body "Patch/minor update: merge when the required checks pass (auto-merge is off in the repository settings)."
       - name: Major updates need a human
         if: steps.meta.outputs.update-type == 'version-update:semver-major'
+        env:
+          DEPS: ${{ steps.meta.outputs.dependency-names }}
+          FROM: ${{ steps.meta.outputs.previous-version }}
+          TO: ${{ steps.meta.outputs.new-version }}
         run: |
           gh pr edit "$PR" --add-label needs-human
-          gh pr comment "$PR" --body "Major update of ${{ steps.meta.outputs.dependency-names }} (${{ steps.meta.outputs.previous-version }} → ${{ steps.meta.outputs.new-version }}). Check the release notes for breaking changes; fix on this branch or close it."
+          gh pr comment "$PR" --body "Major update of ${DEPS} (${FROM} → ${TO}). Check the release notes for breaking changes; fix on this branch or close it."

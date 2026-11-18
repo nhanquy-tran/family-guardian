@@ -101,5 +101,8 @@ jobs:
       - name: Flag failure
         if: failure()
         run: |
+          if [ -n "$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search 'in:title "Factory docs job failed"' --json number -q '.[].number')" ]; then
+            echo "A docs-failure issue is already open."; exit 0
+          fi
           gh issue create --repo "$GITHUB_REPOSITORY" --title "Factory docs job failed $(date -u +%Y-%m-%d)" --label needs-human \
             --body "The nightly docs job failed: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}. Pending notes stay in the queue (docs/docs-notes-applied.txt)."
