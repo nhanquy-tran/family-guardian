@@ -17,7 +17,7 @@ Facts about the platforms we build on that caused real defects or failures. Ever
 - New environment variables apply only to **new deployments**: redeploy after adding one. (#9)
 - `next build` type-checks every `.ts` file under the app, including tests: each app declares the dev tools its files import. (#8)
 - React server rendering of forms with server actions **injects an inline `<script>`** (form replay). Never assert "no `<script>`" to prove "works without JavaScript"; assert plain links/forms instead. (#13)
-- Vercel Hobby has a **build-rate limit**: every push to every branch builds. `apps/web/vercel.json` skips spec branches and commits that do not touch `apps/web`, `packages` or dependencies.
+- Vercel is on **Pro** (since 2026-11-18). Production builds only from `main` when `apps/web`, `packages`, dependencies or `vercel-ignore.sh` change; previews build only for `factory/*` branches (the build gate's UI check). Spec, docs and other branches are skipped. Hobby's daily deployment limit stopped all deploys on 2026-11-17.
 - `x-forwarded-for` is trustworthy only on Vercel (it overwrites it).
 
 ## Chrome / Edge / Brave extensions (MV3)
