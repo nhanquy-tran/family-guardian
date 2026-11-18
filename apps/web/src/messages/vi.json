@@ -1,0 +1,84 @@
+{
+  "meta": {
+    "title": "Family Guardian: biết con dành thời gian trên mạng như thế nào",
+    "description": "Tiện ích trình duyệt và bảng điều khiển miễn phí cho phụ huynh. Xem con dùng trang web nào trong bao lâu, chặn những trang bạn chọn và tôn trọng quyền riêng tư của con."
+  },
+  "nav": {
+    "brand": "Family Guardian",
+    "signIn": "Đăng nhập"
+  },
+  "hero": {
+    "title": "Biết con dành thời gian trên mạng như thế nào",
+    "subtitle": "Family Guardian cho bạn thấy con dùng những trang web nào trên laptop Windows và trong bao lâu. Chặn những trang bạn chọn và nhận điểm tập trung mỗi ngày. Dịch vụ miễn phí và chỉ thu thập tên miền và thời gian.",
+    "signIn": "Đăng nhập với tư cách phụ huynh",
+    "how": "Cách hoạt động"
+  },
+  "how": {
+    "title": "Cách hoạt động",
+    "steps": {
+      "signIn": {
+        "title": "Đăng nhập bằng Google",
+        "text": "Dùng tài khoản Google của bạn để mở bảng điều khiển dành cho phụ huynh."
+      },
+      "child": {
+        "title": "Thêm con và ghép nối laptop",
+        "text": "Tạo hồ sơ cho con rồi nhập mã ghép nối vào tiện ích."
+      },
+      "install": {
+        "title": "Cài đặt trên Windows",
+        "text": "Chạy một tệp nhỏ trên laptop của con để thêm tiện ích trình duyệt.",
+        "link": "Mở hướng dẫn cài đặt"
+      },
+      "dashboard": {
+        "title": "Xem bảng điều khiển",
+        "text": "Xem hoạt động, đặt chặn và đọc điểm tập trung mỗi ngày từ bất kỳ thiết bị nào."
+      }
+    }
+  },
+  "features": {
+    "title": "Bạn nhận được gì",
+    "activity": {
+      "title": "Hoạt động theo tên miền và thời gian",
+      "text": "Xem con truy cập trang nào và bao nhiêu phút mỗi ngày."
+    },
+    "blocking": {
+      "title": "Chặn trang và danh mục",
+      "text": "Chặn từng trang hoặc cả danh mục, và đặt giới hạn thời gian mỗi ngày."
+    },
+    "score": {
+      "title": "Điểm tập trung hằng ngày",
+      "text": "Một con số đơn giản cho biết ngày hôm đó tập trung đến đâu."
+    },
+    "alerts": {
+      "title": "Cảnh báo ngoại tuyến và bản tóm tắt",
+      "text": "Nhận thông báo khi tiện ích im lặng và bản tóm tắt hằng tuần qua e-mail."
+    },
+    "privacy": {
+      "title": "Ưu tiên quyền riêng tư",
+      "text": "Không lưu địa chỉ trang, không lưu nội dung, không theo dõi lén. Việc duyệt web của con vẫn riêng tư."
+    }
+  },
+  "privacy": {
+    "title": "Quyền riêng tư là trên hết",
+    "intro": "Family Guardian chỉ thu thập tối thiểu để giúp bạn. Không hơn.",
+    "collectedTitle": "Chúng tôi thu thập",
+    "collected": {
+      "domain": "Tên miền của trang web, ví dụ example.com",
+      "time": "Trang mở trong bao nhiêu giây"
+    },
+    "neverTitle": "Chúng tôi không bao giờ thu thập",
+    "never": {
+      "urls": "Địa chỉ trang đầy đủ hoặc nội dung tìm kiếm",
+      "content": "Nội dung hoặc tiêu đề trang",
+      "keystrokes": "Phím đã gõ",
+      "screenshots": "Ảnh chụp màn hình"
+    },
+    "link": "Đọc chính sách quyền riêng tư"
+  },
+  "footer": {
+    "privacy": "Quyền riêng tư",
+    "help": "Trợ giúp",
+    "faq": "Câu hỏi thường gặp",
+    "note": "Family Guardian miễn phí và phi thương mại."
+  }
+}

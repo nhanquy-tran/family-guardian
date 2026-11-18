@@ -1,0 +1,84 @@
+{
+  "meta": {
+    "title": "Family Guardian: know where your child's time goes online",
+    "description": "A free browser extension and dashboard for parents. See which websites your child uses and for how long, block the ones you choose, and keep their privacy."
+  },
+  "nav": {
+    "brand": "Family Guardian",
+    "signIn": "Sign in"
+  },
+  "hero": {
+    "title": "Know where your child's time goes online",
+    "subtitle": "Family Guardian shows which websites your child uses on their Windows laptop and for how long. Block the ones you choose and get a daily focus score. It is free and only collects domains and time.",
+    "signIn": "Sign in as a parent",
+    "how": "How it works"
+  },
+  "how": {
+    "title": "How it works",
+    "steps": {
+      "signIn": {
+        "title": "Sign in with Google",
+        "text": "Use your own Google account to open your parent dashboard."
+      },
+      "child": {
+        "title": "Add a child and pair the laptop",
+        "text": "Create a profile for your child and enter the pairing code in the extension."
+      },
+      "install": {
+        "title": "Install on Windows",
+        "text": "Run one small file on your child's laptop to add the browser extension.",
+        "link": "Open the install guide"
+      },
+      "dashboard": {
+        "title": "See the dashboard",
+        "text": "Check activity, set blocks and read the daily focus score from any device."
+      }
+    }
+  },
+  "features": {
+    "title": "What you get",
+    "activity": {
+      "title": "Activity by domain and time",
+      "text": "See which sites your child visits and how many minutes each day."
+    },
+    "blocking": {
+      "title": "Site and category blocking",
+      "text": "Block single sites or whole categories, and set daily time limits."
+    },
+    "score": {
+      "title": "Daily focus score",
+      "text": "One simple number that shows how focused the day was."
+    },
+    "alerts": {
+      "title": "Offline alerts and digest",
+      "text": "Get a note when the extension goes quiet and a weekly summary by e-mail."
+    },
+    "privacy": {
+      "title": "Privacy-first",
+      "text": "No page addresses, no content, no spying. Your child's browsing stays private."
+    }
+  },
+  "privacy": {
+    "title": "Privacy comes first",
+    "intro": "Family Guardian collects the least it needs to help you. Nothing more.",
+    "collectedTitle": "What we collect",
+    "collected": {
+      "domain": "The website domain, such as example.com",
+      "time": "How many seconds it was open"
+    },
+    "neverTitle": "What we never collect",
+    "never": {
+      "urls": "Full page addresses or searches",
+      "content": "Page content or titles",
+      "keystrokes": "Keystrokes",
+      "screenshots": "Screenshots"
+    },
+    "link": "Read the privacy policy"
+  },
+  "footer": {
+    "privacy": "Privacy",
+    "help": "Help",
+    "faq": "FAQ",
+    "note": "Family Guardian is free and not commercial."
+  }
+}

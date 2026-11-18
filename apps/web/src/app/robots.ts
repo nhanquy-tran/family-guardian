@@ -1,5 +1,9 @@
 import type { MetadataRoute } from "next";
+import { SITE_URL } from "../lib/site";
 
 export default function robots(): MetadataRoute.Robots {
-  throw new Error("not implemented");
+  return {
+    rules: { userAgent: "*", allow: "/", disallow: ["/dashboard", "/api", "/auth", "/login", "/install"] },
+    sitemap: `${SITE_URL}/sitemap.xml`,
+  };
 }

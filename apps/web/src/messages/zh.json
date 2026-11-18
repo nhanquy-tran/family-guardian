@@ -1,0 +1,84 @@
+{
+  "meta": {
+    "title": "Family Guardian：了解孩子的上网时间去了哪里",
+    "description": "为家长提供的免费浏览器扩展和管理面板。查看孩子使用了哪些网站、用了多久，屏蔽你选择的网站，同时保护孩子的隐私。"
+  },
+  "nav": {
+    "brand": "Family Guardian",
+    "signIn": "登录"
+  },
+  "hero": {
+    "title": "了解孩子的上网时间去了哪里",
+    "subtitle": "Family Guardian 让你看到孩子在 Windows 笔记本电脑上使用了哪些网站、用了多久。屏蔽你选择的网站，每天获得专注分数。完全免费，只收集域名和时间。",
+    "signIn": "以家长身份登录",
+    "how": "使用方法"
+  },
+  "how": {
+    "title": "使用方法",
+    "steps": {
+      "signIn": {
+        "title": "使用 Google 登录",
+        "text": "用你自己的 Google 账号打开家长管理面板。"
+      },
+      "child": {
+        "title": "添加孩子并配对笔记本电脑",
+        "text": "为孩子创建档案，然后在扩展中输入配对码。"
+      },
+      "install": {
+        "title": "在 Windows 上安装",
+        "text": "在孩子的笔记本电脑上运行一个小文件，即可添加浏览器扩展。",
+        "link": "打开安装指南"
+      },
+      "dashboard": {
+        "title": "查看管理面板",
+        "text": "在任何设备上查看活动、设置屏蔽并阅读每日专注分数。"
+      }
+    }
+  },
+  "features": {
+    "title": "你能获得什么",
+    "activity": {
+      "title": "按域名和时间查看活动",
+      "text": "查看孩子访问了哪些网站，以及每天花了多少分钟。"
+    },
+    "blocking": {
+      "title": "网站和类别屏蔽",
+      "text": "屏蔽单个网站或整个类别，并设置每日时间限制。"
+    },
+    "score": {
+      "title": "每日专注分数",
+      "text": "用一个简单的数字显示这一天有多专注。"
+    },
+    "alerts": {
+      "title": "离线提醒和摘要",
+      "text": "扩展长时间没有动静时通知你，并每周通过电子邮件发送摘要。"
+    },
+    "privacy": {
+      "title": "隐私优先",
+      "text": "不记录页面地址，不记录内容，不做监视。孩子的浏览内容保持私密。"
+    }
+  },
+  "privacy": {
+    "title": "隐私放在第一位",
+    "intro": "Family Guardian 只收集帮助你所必需的最少信息，绝不多收。",
+    "collectedTitle": "我们收集的信息",
+    "collected": {
+      "domain": "网站域名，例如 example.com",
+      "time": "页面打开了多少秒"
+    },
+    "neverTitle": "我们绝不收集的信息",
+    "never": {
+      "urls": "完整的页面地址或搜索内容",
+      "content": "页面内容或标题",
+      "keystrokes": "键盘输入",
+      "screenshots": "屏幕截图"
+    },
+    "link": "阅读隐私政策"
+  },
+  "footer": {
+    "privacy": "隐私",
+    "help": "帮助",
+    "faq": "常见问题",
+    "note": "Family Guardian 免费且非商业。"
+  }
+}

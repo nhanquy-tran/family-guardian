@@ -1,7 +1,12 @@
+import en from "../../messages/en.json";
+import vi from "../../messages/vi.json";
+import zh from "../../messages/zh.json";
 import type { Locale } from "./locale";
 
-export type Messages = Record<string, unknown>;
+export type Messages = typeof en;
 
-export function getMessages(_locale: Locale): Messages {
-  throw new Error("not implemented");
+const all: Record<Locale, Messages> = { en, vi, zh };
+
+export function getMessages(locale: Locale): Messages {
+  return all[locale];
 }
