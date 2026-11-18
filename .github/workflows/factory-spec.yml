@@ -26,12 +26,19 @@ jobs:
     timeout-minutes: 30
     env:
       ISSUE: ${{ inputs.issue }}
+      MODE: ${{ vars.FACTORY_MODE || 'full' }}
       GH_TOKEN: ${{ secrets.FACTORY_TOKEN || github.token }}
     steps:
       - uses: actions/checkout@v5
         with:
           token: ${{ secrets.FACTORY_TOKEN || github.token }}
       - uses: ./.github/actions/setup
+      - name: Factory mode
+        # A `full-mode` label on the issue overrides light mode for this issue (ADR 0018).
+        run: |
+          M="$MODE"
+          if gh issue view "$ISSUE" --json labels -q '.labels[].name' | grep -qx full-mode; then M=full; echo "MODE=full" >> "$GITHUB_ENV"; fi
+          echo "Factory mode: $M" >> "$GITHUB_STEP_SUMMARY"
       - name: Branch
         run: |
           git config user.name "family-guardian-factory"
@@ -48,11 +55,11 @@ jobs:
           allowed_bots: github-actions # the router dispatches as github-actions
           github_token: ${{ github.token }}
           prompt: |
-            Follow .claude/agents/spec-writer.md exactly.
+            Follow .claude/agents/spec-writer.md exactly. Factory mode: ${{ env.MODE }}.
             Repository: ${{ github.repository }}. Issue number: ${{ env.ISSUE }}.
           claude_args: |
             --model ${{ vars.FACTORY_SPEC_MODEL || 'claude-sonnet-5-5' }}
-            --max-turns 30
+            --max-turns ${{ env.MODE == 'light' && 20 || 30 }}
             --permission-mode default
             --allowedTools "Read,Write,Edit,Glob,Grep,Bash(gh issue view:*),Bash(npx openspec:*),Bash(openspec:*),Bash(ls:*)"
       - name: Metrics (spec-writer)

@@ -37,18 +37,29 @@ jobs:
     timeout-minutes: 30
     env:
       PR: ${{ github.event.pull_request.number || inputs.pr }}
+      MODE: ${{ vars.FACTORY_MODE || 'full' }}
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+      # Light mode (ADR 0018): spec PRs get no AI review (Claude's spec gate reviews them); code PRs get
+      # one combined stage instead of two.
+      - name: Mode
+        id: mode
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          HEAD=$(gh pr view "$PR" --json headRefName -q .headRefName)
+          if [ "$MODE" = "light" ] && [[ "$HEAD" == spec/* ]]; then echo "skip=true" >> "$GITHUB_OUTPUT"; echo "Light mode: no AI review on spec PRs" >> "$GITHUB_STEP_SUMMARY"; else echo "skip=false" >> "$GITHUB_OUTPUT"; fi
       - name: "Stage 1: spec compliance"
         id: spec
+        if: steps.mode.outputs.skip != 'true'
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.CLAUDE_API_KEY }}
           github_token: ${{ github.token }}
           prompt: |
-            Follow .claude/agents/spec-reviewer.md exactly.
+            Follow .claude/agents/spec-reviewer.md exactly. Factory mode: ${{ env.MODE }}.
             Repository: ${{ github.repository }}. PR number: ${{ env.PR }}.
           claude_args: |
             --model ${{ vars.FACTORY_REVIEW_MODEL || 'claude-sonnet-5-5' }}
@@ -64,8 +75,10 @@ jobs:
           V=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments?per_page=100" --jq '[.[] | select(.user.login == "github-actions[bot]" and (.body | test("stage.:.spec")))] | last | .body // ""' | grep -o '"verdict":"[a-z-]*"' | tail -1 | cut -d'"' -f4)
           HEAD=$(gh pr view "$PR" --json headRefName -q .headRefName)
           echo "verdict=${V:-unknown}" >> "$GITHUB_OUTPUT"
-          # Spec-only PRs have no code to review for quality.
-          case "$HEAD" in spec/*) echo "quality=skip" >> "$GITHUB_OUTPUT" ;; *) [ "$V" = "looks-good" ] && echo "quality=run" >> "$GITHUB_OUTPUT" || echo "quality=skip" >> "$GITHUB_OUTPUT" ;; esac
+          # Stage 2 runs only in full mode, on code PRs, after a clean stage 1 (spec PRs have no code).
+          Q=skip
+          if [ "$MODE" != "light" ] && [[ "$HEAD" != spec/* ]] && [ "$V" = "looks-good" ]; then Q=run; fi
+          echo "quality=$Q" >> "$GITHUB_OUTPUT"
           echo "Stage 1 verdict: ${V:-unknown}" >> "$GITHUB_STEP_SUMMARY"
       - name: "Stage 2: code quality"
         id: quality
@@ -91,7 +104,7 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: bash .github/scripts/review-verdict.sh "$PR"
       - name: Metrics (spec reviewer)
-        if: always()
+        if: always() && steps.spec.outcome != 'skipped'
         continue-on-error: true
         env:
           EXEC_FILE: ${{ steps.spec.outputs.execution_file }}

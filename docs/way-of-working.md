@@ -79,6 +79,7 @@ When Claude stops, it posts the same summary on the issue and in chat:
 - PR mergeable (a conflict means no checks ran).
 - Test diff against the test-writer commit; `test-arbitrated` changes (made by the debugger) reviewed line by line against the scenario, with its `## Debugging` notes.
 - Hidden acceptance tests pass and `VERIFY.md` says `VERIFY: PASS`; the change is archived into `openspec/specs/` in the same PR.
+- Light mode (no verifier, no hidden tests): Claude builds the scenario → test → code matrix itself, and labels an issue `full-mode` before the build when it touches privacy, security, auth or existing data.
 - Failing hidden tests: read `## Hidden test verdict` in NOTES.md. Verdict `test` or `spec`: fix the hidden test or the spec on the branch by the spec, label `test-arbitrated`, then archive. Verdict `code`: `@claude` fix on the PR (the hidden test stays as it is).
 - After a gate fix or `@claude` round, wait for "Evidence (latest push)" to update before adding `re-review`.
 - `## Test concerns` in NOTES.md (the developer's STOP rule) answered before merging.

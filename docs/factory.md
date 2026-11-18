@@ -40,6 +40,21 @@ Owner writes issue (Depends on: #a, #b) ──label autopilot──▶ Factory 6
    Factory 7 docs (nightly): applies "Docs to update" notes ──▶ docs PR
 ```
 
+### Light and full mode (ADR 0018)
+
+The repo variable `FACTORY_MODE` picks the pipeline; `light` is used during the heavy build phase.
+
+| Step | Full | Light |
+|---|---|---|
+| Spec writer | as above | ≤ 20 scenarios, short design and tasks, 20 turns |
+| AI review of spec PRs | stage 1 | none (Claude's spec gate) |
+| Test writer | visible + 3–6 hidden tests | visible tests only, 30 turns |
+| Developer | 70 turns | 50 turns |
+| Verifier, hidden-test gate | run | skipped (`skipped (light mode)` in the evidence) |
+| AI review of code PRs | spec compliance, then quality | one combined stage |
+
+A `full-mode` label on an issue builds that issue in full mode. Use it for privacy, security, auth and data-changing migrations.
+
 ## Labels (state machine)
 
 | Label | Meaning | Set by |
@@ -100,7 +115,7 @@ The metrics comment of each agent step also lists the tool calls the agent was d
 
 Repo secrets: `CLAUDE_API_KEY` (required), `FACTORY_TOKEN` (recommended: fine-grained PAT on this repo with Contents, Issues, Pull requests read/write. Without it, PRs opened by the factory do not trigger CI and AI review; the build job still runs its own gates).
 
-Repo variables (optional): `FACTORY_SPEC_MODEL` (default `claude-opus-5-5`), `FACTORY_BUILD_MODEL` and `FACTORY_REVIEW_MODEL` (default `claude-sonnet-5-5`), `FACTORY_MAX_PER_NIGHT` (default 3), `FACTORY_MAX_PARALLEL` (scheduler, default 3), `FACTORY_DEV_MAX_TURNS` (default 80).
+Repo variables (optional): `FACTORY_SPEC_MODEL`, `FACTORY_BUILD_MODEL` and `FACTORY_REVIEW_MODEL` (default `claude-sonnet-5-5`), `FACTORY_MAX_PER_NIGHT` (default 3), `FACTORY_MAX_PARALLEL` (scheduler, default 3), `FACTORY_MODE` (`light` or `full`, default `full`), `FACTORY_DEV_MAX_TURNS` (default 70, 50 in light mode).
 
 Agents never get `FACTORY_TOKEN` in their shell: the workflow does the pushes, PRs and labels. Only the owner-triggered `@claude` job keeps it, with a tool allowlist.
 

@@ -57,12 +57,20 @@ jobs:
       ISSUE: ${{ matrix.issue }}
       GH_TOKEN: ${{ secrets.FACTORY_TOKEN || github.token }}
       MODEL: ${{ vars.FACTORY_BUILD_MODEL || 'claude-sonnet-5-5' }}
+      # light (heavy build phase): no hidden tests, no verifier, lower turn caps (ADR 0018). full: everything.
+      MODE: ${{ vars.FACTORY_MODE || 'full' }}
     steps:
       - uses: actions/checkout@v5
         with:
           token: ${{ secrets.FACTORY_TOKEN || github.token }}
           fetch-depth: 0
       - uses: ./.github/actions/setup
+      - name: Factory mode
+        # A `full-mode` label on the issue overrides light mode for this issue (ADR 0018).
+        run: |
+          M="$MODE"
+          if gh issue view "$ISSUE" --json labels -q '.labels[].name' | grep -qx full-mode; then M=full; echo "MODE=full" >> "$GITHUB_ENV"; fi
+          echo "Factory mode: $M" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Find the approved change
         id: change
@@ -98,11 +106,11 @@ jobs:
           allowed_bots: github-actions # the router and scheduler dispatch as github-actions
           github_token: ${{ github.token }}
           prompt: |
-            Follow .claude/agents/test-writer.md exactly.
+            Follow .claude/agents/test-writer.md exactly. Factory mode: ${{ env.MODE }}.
             OpenSpec change: ${{ steps.change.outputs.name }}. Issue: #${{ matrix.issue }}.
           claude_args: |
             --model ${{ env.MODEL }}
-            --max-turns ${{ vars.FACTORY_TEST_MAX_TURNS || 45 }}
+            --max-turns ${{ env.MODE == 'light' && 30 || vars.FACTORY_TEST_MAX_TURNS || 45 }}
             --permission-mode default
             --allowedTools "Read,Write,Edit,Glob,Grep,Bash(npx vitest:*),Bash(npm run typecheck:*),Bash(npm test:*),Bash(ls:*),Bash(mkdir:*)"
 
@@ -128,6 +136,9 @@ jobs:
         id: hidden_red
         run: |
           DIR="acceptance/${{ steps.change.outputs.name }}"
+          if [ "$MODE" = "light" ]; then
+            echo "result=skipped (light mode)" >> "$GITHUB_OUTPUT"; echo "count=0" >> "$GITHUB_OUTPUT"; rm -rf "$DIR"; exit 0
+          fi
           if [ -d "$DIR" ] && ls "$DIR"/*.test.ts > /dev/null 2>&1; then
             if npx vitest run "$DIR" > /tmp/hidden-red.log 2>&1; then echo "result=fail (acceptance tests pass without the implementation)" >> "$GITHUB_OUTPUT"
             else echo "result=pass" >> "$GITHUB_OUTPUT"; fi
@@ -184,12 +195,12 @@ jobs:
           allowed_bots: github-actions
           github_token: ${{ github.token }}
           prompt: |
-            Follow .claude/agents/developer.md exactly.
+            Follow .claude/agents/developer.md exactly. Factory mode: ${{ env.MODE }}.
             OpenSpec change: ${{ steps.change.outputs.name }}. Issue: #${{ matrix.issue }}.
             If a test looks wrong, STOP and write it under "## Test concerns" in NOTES.md; never work around a test in the code.
           claude_args: |
             --model ${{ env.MODEL }}
-            --max-turns ${{ vars.FACTORY_DEV_MAX_TURNS || 70 }}
+            --max-turns ${{ env.MODE == 'light' && 50 || vars.FACTORY_DEV_MAX_TURNS || 70 }}
             --permission-mode default
             --allowedTools "Read,Write,Edit,Glob,Grep,Bash(npm run:*),Bash(npm test:*),Bash(npx vitest:*),Bash(npx openspec:*),Bash(npm install:*),Bash(ls:*),Bash(date:*),Bash(git status:*),Bash(git diff:*),Bash(git rm:*)"
             --disallowedTools "${{ steps.guardrails.outputs.deny }}"
@@ -316,7 +327,8 @@ jobs:
         if: always() && steps.tests.outcome == 'success'
         run: |
           CHANGE="${{ steps.change.outputs.name }}"
-          if [ -d "/tmp/acceptance/$CHANGE" ]; then
+          if [ "$MODE" = "light" ]; then R="skipped (light mode)"
+          elif [ -d "/tmp/acceptance/$CHANGE" ]; then
             mkdir -p acceptance && cp -r "/tmp/acceptance/$CHANGE" acceptance/
             if npx vitest run "acceptance/$CHANGE" > /tmp/hidden.log 2>&1; then R="pass (${{ steps.hidden_red.outputs.count }} hidden tests)"
             else R="fail (hidden acceptance tests fail, see the run log)"; tail -n 40 /tmp/hidden.log; fi
@@ -380,7 +392,7 @@ jobs:
 
       - name: Verifier agent
         id: verifier
-        if: always() && steps.tests.outcome == 'success'
+        if: always() && steps.tests.outcome == 'success' && env.MODE != 'light'
         continue-on-error: true
         uses: anthropics/claude-code-action@v1
         env:
@@ -427,13 +439,15 @@ jobs:
           cp "$V" /tmp/verify-keep.md 2>/dev/null || true
           git checkout -- . && git clean -fdq -- .
           cp /tmp/verify-keep.md "$V" 2>/dev/null || true
-          if [ -f "$V" ] && head -1 "$V" | grep -q "VERIFY: PASS"; then VR="pass"; elif [ -f "$V" ]; then VR="fail (critical findings, see VERIFY.md)"; else VR="fail (no verify report)"; fi
+          if [ "$MODE" = "light" ]; then VR="skipped (light mode)"
+          elif [ -f "$V" ] && head -1 "$V" | grep -q "VERIFY: PASS"; then VR="pass"; elif [ -f "$V" ]; then VR="fail (critical findings, see VERIFY.md)"; else VR="fail (no verify report)"; fi
           echo "result=$VR" >> "$GITHUB_OUTPUT"
           cp "$V" /tmp/verify.md 2>/dev/null || true
           GUARD="${{ steps.regate.outputs.guard || steps.guard.outputs.result }}"; GATE="${{ steps.regate.outputs.gate || steps.gate.outputs.result }}"
           GREEN="${{ steps.regate.outputs.green || steps.green.outputs.result }}"; HIDDEN="${{ steps.hidden.outputs.result }}"
           AR="skipped (a gate did not pass)"
-          if [[ "$VR" == pass* && "$GATE" == pass* && "$GREEN" == pass* && "$HIDDEN" == pass* && ( "$GUARD" == pass* || "$GUARD" == arbitrated* ) ]]; then
+          ok() { [[ "$1" == pass* || "$1" == "skipped (light mode)" ]]; }
+          if ok "$VR" && [[ "$GATE" == pass* && "$GREEN" == pass* ]] && ok "$HIDDEN" && [[ "$GUARD" == pass* || "$GUARD" == arbitrated* ]]; then
             if npx openspec archive "$CHANGE" -y > /tmp/archive.log 2>&1; then AR="pass (specs updated)"; else AR="fail (see the run log)"; cat /tmp/archive.log; fi
           fi
           echo "archive=$AR" >> "$GITHUB_OUTPUT"

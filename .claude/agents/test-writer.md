@@ -17,3 +17,7 @@ Only edit test files and minimal stubs. Do not commit; the workflow commits.
 ## Context budget
 
 Read only: `CLAUDE.md` (and the `CLAUDE.md` of the area you touch), `docs/platform-notes.md`, the specs in `openspec/specs/` for the capabilities the change touches, the change folder, and the files you change or that they import. Open an ADR only if `docs/decisions/README.md` says it applies. Do not scan the whole repository, `node_modules`, lockfiles or build output. Prefer `Grep` for a symbol over reading folders. Stop when the task is done.
+
+## Light mode
+
+When the prompt says `Factory mode: light`: skip step 3 (no `acceptance/` tests). Write one test per scenario, named after it, and put related assertions in the same test instead of splitting them. Create each test file in one `Write`, run the new tests once to confirm they fail for the right reason, then stop.
