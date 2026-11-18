@@ -68,3 +68,33 @@ describe("rules response contract", () => {
     expect(MAX_RULE_DOMAINS).toBe(5000);
   });
 });
+
+describe("RulesResponse limits and timezone", () => {
+  const base = { rulesVersion: 1, domains: [], truncated: false };
+  const games = { category: "games", minutesPerDay: 60 };
+
+  it("New fields parse and are bounded", () => {
+    const ok = { ...base, limits: [games], timezone: "Asia/Ho_Chi_Minh" };
+    expect(RulesResponse.parse(ok)).toEqual(ok);
+    const bad: Record<string, unknown>[] = [
+      { limits: [{ category: "music", minutesPerDay: 60 }] },
+      { limits: [{ category: "games", minutesPerDay: 4 }] },
+      { limits: [{ category: "games", minutesPerDay: 1441 }] },
+      { limits: [{ category: "games", minutesPerDay: 1.5 }] },
+      { timezone: "" },
+      { timezone: "x".repeat(65) },
+      { limits: Array.from({ length: 10 }, () => games) },
+    ];
+    for (const extra of bad) expect(RulesResponse.safeParse({ ...base, ...extra }).success, JSON.stringify(extra)).toBe(false);
+  });
+
+  it("Duplicate categories rejected", () => {
+    expect(RulesResponse.safeParse({ ...base, limits: [games, games] }).success).toBe(false);
+  });
+
+  it("Older body still parses", () => {
+    const parsed = RulesResponse.parse(base) as unknown as { limits?: unknown; timezone?: unknown };
+    expect(parsed.limits).toEqual([]);
+    expect(parsed.timezone).toBeUndefined();
+  });
+});

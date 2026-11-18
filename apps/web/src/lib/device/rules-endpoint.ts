@@ -2,7 +2,8 @@ import { expandBlockRules, MAX_RULE_DOMAINS, RulesResponse, type Category } from
 import { hashDeviceToken } from "./token";
 
 export interface RulesStore {
-  findChild(tokenHash: string): Promise<{ childId: string; familyId: string; rulesVersion: number } | null>;
+  findChild(tokenHash: string): Promise<{ childId: string; familyId: string; rulesVersion: number; timezone: string } | null>;
+  listLimits(childId: string): Promise<{ category: Category; minutesPerDay: number }[]>;
   listRules(childId: string): Promise<{ kind: "domain" | "category"; value: string }[]>;
   /** Global rows (familyId null) and the family's rows; the handler lets family rows win. */
   listCategoryOverrides(familyId: string): Promise<{ familyId: string | null; domain: string; category: Category }[]>;
@@ -29,6 +30,7 @@ export async function handleRules({ authorization, store }: RulesInput): Promise
 
     const rules = await store.listRules(child.childId);
     const rows = await store.listCategoryOverrides(child.familyId);
+    const limits = await store.listLimits(child.childId);
     const overrides: Record<string, Category> = {};
     for (const row of rows) if (row.familyId === null) overrides[row.domain] = row.category;
     for (const row of rows) if (row.familyId !== null) overrides[row.domain] = row.category;
@@ -41,6 +43,8 @@ export async function handleRules({ authorization, store }: RulesInput): Promise
       rulesVersion: child.rulesVersion,
       domains: all.slice(0, MAX_RULE_DOMAINS),
       truncated: all.length > MAX_RULE_DOMAINS,
+      limits,
+      timezone: child.timezone,
     });
     return { status: 200, body, headers: HEADERS };
   } catch {

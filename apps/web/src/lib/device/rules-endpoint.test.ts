@@ -8,13 +8,16 @@ const MAX_RULE_DOMAINS = 5000;
 type Rule = { kind: "domain" | "category"; value: string };
 type Override = { familyId: string | null; domain: string; category: Category };
 
-const CHILD = { childId: "child-1", familyId: "fam-1", rulesVersion: 3 };
+type Limit = { category: Category; minutesPerDay: number };
+type Step = "findChild" | "listRules" | "listCategoryOverrides" | "listLimits";
+
+const CHILD = { childId: "child-1", familyId: "fam-1", rulesVersion: 3, timezone: "Asia/Ho_Chi_Minh" };
 
 function fakeStore(
-  opts: { rules?: Rule[]; overrides?: Override[]; known?: boolean; throwIn?: "findChild" | "listRules" | "listCategoryOverrides" } = {},
+  opts: { rules?: Rule[]; overrides?: Override[]; limits?: Limit[]; known?: boolean; throwIn?: Step } = {},
 ) {
   const order: string[] = [];
-  const boom = (name: "findChild" | "listRules" | "listCategoryOverrides") => {
+  const boom = (name: Step) => {
     order.push(name);
     if (opts.throwIn === name) throw new Error("db down");
   };
@@ -30,8 +33,12 @@ function fakeStore(
     boom("listCategoryOverrides");
     return opts.overrides ?? [];
   });
-  const store: RulesStore = { findChild, listRules, listCategoryOverrides };
-  return { store, findChild, listRules, listCategoryOverrides, order };
+  const listLimits = vi.fn(async (_childId: string) => {
+    boom("listLimits");
+    return opts.limits ?? [];
+  });
+  const store: RulesStore = { findChild, listRules, listCategoryOverrides, listLimits };
+  return { store, findChild, listRules, listCategoryOverrides, listLimits, order };
 }
 
 type Fake = ReturnType<typeof fakeStore>;
@@ -88,6 +95,7 @@ describe("rules API for devices", () => {
     expect(f.order[0]).toBe("findChild");
     expect(f.order).toContain("listRules");
     expect(f.order).toContain("listCategoryOverrides");
+    expect(f.order).toContain("listLimits");
   });
 
   it("Only the token's child", async () => {
@@ -95,16 +103,37 @@ describe("rules API for devices", () => {
     await call(f);
     expect(f.listRules).toHaveBeenCalledWith("child-1");
     expect(f.listCategoryOverrides).toHaveBeenCalledWith("fam-1");
+    expect(f.listLimits).toHaveBeenCalledWith("child-1");
+  });
+
+  it("Limits and timezone are returned", async () => {
+    const limits: Limit[] = [
+      { category: "games", minutesPerDay: 60 },
+      { category: "entertainment", minutesPerDay: 90 },
+    ];
+    const res = await call(fakeStore({ limits }));
+    const body = res.body as unknown as { limits: Limit[]; timezone: string };
+    expect(body.limits).toEqual(limits);
+    expect(body.timezone).toBe("Asia/Ho_Chi_Minh");
+  });
+
+  it("No limits", async () => {
+    const res = await call(fakeStore());
+    expect(res.status).toBe(200);
+    expect((res.body as unknown as { limits: Limit[] }).limits).toEqual([]);
   });
 });
 
 describe("rules API fails closed and is capped", () => {
   it("Store failure fails closed", async () => {
-    for (const throwIn of ["findChild", "listRules", "listCategoryOverrides"] as const) {
+    for (const throwIn of ["findChild", "listRules", "listCategoryOverrides", "listLimits"] as const) {
       const f = fakeStore({ throwIn });
       const res = await call(f);
       expect(res.status, throwIn).toBe(500);
       expect(res.body).toEqual({ error: "server_error" });
+      expect(res.body).not.toHaveProperty("limits");
+      expect(res.body).not.toHaveProperty("domains");
+      expect(res.body).not.toHaveProperty("rulesVersion");
     }
   });
 

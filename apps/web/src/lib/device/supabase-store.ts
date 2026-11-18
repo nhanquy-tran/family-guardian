@@ -39,14 +39,23 @@ export function createRulesStore(client: SupabaseClient): RulesStore {
     async findChild(tokenHash) {
       const { data, error } = await client
         .from("devices")
-        .select("child_id, children(family_id, rules_version)")
+        .select("child_id, children(family_id, rules_version, families(timezone))")
         .eq("token_hash", tokenHash)
         .maybeSingle();
       if (error) throw error;
       if (!data) return null;
-      const child = data.children as unknown as { family_id: string; rules_version: number } | null;
+      const child = data.children as unknown as {
+        family_id: string;
+        rules_version: number;
+        families: { timezone: string } | null;
+      } | null;
       if (!child) return null;
-      return { childId: data.child_id as string, familyId: child.family_id, rulesVersion: child.rules_version };
+      return {
+        childId: data.child_id as string,
+        familyId: child.family_id,
+        rulesVersion: child.rules_version,
+        timezone: child.families?.timezone || "UTC",
+      };
     },
     async listRules(childId) {
       const { data, error } = await client
@@ -56,6 +65,17 @@ export function createRulesStore(client: SupabaseClient): RulesStore {
         .limit(MAX_RULE_DOMAINS);
       if (error) throw error;
       return (data ?? []) as { kind: "domain" | "category"; value: string }[];
+    },
+    async listLimits(childId) {
+      const { data, error } = await client
+        .from("child_category_limits")
+        .select("category, minutes_per_day")
+        .eq("child_id", childId);
+      if (error) throw error;
+      return (data ?? []).map((row) => ({
+        category: row.category as Category,
+        minutesPerDay: row.minutes_per_day as number,
+      }));
     },
     async listCategoryOverrides(familyId) {
       const { data, error } = await client
