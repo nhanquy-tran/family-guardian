@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { captureFamilyTimezone, saveDigestSettings } from "../../../lib/digest/settings";
+import { captureFamilyTimezone, saveDigestSettings, saveWeeklyReportSetting } from "../../../lib/digest/settings";
 import { createClient } from "../../../lib/supabase/server";
 
 const PATH = "/dashboard/settings";
@@ -20,6 +20,12 @@ export async function saveDigestSettingsAction(formData: FormData): Promise<void
     hour: hour === "" ? Number.NaN : Number(hour),
     timezone: field(formData, "timezone"),
   });
+  revalidatePath(PATH);
+  redirect(result.ok ? `${PATH}?saved=1` : `${PATH}?error=${result.error}`);
+}
+
+export async function saveWeeklyReportAction(formData: FormData): Promise<void> {
+  const result = await saveWeeklyReportSetting(await createClient(), formData.get("weekly_report") === "on");
   revalidatePath(PATH);
   redirect(result.ok ? `${PATH}?saved=1` : `${PATH}?error=${result.error}`);
 }

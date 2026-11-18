@@ -44,10 +44,15 @@ export async function captureFamilyTimezone(client: SupabaseClient, timezone: st
 export type WeeklyReportSaveResult = { ok: true } | { ok: false; error: "invalid" | "failed" };
 export type WeeklyReportLoadResult = { ok: true; enabled: boolean } | { ok: false };
 
-export async function saveWeeklyReportSetting(_client: SupabaseClient, _enabled: unknown): Promise<WeeklyReportSaveResult> {
-  throw new Error("not implemented");
+export async function saveWeeklyReportSetting(client: SupabaseClient, enabled: unknown): Promise<WeeklyReportSaveResult> {
+  if (typeof enabled !== "boolean") return { ok: false, error: "invalid" };
+  const { data, error } = await client.from("families").update({ weekly_report_enabled: enabled }).select("id");
+  if (error || !data || data.length === 0) return { ok: false, error: "failed" };
+  return { ok: true };
 }
 
-export async function loadWeeklyReportSetting(_client: SupabaseClient): Promise<WeeklyReportLoadResult> {
-  throw new Error("not implemented");
+export async function loadWeeklyReportSetting(client: SupabaseClient): Promise<WeeklyReportLoadResult> {
+  const { data, error } = await client.from("families").select("weekly_report_enabled").maybeSingle();
+  if (error || !data) return { ok: false };
+  return { ok: true, enabled: (data as { weekly_report_enabled: boolean }).weekly_report_enabled === true };
 }

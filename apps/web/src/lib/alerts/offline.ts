@@ -19,7 +19,7 @@ export interface OfflineAlertStore {
   resolveReturned(now: string): Promise<void>;
 }
 
-export type OfflineMessage = { to: string; subject: string; text: string };
+export type OfflineMessage = { to: string; subject: string; text: string; html?: string };
 
 export interface Mailer {
   send(message: OfflineMessage): Promise<{ ok: boolean }>;

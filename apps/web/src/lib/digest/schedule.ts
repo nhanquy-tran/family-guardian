@@ -89,6 +89,15 @@ export type ReportPeriod = {
   prevStart: string;
 };
 
-export function reportPeriod(_family: DigestFamily, _now: Date): ReportPeriod | null {
-  throw new Error("not implemented");
+export function reportPeriod(family: DigestFamily, now: Date): ReportPeriod | null {
+  const due = latestDuePeriod({ ...family, frequency: "weekly" }, now);
+  if (!due) return null;
+  const startDay = Date.parse(`${due.periodStart}T00:00:00Z`) / DAY_MS;
+  return {
+    frequency: "weekly_report",
+    periodStart: due.periodStart,
+    start: due.start,
+    end: due.end,
+    prevStart: new Date(localToInstantMs(formatterFor(family.timezone), (startDay - 7) * DAY_MS)).toISOString(),
+  };
 }

@@ -15,6 +15,7 @@ export function createResendMailer(options: ResendOptions): Mailer {
             to: [message.to],
             subject: message.subject,
             text: message.text,
+            ...(message.html ? { html: message.html } : {}),
           }),
         });
         return { ok: res.ok };
