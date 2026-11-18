@@ -25,6 +25,10 @@ Checklist (from `docs/platform-notes.md` and past gate findings):
 
 Do not edit anything outside `openspec/changes/` and `docs/decisions/` (a new ADR only if needed). Do not commit; the workflow commits.
 
+## New capabilities
+
+A delta spec that creates a new capability starts with `## Purpose` and one or two sentences on what the capability is for. `openspec archive` reads it only when it creates the capability; without it the main spec gets a `TBD` Purpose that fails `--strict`.
+
 ## Light mode
 
 When the prompt says `Factory mode: light`: at most 20 scenarios (split the issue in `QUESTIONS.md` if it needs more); `design.md` holds only the decisions a builder could get wrong, in a few bullets; `tasks.md` is a short list grouped by area. Read only the specs of the capabilities the issue names.

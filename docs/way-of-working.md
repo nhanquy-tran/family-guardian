@@ -84,6 +84,7 @@ When Claude stops, it posts the same summary on the issue and in chat:
 - After a gate fix or `@claude` round, wait for "Evidence (latest push)" to update before adding `re-review`.
 - `## Test concerns` in NOTES.md (the developer's STOP rule) answered before merging.
 - Live check where possible (preview, or production after merge for migration PRs).
+- If the evidence says `Archive: skipped`, the gate fixes what blocked it and runs `npx openspec archive <change> -y` on the branch before merging (#105 was merged unarchived, which blocked #99's MODIFIED delta). Replace any `TBD` Purpose it writes.
 - After merge: the nightly docs job (`factory-docs.yml`) applies `## Docs to update`; Claude reviews and merges its PR like any other.
 
 ## Where Claude works locally
