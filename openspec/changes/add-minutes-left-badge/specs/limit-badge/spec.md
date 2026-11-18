@@ -44,7 +44,7 @@ File: `apps/extension/lib/badge.test.ts`
 
 #### Scenario: Alarm counts down and ends empty
 File: `apps/extension/lib/badge.test.ts`
-- **GIVEN** fake timers, limit `games 5`, the tracker on `roblox.com`, and one more completed minute of `roblox.com` per alarm starting from 0 seconds
+- **GIVEN** fake timers, limit `games 5`, the tracker focused and active on `roblox.com`, and one more completed minute of `roblox.com` per alarm starting from 0 seconds
 - **WHEN** `onAlarm` runs once per minute, five times
 - **THEN** the badge texts after the alarms are `4`, `3`, `2`, `1` and the empty string (limit reached)
 
@@ -54,14 +54,20 @@ File: `apps/extension/lib/badge.test.ts`
 - **WHEN** `onAlarm` runs at `2026-11-17T17:00:30Z`
 - **THEN** the badge text is the empty string
 
-### Requirement: The badge is cleared when the device is rejected
-The controller SHALL set the badge text to the empty string on an alarm while the device is rejected.
+### Requirement: The badge is cleared when the device is rejected and untouched when not paired
+The controller SHALL set the badge text to the empty string on an alarm while the device is rejected. While there is no token (not paired) it SHALL make no badge call. After re-pairing or a 401 the badge MAY lag by up to about 1 minute, until the next alarm.
 
 #### Scenario: Rejected device clears the badge
 File: `apps/extension/lib/badge.test.ts`
 - **GIVEN** the badge shows `2` and stored `authState` is `rejected`
 - **WHEN** `onAlarm` runs
 - **THEN** the badge text is the empty string
+
+#### Scenario: No token, no badge call
+File: `apps/extension/lib/badge.test.ts`
+- **GIVEN** no token in storage and a fake badge
+- **WHEN** a `tab` event is handled and then `onAlarm` runs
+- **THEN** `setBadgeText` and `setBadgeBackgroundColor` were never called
 
 ### Requirement: Badge failures never break tracking
 A rejected badge call SHALL be caught and logged and SHALL NOT stop event or alarm handling.
@@ -72,13 +78,14 @@ File: `apps/extension/lib/badge.test.ts`
 - **WHEN** a `tab` event is handled and then `onAlarm` runs
 - **THEN** `trackerState` is stored after the event, the heartbeat is posted at the alarm, and `log` was called
 
-### Requirement: The badge adds no permission and no data
-The manifest SHALL NOT gain a permission for the badge, and the badge port SHALL only receive text and a color.
+### Requirement: The badge adds an action key and no permission, and no data
+The manifest SHALL gain an `action` key (`{ default_title: "Family Guardian" }`) so that `chrome.action` exists, and SHALL NOT gain a permission for the badge. The badge port SHALL only receive text and a color.
 
-#### Scenario: Permissions unchanged
+#### Scenario: Action key added, permissions unchanged
 File: `apps/extension/lib/manifest.test.ts`
 - **WHEN** `buildManifest` runs
-- **THEN** `permissions` equals `["tabs", "idle", "storage", "alarms", "declarativeNetRequest"]`
+- **THEN** `action` equals `{ default_title: "Family Guardian" }`
+- **THEN** `permissions` equals exactly `["tabs", "idle", "storage", "alarms", "declarativeNetRequest"]`
 
 #### Scenario: Badge receives only text and color
 File: `apps/extension/lib/badge.test.ts`

@@ -7,4 +7,6 @@
 - **Port**: `ControllerDeps.badge?: { setBadgeText(d: { text: string }): Promise<unknown>; setBadgeBackgroundColor(d: { color: string }): Promise<unknown> }`, wired to `browser.action` in `background.ts`. Optional so existing tests are unchanged. Only text and color are passed.
 - **Idempotent**: set the text every time (no in-memory "last shown", which a worker restart would lose). Set the color together with a non-empty text.
 - **Failures never propagate**: a rejected badge call is caught and logged via `log`; tracking, queue and heartbeat continue.
+- **Manifest**: `buildManifest` adds `action: { default_title: "Family Guardian" }`; this is a manifest key, not a permission. Without it `chrome.action` is undefined (WXT adds `action` only for a popup, and this extension has none), so the badge would never show.
+- **Per browser**: each browser shows its own usage; usage in other browsers is not combined.
 - Amber is `#F59E0B`. No ADR: nothing is stored or sent.
