@@ -46,6 +46,10 @@ export const RulesResponse = z.object({
     .refine((l) => new Set(l.map((x) => x.category)).size === l.length)
     .default([]),
   timezone: z.string().min(1).max(64).optional(),
+  categoryOverrides: z
+    .record(z.string().max(253), z.enum(CATEGORIES))
+    .refine((m) => Object.keys(m).length <= MAX_RULE_DOMAINS)
+    .default({}),
 });
 
 export type RulesResponse = z.infer<typeof RulesResponse>;
