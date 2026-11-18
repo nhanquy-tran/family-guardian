@@ -183,3 +183,47 @@ describe("syncRules and limits", () => {
 function always2(reply: Reply) {
   return createGet(() => reply);
 }
+
+describe("syncRules and allowed hours", () => {
+  const answer = (allowedHours: unknown): Reply => ({
+    status: 200,
+    body: { rulesVersion: 3, domains: ["a.com"], truncated: false, timezone: "UTC", allowedHours },
+  });
+  const now = Date.parse("2026-11-17T22:00:00Z");
+  const hours = { start: "07:00", end: "21:00" };
+  const run = (initial: Record<string, unknown>, reply: Reply, dnr: ReturnType<typeof createDnr>["dnr"]) => {
+    const fake = createStore(initial);
+    const result = syncRules({
+      baseUrl: "https://fg.example",
+      token: "tok-1",
+      store: fake.store,
+      get: createGet(() => reply).get,
+      dnr,
+      now,
+    });
+    return { result, data: fake.data };
+  };
+
+  it("Sync keeps and updates the hours", async () => {
+    const first = createDnr([1, 2000000]);
+    const a = run({ rulesVersion: 2 }, answer(hours), first.dnr);
+    expect((await a.result).kind).toBe("ok");
+    expect(first.updates[0]?.removeRuleIds).toEqual([1]);
+    expect(first.updates[0]?.addRules).toEqual([rule(1, "a.com")]);
+    expect(first.rules().map((r) => r.id)).toContain(2000000);
+    expect(a.data.get("rulesAllowedHours")).toEqual(hours);
+
+    const second = createDnr([1, 2000000]);
+    const b = run({ rulesVersion: 2, rulesAllowedHours: hours }, answer(null), second.dnr);
+    expect((await b.result).kind).toBe("ok");
+    expect(b.data.has("rulesAllowedHours")).toBe(false);
+    expect(second.rules().map((r) => r.id)).not.toContain(2000000);
+
+    const third = createDnr([1, 2000000], { failUpdate: true });
+    const c = run({ rulesVersion: 2, rulesAllowedHours: hours }, answer(null), third.dnr);
+    expect(await c.result).toEqual({ kind: "failed" });
+    expect(c.data.get("rulesAllowedHours")).toEqual(hours);
+    expect(c.data.get("rulesVersion")).toBe(2);
+    expect(third.rules().map((r) => r.id)).toEqual([1, 2000000]);
+  });
+});

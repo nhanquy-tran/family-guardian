@@ -12,6 +12,25 @@ import {
 const entry = { minuteUtc: "2026-11-17T10:03:00Z", domain: "youtube.com", seconds: 40 };
 const base = { currentDomain: null, browser: "edge", extensionVersion: "0.2.0" };
 
+describe("rules contract allowed hours", () => {
+  const rules = { rulesVersion: 1, domains: [], truncated: false };
+  it("Contract bounds", () => {
+    const parse = (allowedHours: unknown) => RulesResponse.safeParse({ ...rules, allowedHours });
+    const crossing = { start: "07:00", end: "01:00" };
+    expect(parse(crossing)).toMatchObject({ success: true, data: { allowedHours: crossing } });
+    expect(parse(null)).toMatchObject({ success: true, data: { allowedHours: null } });
+    for (const bad of [
+      { start: "7:00", end: "21:00" },
+      { start: "24:00", end: "01:00" },
+      { start: "07:00", end: "07:00" },
+      { start: "07:00" },
+    ]) {
+      expect(parse(bad).success, JSON.stringify(bad)).toBe(false);
+    }
+    expect((RulesResponse.parse(rules) as { allowedHours?: unknown }).allowedHours).toBeNull();
+  });
+});
+
 describe("heartbeat contracts", () => {
   it("Envelope schema in shared package", () => {
     const body = { ...base, entries: [{ ...entry, seconds: 61 }] };

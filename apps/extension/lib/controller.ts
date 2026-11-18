@@ -28,6 +28,7 @@ export interface ControllerDeps {
   post: Post;
   get?: Get;
   dnr?: Dnr;
+  alarms?: { create(name: string, info: { when: number }): unknown };
   badge?: {
     setBadgeText(details: { text: string }): Promise<unknown>;
     setBadgeBackgroundColor(details: { color: string }): Promise<unknown>;

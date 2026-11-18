@@ -551,3 +551,153 @@ describe("controller limit enforcement", () => {
     expect(data.get("blockedQueue")).toEqual([{ at: "2026-11-17T10:05:30.000Z", domain: "roblox.com" }]);
   });
 });
+
+describe("controller allowed hours", () => {
+  const hours = { start: "07:00", end: "21:00" };
+  const hoursRule = (start: string) => ({
+    id: 2000000,
+    priority: 2,
+    action: { type: "redirect", redirect: { extensionPath: `/blocked.html?h=${start}` } },
+    condition: { regexFilter: "^https?://", resourceTypes: ["main_frame"] },
+  });
+  const base = { ...paired, rulesVersion: 3, rulesTimezone: "UTC", rulesAllowedHours: hours };
+  const fakeAlarms = () => {
+    const created: { name: string; when: number }[] = [];
+    return {
+      created,
+      alarms: {
+        create(name: string, info: { when: number }) {
+          created.push({ name, when: info.when });
+        },
+      },
+    };
+  };
+  const hasHours = (rules: { id: number }[]) => rules.some((r) => r.id === 2000000);
+  const build = (
+    initial: Record<string, unknown>,
+    post: ReturnType<typeof createPost>["post"],
+    dnr: ReturnType<typeof createDnr>["dnr"],
+    alarms: ReturnType<typeof fakeAlarms>["alarms"],
+  ) => {
+    const fake = createStore(initial);
+    const controller = createController({
+      store: fake.store,
+      post,
+      get: noRules().get,
+      dnr,
+      alarms,
+      baseUrl: "https://fg.example",
+      extensionVersion: "0.2.0",
+      os: "Windows",
+      log: vi.fn(),
+    });
+    return { controller, data: fake.data };
+  };
+
+  it("Edges switch the rule on and off", async () => {
+    const { dnr, updates, rules } = createDnr();
+    const { created, alarms } = fakeAlarms();
+    const { controller } = build(base, always(ok).post, dnr, alarms);
+    await controller.onAlarm(Date.parse("2026-11-18T20:59:30Z"));
+    expect(rules()).toEqual([]);
+    await controller.onAlarm(Date.parse("2026-11-18T21:00:00Z"));
+    expect(rules()).toEqual([hoursRule("07:00")]);
+    const calls = updates.length;
+    await controller.onAlarm(Date.parse("2026-11-18T21:00:30Z"));
+    expect(updates).toHaveLength(calls);
+    await controller.onAlarm(Date.parse("2026-11-19T07:00:00Z"));
+    expect(rules()).toEqual([]);
+    const whens = created.filter((c) => c.name === "hours-edge").map((c) => c.when);
+    expect(whens[0]).toBe(Date.parse("2026-11-18T21:00:00Z"));
+    expect(whens[1]).toBe(Date.parse("2026-11-19T07:00:00Z"));
+  });
+
+  it("Window crossing midnight", async () => {
+    const { dnr, rules } = createDnr();
+    const { alarms } = fakeAlarms();
+    const { controller } = build(
+      { ...base, rulesAllowedHours: { start: "07:00", end: "01:00" } },
+      always(ok).post,
+      dnr,
+      alarms,
+    );
+    await controller.onAlarm(Date.parse("2026-11-18T23:30:00Z"));
+    expect(hasHours(rules())).toBe(false);
+    await controller.onAlarm(Date.parse("2026-11-19T01:00:00Z"));
+    expect(hasHours(rules())).toBe(true);
+    await controller.onAlarm(Date.parse("2026-11-19T07:00:00Z"));
+    expect(hasHours(rules())).toBe(false);
+  });
+
+  it("Offline, rejected, restart and update failure", async () => {
+    const now = Date.parse("2026-11-18T22:00:00Z");
+    const next = Date.parse("2026-11-19T07:00:00Z");
+    const runs: { extra: Record<string, unknown>; reply: Reply }[] = [
+      { extra: {}, reply: "network" },
+      { extra: { authState: "rejected" }, reply: unauthorized },
+    ];
+    for (const { extra, reply } of runs) {
+      for (const preloaded of [[], [2000000]]) {
+        const { dnr, rules } = createDnr(preloaded);
+        const { created, alarms } = fakeAlarms();
+        const { controller } = build({ ...base, ...extra }, createPost(() => reply).post, dnr, alarms);
+        await controller.onAlarm(now);
+        expect(hasHours(rules())).toBe(true);
+        expect(created.filter((c) => c.name === "hours-edge").pop()?.when).toBe(next);
+      }
+    }
+
+    const real = createDnr();
+    let failed = false;
+    const flaky = {
+      getDynamicRules: () => real.dnr.getDynamicRules(),
+      async updateDynamicRules(options: Parameters<typeof real.dnr.updateDynamicRules>[0]) {
+        if (!failed) {
+          failed = true;
+          throw new Error("update failed");
+        }
+        return real.dnr.updateDynamicRules(options);
+      },
+    };
+    const { alarms } = fakeAlarms();
+    const { controller } = build(base, always(ok).post, flaky, alarms);
+    await controller.onAlarm(now);
+    expect(hasHours(real.rules())).toBe(false);
+    await controller.onAlarm(now + 60_000);
+    expect(hasHours(real.rules())).toBe(true);
+  });
+
+  it("Limit evaluation keeps the hours rule", async () => {
+    const { dnr, rules } = createDnr([2000000]);
+    const { alarms } = fakeAlarms();
+    const { controller } = build(
+      {
+        ...base,
+        rulesDomains: [],
+        rulesLimits: [{ category: "games", minutesPerDay: 5 }],
+        limitUsage: { day: "2026-11-17", seconds: { games: 600 }, domains: {} },
+      },
+      always(ok).post,
+      dnr,
+      alarms,
+    );
+    await controller.onAlarm(Date.parse("2026-11-17T22:00:00Z"));
+    expect(hasHours(rules())).toBe(true);
+    expect(rules().length).toBeGreaterThan(1);
+  });
+
+  it("Successful re-pair", async () => {
+    const { dnr, rules } = createDnr([2000000]);
+    const { alarms } = fakeAlarms();
+    const { controller, data } = build(
+      base,
+      always({ status: 200, body: { deviceToken: "tok-2" } }).post,
+      dnr,
+      alarms,
+    );
+    expect(await controller.pair("AB2CD3", "edge")).toEqual({ ok: true });
+    expect(data.has("rulesAllowedHours")).toBe(false);
+    await controller.onAlarm(Date.parse("2026-11-18T22:00:00Z"));
+    expect(hasHours(rules())).toBe(false);
+  });
+});

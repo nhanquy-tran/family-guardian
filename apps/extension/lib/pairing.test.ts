@@ -9,6 +9,7 @@ const limitState = {
   rulesOverrides: { "youtube.com": "education" },
   limitUsage: { day: "2026-11-17", seconds: { games: 10 }, domains: {} },
   limitBlocked: { "roblox.com": "games" },
+  rulesAllowedHours: { start: "07:00", end: "21:00" },
 };
 
 function deps(store: ReturnType<typeof createStore>["store"], post: ReturnType<typeof createPost>["post"]) {
