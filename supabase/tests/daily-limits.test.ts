@@ -122,4 +122,10 @@ describe("daily limits migration", () => {
     expect(await version(db, f2)).toBe(1);
     expect(await version(db, other.child)).toBe(0);
   });
+
+  it("Timezone longer than 64 characters is rejected", async () => {
+    const f = await seed(db, "T");
+    await expect(db.query("update families set timezone = $1 where id = $2", ["x".repeat(65), f.familyId])).rejects.toThrow();
+    await db.query("update families set timezone = $1 where id = $2", ["America/Argentina/ComodRivadavia", f.familyId]);
+  });
 });

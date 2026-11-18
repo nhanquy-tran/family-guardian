@@ -45,3 +45,6 @@ revoke execute on function public.bump_family_rules_version_on_timezone()
 create trigger families_timezone_bump_rules_version
   after update of timezone on public.families
   for each row execute function public.bump_family_rules_version_on_timezone();
+
+-- RulesResponse caps the timezone at 64 characters; keep the column within it so a direct API write cannot break the devices' rules sync.
+alter table public.families add constraint families_timezone_length check (char_length(timezone) <= 64);

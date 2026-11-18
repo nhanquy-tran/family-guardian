@@ -36,6 +36,7 @@ describe("screens use the shared styles", () => {
       "components/children-list.tsx",
       "components/device-list.tsx",
       "components/block-rules-view.tsx",
+      "components/daily-limits-card.tsx",
       "components/homework-settings-view.tsx",
       "components/focus-overview-view.tsx",
       "components/install-instructions.tsx",
