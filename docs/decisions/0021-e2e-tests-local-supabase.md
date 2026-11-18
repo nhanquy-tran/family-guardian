@@ -1,4 +1,4 @@
-# 0020. End-to-end tests on a local Supabase stack with generated, revertable data
+# 0021. End-to-end tests on a local Supabase stack with generated, revertable data
 
 Date: 2026-11-18. Status: accepted (owner approved 2026-11-18). Issue #123.
 

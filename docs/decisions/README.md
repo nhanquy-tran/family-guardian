@@ -23,4 +23,5 @@ Open an ADR only when your change touches its subject. All accepted unless noted
 | [0017](0017-factory-upgrade-specs-verify-scheduler.md) | Source-of-truth specs, verify gate, scheduler, two-stage review, debugger, hidden acceptance tests, hooks | factory workflows |
 | [0018](0018-factory-light-mode.md) | Light mode (`FACTORY_MODE`): no hidden tests, verifier or spec-PR review, one review stage, lower turn caps (replaced by step time limits in 0019); `full-mode` label per issue | factory cost, factory workflows |
 | [0019](0019-factory-waste-cuts.md) | Step time limits instead of turn caps, spec lint, specs validated in CI, docs queue, Dependabot auto-merge for patch/minor | factory cost, factory workflows, merges |
-| [0020](0020-e2e-tests-local-supabase.md) | E2E tests on a local Supabase stack (Docker) with generated, revertable stage data; Playwright | testing, e2e data |
+| [0020](0020-weekly-usage-report.md) | Weekly usage report e-mail: opt-in per family, computed on demand, claim in `digest_runs` (**proposed**, awaiting owner approval) | e-mail, family settings, stored data |
+| [0021](0021-e2e-tests-local-supabase.md) | E2E tests on a local Supabase stack (Docker) with generated, revertable stage data; Playwright | testing, e2e data |

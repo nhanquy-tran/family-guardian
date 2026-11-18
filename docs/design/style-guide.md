@@ -39,7 +39,9 @@ The layout language (soft ground, floating cards, pill controls, tinted status p
 | `--red` (+`-soft`) | `#dc3d55` | `#f4707f` | errors, blocked, destructive actions |
 | `--indigo`, `--cyan` (+`-soft`) | `#5b5bd6`, `#0e8fb0` | `#9b9bff`, `#3cc2e0` | extra chart series and categories |
 
-Status pills use the soft colour as background and the strong colour as text. Charts use `--accent` first, then `--cyan`, `--indigo`, `--amber`, `--green`; waiting or idle time uses `--hatch`.
+Status pills use the soft colour as background, `--ink` text and a strong-colour border (strong-colour text fails contrast). Charts use `--accent` first, then `--cyan`, `--indigo`, `--amber`, `--green`; waiting or idle time uses `--hatch`.
+
+Failing light-mode pairs: `--red` on `--card` (4.34:1), `--red` on `--red-soft` (3.60:1) and `--muted` on `--card` (4.25:1). `--muted` is for placeholders and disabled text only; captions and labels use `--ink-2`.
 
 ## Typography
 
@@ -54,7 +56,7 @@ Font: Inter (Google Fonts, weights 400, 500, 600), with the system stack as fall
 | Page title (app) | 22px / 600 | |
 | Card title | 18 to 20px / 600 | |
 | Body (app) | 14px / 400 | line-height 1.45 |
-| Label, caption | 12 to 12.5px / 500, `--muted` | |
+| Label, caption | 12 to 12.5px / 500, `--ink-2` | |
 | Big number (tile) | 26px / 600, `letter-spacing: -0.02em` | |
 
 ## Spacing and shape
@@ -70,13 +72,13 @@ Font: Inter (Google Fonts, weights 400, 500, 600), with the system stack as fall
 |---|---|
 | Button | pill, height 36 to 40px, padding 0 18px, weight 500, 1px `--line-2` border on `--card`. Hover: border `--muted`. Active: `scale(.98)`. |
 | Primary button | `--accent` background, `--accent-contrast` text, no border. One per view. |
-| Ghost / danger | transparent background (hover `--line`) / `--red` text |
+| Ghost / danger | transparent background (hover `--line`) / `--ink` text with a `--red` border (not `--red` text) |
 | Small button | height 28 to 32px, padding 0 12px, 13px text |
 | Icon button | 34px square, `--radius-sm`, transparent, `--muted` icon; hover `--line` |
 | Input / select | height 40px, `--radius-sm`, `--line-2` border, focus: border `--accent` + `0 0 0 4px var(--accent-soft)` |
 | Card | `--card`, `--radius`, `--shadow`, padding 24px, title row with actions right-aligned |
 | Tile (KPI) | small card: big number + muted label underneath |
-| Pill (status) | height 24 to 28px, pill radius, 12.5px / 500, soft background + strong text (`green`, `amber`, `red`, `accent`, grey = `--line` + `--muted`) |
+| Pill (status) | height 24 to 28px, pill radius, 12.5px / 500, soft background + `--ink` text + strong border (`green`, `amber`, `red`, `accent`, grey = `--line` + `--ink-2`) |
 | Nav bar | sticky, 64px, `--ground` at 82% with `backdrop-filter: blur(12px)`, brand left, links in `--ink-2` (current one as a soft-accent pill), actions right |
 | Tabs | pill buttons; current tab `--accent-soft` background and `--accent-ink` text |
 | Table | inside a card, no outer border; header 12px `--muted` 500; rows separated by `--line`; numbers right-aligned; row hover `--shell` |

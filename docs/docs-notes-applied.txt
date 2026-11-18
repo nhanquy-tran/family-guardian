@@ -8,3 +8,8 @@
 2026-11-18-add-category-overrides
 2026-11-18-add-daily-category-limits
 2026-11-18-add-minutes-left-badge
+2026-11-18-add-public-help-pages
+2026-11-18-add-weekly-usage-report
+2026-11-18-allowed-hours
+2026-11-18-enforce-daily-category-limits
+2026-11-18-restyle-web-app
