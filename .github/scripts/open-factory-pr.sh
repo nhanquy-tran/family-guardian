@@ -13,8 +13,7 @@ git fetch -q origin main
 CONFLICT=""
 if ! git rebase -q origin/main; then
   git rebase --abort
-  CONFLICT=$(git diff --name-only HEAD...origin/main | tr '
-' ' ')
+  CONFLICT=$(git diff --name-only HEAD...origin/main | tr '\n' ' ')
 fi
 git push -u origin "factory/${ISSUE}" --force-with-lease
 # The rebase rewrote commits: point the evidence at the test commit as it exists now.
