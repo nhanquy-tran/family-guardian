@@ -79,6 +79,103 @@
     "privacy": "Privacy",
     "help": "Help",
     "faq": "FAQ",
-    "note": "Family Guardian is free and not commercial."
+    "note": "Family Guardian is free and not commercial.",
+    "setup": "Setup guide"
+  },
+  "setup": {
+    "meta": {
+      "title": "Setup guide: install Family Guardian on your child's laptop",
+      "description": "Step by step: sign in, add your child, get a pairing code, install the extension on Windows and check the dashboard."
+    },
+    "title": "Setup guide",
+    "intro": "Follow these eight steps in order. It takes about ten minutes.",
+    "steps": {
+      "signIn": "Sign in as a parent with your Google account.",
+      "child": "Add your child in the dashboard.",
+      "code": "Get a pairing code for your child's laptop. It is valid for 1 hour.",
+      "installer": "On your child's Windows laptop, run the .reg installer as administrator.",
+      "standard": "Make sure your child uses a Standard (not Administrator) Windows account.",
+      "restart": "Fully close and reopen Chrome, Edge and Brave.",
+      "pair": "Open the extension and enter the pairing code.",
+      "dashboard": "Check the dashboard: the laptop should show as online within a few minutes."
+    },
+    "loginLink": "Sign in",
+    "installLink": "Open the install page for the files",
+    "homeLink": "Read the full setup guide"
+  },
+  "faq": {
+    "meta": {
+      "title": "FAQ: common questions about Family Guardian",
+      "description": "Answers about what is collected, supported browsers, blocking, the focus score, alerts, deleting data and who can see it."
+    },
+    "title": "Frequently asked questions",
+    "privacyLink": "Read the privacy page",
+    "q1": "What does Family Guardian collect?",
+    "a1": "Only the domain of each website (for example example.com) and the seconds spent on it, plus the browser, Windows and the extension version. It never collects full URLs, page titles, page content, searches, keystrokes or screenshots.",
+    "q2": "Which browsers and systems work?",
+    "a2": "Chrome, Edge and Brave on Windows laptops.",
+    "q3": "Can my child turn off Family Guardian?",
+    "a3": "A Standard Windows account cannot remove the extension. Incognito and guest windows are switched off by the installer, so they cannot be used to hide browsing.",
+    "q4": "Can I block websites?",
+    "a4": "Yes. Block single sites or whole categories from the dashboard and set daily time limits. Changes reach the laptop within a few minutes.",
+    "q5": "What is the focus score?",
+    "a5": "A single number for each day that shows how much time went to focused sites compared with distracting ones.",
+    "q6": "What is an offline alert?",
+    "a6": "You get a note when the extension has not reported for a while. A laptop that is switched off looks the same as a removed extension, so check that the laptop is on first.",
+    "q7": "How do I manage children and devices?",
+    "a7": "Add each child in the dashboard, then pair each of their laptops with its own pairing code. One child can have several devices.",
+    "q8": "Can I delete a child or my data?",
+    "a8": "A child can be deleted in the dashboard, which removes their data. Deleting a whole account is done on request: use the contact on the privacy page.",
+    "q9": "Is Family Guardian free?",
+    "a9": "Yes. It is free and not commercial.",
+    "q10": "Who can see my child's data?",
+    "a10": "Only the parents of your family who sign in to the dashboard. Nobody else can see it.",
+    "q11": "How long is data kept?",
+    "a11": "Usage data is kept for 13 months and then removed."
+  },
+  "help": {
+    "meta": {
+      "title": "Help: fix common Family Guardian problems",
+      "description": "Troubleshooting: extension not showing, device offline, pairing code expired, blocked site still opens, e-mails not arriving."
+    },
+    "title": "Help and troubleshooting",
+    "intro": "Find your problem below and try the steps in order.",
+    "contactTitle": "Still stuck?",
+    "contactText": "Write to us and we will help:",
+    "s1": {
+      "title": "The extension is not showing",
+      "text": "The extension is installed by the .reg file and only appears after the browser restarts.",
+      "step1": "Fully close and reopen the browser.",
+      "step2": "Open the browser's extensions page and check that Family Guardian is listed.",
+      "step3": "If it is missing, run the installer again as administrator."
+    },
+    "s2": {
+      "title": "The device shows offline",
+      "text": "A laptop that is switched off looks the same as a removed extension.",
+      "step1": "Turn on the laptop and open the browser.",
+      "step2": "Wait a few minutes for the next report.",
+      "step3": "If it stays offline, check the extension is still enabled."
+    },
+    "s3": {
+      "title": "The pairing code expired",
+      "text": "A pairing code is valid for 1 hour. Getting a new code replaces the old one.",
+      "step1": "Open the child in the dashboard.",
+      "step2": "Get a new code.",
+      "step3": "Enter the new code in the extension within 1 hour."
+    },
+    "s4": {
+      "title": "A blocked site still opens",
+      "text": "New rules reach the laptop within a few minutes.",
+      "step1": "Wait a few minutes and reload the page.",
+      "step2": "Check the site's domain is in the block list.",
+      "step3": "Make sure the browser was restarted after installing."
+    },
+    "s5": {
+      "title": "E-mails are not arriving",
+      "text": "Alerts and weekly reports are sent to your sign-in e-mail address.",
+      "step1": "Check the spam or junk folder.",
+      "step2": "Check that e-mail alerts are switched on in the dashboard.",
+      "step3": "Add the sender to your contacts."
+    }
   }
 }

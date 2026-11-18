@@ -1,13 +1,24 @@
-export const dynamicParams = true;
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { Help } from "../../../components/site/help";
+import { LOCALES, isLocale } from "../../../lib/i18n/locale";
+import { getMessages } from "../../../lib/i18n/messages";
+import { pageMetadata } from "../../../lib/i18n/page-metadata";
+
+export const dynamicParams = false;
 
 export function generateStaticParams(): { locale: string }[] {
-  throw new Error("not implemented");
+  return LOCALES.map((locale) => ({ locale }));
 }
 
-export async function generateMetadata(_props: { params: Promise<{ locale: string }> }): Promise<never> {
-  throw new Error("not implemented");
+export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
+  const { locale } = await params;
+  if (!isLocale(locale)) notFound();
+  return pageMetadata(locale, "help", getMessages(locale).help.meta);
 }
 
-export default function Page(): never {
-  throw new Error("not implemented");
+export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params;
+  if (!isLocale(locale)) notFound();
+  return <Help locale={locale} messages={getMessages(locale)} supportEmail={process.env.NEXT_PUBLIC_SUPPORT_EMAIL} />;
 }
