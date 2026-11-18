@@ -133,6 +133,31 @@ describe("public site routing and SEO", () => {
       zh: `${ORIGIN}/zh/faq`,
       "x-default": `${ORIGIN}/en/faq`,
     });
+    expect(meta.openGraph).toMatchObject({
+      title: meta.title,
+      description: meta.description,
+      url: `${ORIGIN}/vi/faq`,
+      siteName: "Family Guardian",
+      type: "website",
+      locale: "vi_VN",
+    });
+    for (const [page, mod] of [["setup", setupPage], ["help", helpPage]] as const) {
+      const og = (await mod.generateMetadata({ params: Promise.resolve({ locale: "zh" }) })).openGraph;
+      expect(og?.url, page).toBe(`${ORIGIN}/zh/${page}`);
+      expect(og?.locale, page).toBe("zh_CN");
+    }
+  });
+
+  it("Help and FAQ text matches the product", () => {
+    for (const l of ["en", "vi", "zh"] as const) {
+      const m = getMessages(l) as unknown as {
+        help: { s5: { step2: string } };
+        faq: { a5: string };
+      };
+      expect(m.help.s5.step2, l).not.toMatch(/alert|cảnh báo|提醒/i);
+    }
+    const en = getMessages("en") as unknown as { faq: { a5: string } };
+    expect(en.faq.a5).toContain("share of time on your homework sites, minus a penalty for switching");
   });
 
   it("Same metadata rules for setup and help", async () => {

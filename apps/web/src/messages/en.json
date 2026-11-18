@@ -119,7 +119,7 @@
     "q4": "Can I block websites?",
     "a4": "Yes. Block single sites or whole categories from the dashboard and set daily time limits. Changes reach the laptop within a few minutes.",
     "q5": "What is the focus score?",
-    "a5": "A single number for each day that shows how much time went to focused sites compared with distracting ones.",
+    "a5": "A single number for each day: the share of time on your homework sites, minus a penalty for switching.",
     "q6": "What is an offline alert?",
     "a6": "You get a note when the extension has not reported for a while. A laptop that is switched off looks the same as a removed extension, so check that the laptop is on first.",
     "q7": "How do I manage children and devices?",
@@ -174,7 +174,7 @@
       "title": "E-mails are not arriving",
       "text": "Alerts and weekly reports are sent to your sign-in e-mail address.",
       "step1": "Check the spam or junk folder.",
-      "step2": "Check that e-mail alerts are switched on in the dashboard.",
+      "step2": "In Settings, check the e-mail digest time, and turn on Weekly report if you want it.",
       "step3": "Add the sender to your contacts."
     }
   }

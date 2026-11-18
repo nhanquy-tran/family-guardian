@@ -119,7 +119,7 @@
     "q4": "Tôi có chặn được trang web không?",
     "a4": "Có. Chặn từng trang hoặc cả nhóm trang trong bảng điều khiển và đặt giới hạn thời gian mỗi ngày. Thay đổi đến laptop sau vài phút.",
     "q5": "Điểm tập trung là gì?",
-    "a5": "Một con số mỗi ngày cho biết thời gian dành cho trang tập trung so với trang gây xao nhãng.",
+    "a5": "Một con số mỗi ngày: tỷ lệ thời gian dành cho các trang bài tập của con, trừ đi điểm phạt khi chuyển trang liên tục.",
     "q6": "Cảnh báo ngoại tuyến là gì?",
     "a6": "Bạn nhận được thông báo khi tiện ích không báo cáo trong một thời gian. Laptop tắt máy trông giống như tiện ích bị gỡ, nên hãy kiểm tra laptop đã bật chưa.",
     "q7": "Quản lý các con và thiết bị thế nào?",
@@ -174,7 +174,7 @@
       "title": "Không nhận được e-mail",
       "text": "Cảnh báo và báo cáo hằng tuần được gửi đến e-mail bạn dùng để đăng nhập.",
       "step1": "Kiểm tra thư mục spam hoặc thư rác.",
-      "step2": "Kiểm tra cảnh báo e-mail đã bật trong bảng điều khiển.",
+      "step2": "Trong Cài đặt, kiểm tra giờ gửi bản tóm tắt qua e-mail và bật Báo cáo hằng tuần nếu bạn muốn nhận.",
       "step3": "Thêm người gửi vào danh bạ."
     }
   }
