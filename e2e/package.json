@@ -1,0 +1,23 @@
+{
+  "name": "@fg/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "seed": "tsx scripts/seed.ts",
+    "reset": "tsx scripts/seed.ts --teardown-only",
+    "e2e": "playwright test"
+  },
+  "dependencies": {
+    "@fg/shared": "*"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.119.0",
+    "@types/node": "^22",
+    "tsx": "^4.23.15",
+    "typescript": "^5"
+  }
+}

@@ -16,3 +16,4 @@ test-results/
 next-env.d.ts
 family-guardian-extension-*.zip
 .worktrees/
+e2e/screenshots/
