@@ -50,6 +50,7 @@ jobs:
           GH_TOKEN: ""
         with:
           anthropic_api_key: ${{ secrets.CLAUDE_API_KEY }}
+          allowed_bots: github-actions # revive-schedules.mjs dispatches missed nightly runs as github-actions
           github_token: ${{ github.token }}
           prompt: Follow .claude/agents/docs-writer.md exactly.
           claude_args: |
