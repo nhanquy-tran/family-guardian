@@ -17,7 +17,7 @@ Screenshots: `e2e/screenshots/<stage>/<desktop|mobile>/*.png`; open `e2e/screens
 | `empty` | Parent only |
 | `onboarded` | Mia (2 devices), Leo (1 device), Noah (none); no usage |
 | `week` | Seven days of usage: Mia focused (homework afternoons), Leo distracted (games, TikTok, late nights) |
-| `rules-applied` | From 3 days ago Leo has tiktok.com and the social category blocked and games capped at 60 min; from yesterday his allowed hours are 07:00 to 20:00. Usage, block events and limits reflect it |
+| `rules-applied` | From 3 days ago Leo has tiktok.com and the social category blocked and games capped at 60 min; from yesterday his allowed hours are 07:00 to 20:00. Usage and block events reflect it. Mia gets a 90 min entertainment limit she stays under, so a limit shows on her rules page without changing her data |
 | `alerts` | Mia's Family PC offline for 3 days, with an open offline alert |
 
 - Seed one stage by hand: `npm run e2e:seed -- --stage week` (signs nothing in; sign-in is Google-only).

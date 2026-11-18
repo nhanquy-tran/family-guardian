@@ -146,12 +146,22 @@ describe("rules-applied", () => {
   });
 
   it("caps Leo's games at 60 minutes a day once the limit exists", () => {
-    expect(f.categoryLimits).toContainEqual({ child_id: LEO, category: "games", minutes_per_day: 60 });
+    expect(f.categoryLimits).toEqual([
+      { child_id: LEO, category: "games", minutes_per_day: 60 },
+      { child_id: MIA, category: "entertainment", minutes_per_day: 90 },
+    ]);
     for (const [day, seconds] of gamesSecondsByDay(f, LEO)) {
       if (Date.parse(`${day}T12:00:00Z`) >= blockFrom) expect(seconds).toBeLessThanOrEqual(3600);
     }
     const leoDevices = deviceIdsOf(f, LEO);
     expect(f.blockEvents.some((e) => leoDevices.has(e.device_id) && categorize(e.domain) === "games")).toBe(true);
+  });
+
+  it("keeps Mia under her 90 minute entertainment limit every day", () => {
+    for (const rows of byLocalDay(usageOf(f, MIA)).values()) {
+      const seconds = rows.filter((r) => categorize(r.domain) === "entertainment").reduce((s, r) => s + r.seconds, 0);
+      expect(seconds).toBeLessThanOrEqual(90 * 60);
+    }
   });
 
   it("keeps Leo inside 07:00-20:00 from yesterday", () => {

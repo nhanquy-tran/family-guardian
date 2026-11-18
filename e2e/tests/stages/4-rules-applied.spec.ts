@@ -1,25 +1,43 @@
 import { expect } from "@playwright/test";
-import { LEO } from "../../fixtures/scenario.ts";
+import { LEO, MIA, TIMEZONE } from "../../fixtures/scenario.ts";
+import { expectFocusCard, expectedTrend } from "../expected.ts";
 import { stageTest } from "../stage.ts";
 
 const heading = (name: string | RegExp) => ({ name, level: 1 });
+const TZ = `tz=${encodeURIComponent(TIMEZONE)}`;
 
 const test = stageTest("rules-applied");
 test.describe("stage rules-applied: block rules, daily limit and allowed hours for Leo", () => {
-  test("rules page shows blocked sites, limits and hours", async ({ page, shot }) => {
+  test("rules page shows the blocked site and category, the games limit and the hours", async ({ page, shot }) => {
     await page.goto(`/dashboard/children/${LEO}/rules`);
     await expect(page.getByRole("heading", heading("Block sites for Leo"))).toBeVisible();
-    await expect(page.getByText("tiktok.com").first()).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Daily limits" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Allowed hours" })).toBeVisible();
+    const rules = page.getByRole("listitem").filter({ has: page.getByRole("button", { name: "Remove" }) });
+    await expect(rules).toHaveCount(2);
+    await expect(rules.filter({ hasText: /^domain\s*tiktok\.com/ })).toHaveCount(1);
+    await expect(rules.filter({ hasText: /^category\s*social/ })).toHaveCount(1);
+    await expect(page.locator('input[name="limit_games"]')).toHaveValue("60");
+    await expect(page.locator('input[name="limit_entertainment"]')).toHaveValue("");
+    await expect(page.locator('input[name="allowed_start"]')).toHaveValue("07:00");
+    await expect(page.locator('input[name="allowed_end"]')).toHaveValue("20:00");
     await shot("rules-leo");
   });
 
-  test("usage after the rules", async ({ page, shot }) => {
-    await page.goto(`/dashboard/usage/${LEO}`);
+  test("Mia's rules page shows her entertainment limit and no blocks", async ({ page }) => {
+    await page.goto(`/dashboard/children/${MIA}/rules`);
+    await expect(page.getByText("No sites blocked")).toBeVisible();
+    await expect(page.locator('input[name="limit_entertainment"]')).toHaveValue("90");
+    await expect(page.locator('input[name="allowed_start"]')).toHaveValue("");
+  });
+
+  test("Leo's week after the rules: no social sites since the block, games within the limit", async ({ page, shot, fixture }) => {
+    await page.goto(`/dashboard/usage/${LEO}?${TZ}&view=week`);
     await expect(page.getByRole("heading", heading("Usage"))).toBeVisible();
-    await page.getByRole("link", { name: "Week", exact: true }).click();
-    await expect(page).toHaveURL(/view=week/);
+    // tiktok.com still lists the days before the block; its total is only that time.
+    const leoDevices = new Set(fixture.devices.filter((d) => d.child_id === LEO).map((d) => d.id));
+    const tiktok = fixture.usage.filter((u) => leoDevices.has(u.device_id) && u.domain === "tiktok.com");
+    const minutes = Math.round(tiktok.reduce((s, u) => s + u.seconds, 0) / 60);
+    const label = minutes >= 60 ? `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, "0")} min` : `${minutes} min`;
+    await expect(page.getByRole("listitem").filter({ hasText: /^tiktok\.com/ })).toContainText(label);
     await shot("usage-leo-week-after-rules");
   });
 
@@ -32,9 +50,10 @@ test.describe("stage rules-applied: block rules, daily limit and allowed hours f
     await shot("categories");
   });
 
-  test("overview after the rules", async ({ page, shot }) => {
-    await page.goto("/dashboard");
-    await expect(page.getByRole("heading", heading("Overview"))).toBeVisible();
+  test("overview after the rules reflects the capped usage", async ({ page, shot, fixture }) => {
+    await page.goto(`/dashboard?${TZ}`);
+    await expectFocusCard(page, "Leo", expectedTrend(fixture, LEO));
+    await expectFocusCard(page, "Mia", expectedTrend(fixture, MIA));
     await shot("overview-rules");
   });
 });

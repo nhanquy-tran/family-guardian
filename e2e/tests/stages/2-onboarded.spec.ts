@@ -1,4 +1,5 @@
 import { expect } from "@playwright/test";
+import { focusCard } from "../expected.ts";
 import { stageTest } from "../stage.ts";
 
 const heading = (name: string | RegExp) => ({ name, level: 1 });
@@ -20,7 +21,11 @@ test.describe("stage onboarded: children and devices, no usage yet", () => {
 
   test("overview has no focus data yet", async ({ page, shot }) => {
     await page.goto("/dashboard");
-    await expect(page.getByRole("link", { name: "View usage for Noah" })).toBeVisible();
+    for (const name of ["Mia", "Leo", "Noah"]) {
+      const card = focusCard(page, name);
+      await expect(card.getByText("No activity today")).toBeVisible();
+      await expect(card.getByRole("list", { name: "Last 7 days" }).getByText("no data")).toHaveCount(7);
+    }
     await shot("overview-no-usage");
   });
 });
