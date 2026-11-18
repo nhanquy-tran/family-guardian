@@ -21,3 +21,4 @@ Open an ADR only when your change touches its subject. All accepted unless noted
 | [0015](0015-self-fixing-factory.md) | Arbiter (now debugger), watchdog, platform notes | factory self-repair |
 | [0016](0016-digest-emails.md) | Digest e-mails (daily 08:00 / weekly Monday) replace per-incident e-mails | alerts, e-mail, family settings |
 | [0017](0017-factory-upgrade-specs-verify-scheduler.md) | Source-of-truth specs, verify gate, scheduler, two-stage review, debugger, hidden acceptance tests, hooks | factory workflows |
+| [0018](0018-factory-light-mode.md) | Light mode (`FACTORY_MODE`): no hidden tests, verifier or spec-PR review, one review stage, lower turn caps; `full-mode` label per issue | factory cost, factory workflows |

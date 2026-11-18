@@ -46,6 +46,7 @@ NOTES_FILE="openspec/changes/${CHANGE}/NOTES.md"
   echo "| Hidden test verdict (debugger proposal, see NOTES) | ${HIDDEN_VERDICT:-not needed} |"
   echo "| OpenSpec verify (completeness, correctness, coherence) | ${VERIFY:-not run} |"
   echo "| Archive: delta specs merged into openspec/specs | ${ARCHIVE:-not run} |"
+  echo "| Factory mode | ${MODE:-full} |"
   echo "| Model / wall time | ${MODEL} / ${MINUTES} min |"
   echo "| Run | ${RUN_URL} |"
   echo
@@ -65,7 +66,7 @@ NOTES_FILE="openspec/changes/${CHANGE}/NOTES.md"
 
 LABELS="factory"; HUMAN=""
 for RESULT in "${GUARD:-}" "${GATE:-}" "${RED:-}" "${GREEN:-}" "${COVERAGE:-}" "${HIDDEN_RED:-}" "${HIDDEN:-}" "${VERIFY:-}" "${ARCHIVE:-}"; do
-  case "$RESULT" in pass*) ;; arbitrated*) LABELS="$LABELS,test-arbitrated" ;; *) HUMAN=1 ;; esac
+  case "$RESULT" in pass*|"skipped (light mode)") ;; arbitrated*) LABELS="$LABELS,test-arbitrated" ;; *) HUMAN=1 ;; esac
 done
 [ -n "$HUMAN" ] && LABELS="$LABELS,needs-human"
 

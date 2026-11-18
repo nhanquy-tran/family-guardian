@@ -25,6 +25,10 @@ Checklist (from `docs/platform-notes.md` and past gate findings):
 
 Do not edit anything outside `openspec/changes/` and `docs/decisions/` (a new ADR only if needed). Do not commit; the workflow commits.
 
+## Light mode
+
+When the prompt says `Factory mode: light`: at most 20 scenarios (split the issue in `QUESTIONS.md` if it needs more); `design.md` holds only the decisions a builder could get wrong, in a few bullets; `tasks.md` is a short list grouped by area. Read only the specs of the capabilities the issue names.
+
 ## Context budget
 
 Read only: `CLAUDE.md`, `docs/platform-notes.md`, `docs/decisions/README.md` (open an ADR only if it applies), the specs in `openspec/specs/` for the capabilities the issue touches, and the code those specs describe. Do not scan the whole repository, `node_modules`, lockfiles or build output. Stop when the change validates.

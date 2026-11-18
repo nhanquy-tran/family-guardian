@@ -18,3 +18,7 @@ Post one comment with a single command `gh pr comment <n> --body "..."` (no file
 ## Context budget
 
 Read the diff, the change folder, the affected specs in `openspec/specs/`, `CLAUDE.md` and `docs/platform-notes.md`. Nothing else unless a finding needs it.
+
+## Light mode
+
+When the prompt says `Factory mode: light`, you are the only review stage: after the spec matrix, also flag clear correctness bugs (edge cases, error paths that do not fail closed, races, time zones) in the changed code. Skip style, naming and refactoring suggestions. Keep the comment short: findings only, no restating the PR.
