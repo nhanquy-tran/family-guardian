@@ -3,6 +3,13 @@ import { connectionStatus, PAIR_MESSAGES, pairWithCode, STATUS_TEXT } from "./pa
 import { always, createPost, createStore, entries, sequence } from "./test-fakes";
 
 const ok = { status: 200, body: { deviceToken: "tok-1" } } as const;
+const limitState = {
+  rulesLimits: [{ category: "games", minutesPerDay: 5 }],
+  rulesTimezone: "UTC",
+  rulesOverrides: { "youtube.com": "education" },
+  limitUsage: { day: "2026-11-17", seconds: { games: 10 }, domains: {} },
+  limitBlocked: { "roblox.com": "games" },
+};
 
 function deps(store: ReturnType<typeof createStore>["store"], post: ReturnType<typeof createPost>["post"]) {
   return { baseUrl: "https://fg.example", browser: "edge" as const, os: "Windows", store, post };
@@ -114,20 +121,23 @@ describe("pairWithCode", () => {
       deviceToken: "old",
       rulesVersion: 4,
       blockedQueue: [{ at: "2026-11-17T10:00:00.000Z", domain: "tiktok.com" }],
+      ...limitState,
     });
     const { post } = always({ status: 200, body: { deviceToken: "tok-2" } });
     expect(await pairWithCode(deps(store, post), "AB2CD3")).toEqual({ ok: true });
     expect(data.has("rulesVersion")).toBe(false);
     expect(data.has("blockedQueue")).toBe(false);
+    for (const key of Object.keys(limitState)) expect(data.has(key), key).toBe(false);
   });
 
   it("Failed pair", async () => {
     const blockedQueue = [{ at: "2026-11-17T10:00:00.000Z", domain: "tiktok.com" }];
-    const { store, data } = createStore({ deviceToken: "old", rulesVersion: 4, blockedQueue });
+    const { store, data } = createStore({ deviceToken: "old", rulesVersion: 4, blockedQueue, ...limitState });
     const { post } = always({ status: 400, body: { error: "invalid_code" } });
     expect(await pairWithCode(deps(store, post), "ZZZZZZ")).toEqual({ ok: false, reason: "invalid_code" });
     expect(data.get("rulesVersion")).toBe(4);
     expect(data.get("blockedQueue")).toEqual(blockedQueue);
+    for (const [key, value] of Object.entries(limitState)) expect(data.get(key), key).toEqual(value);
   });
 
   it("messages", () => {

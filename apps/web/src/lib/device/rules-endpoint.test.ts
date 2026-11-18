@@ -117,6 +117,38 @@ describe("rules API for devices", () => {
     expect(body.timezone).toBe("Asia/Ho_Chi_Minh");
   });
 
+  it("Merged rows, family wins, capped", async () => {
+    const overrides: Override[] = [
+      { familyId: null, domain: "youtube.com", category: "entertainment" },
+      { familyId: null, domain: "kidgame.com", category: "games" },
+      { familyId: "fam-1", domain: "youtube.com", category: "education" },
+      { familyId: "fam-1", domain: "roblox.com", category: "games" },
+    ];
+    const res = await call(fakeStore({ overrides }));
+    const body = res.body as unknown as { categoryOverrides: Record<string, string> };
+    expect(body.categoryOverrides).toEqual({
+      "youtube.com": "education",
+      "roblox.com": "games",
+      "kidgame.com": "games",
+    });
+
+    // 2 family rows + 4999 global rows = 5001 merged rows, capped at 5000
+    const family: Override[] = [
+      { familyId: "fam-1", domain: "fam-a.example.com", category: "games" },
+      { familyId: "fam-1", domain: "fam-b.example.com", category: "games" },
+    ];
+    const global: Override[] = Array.from({ length: 4999 }, (_, i) => ({
+      familyId: null,
+      domain: `g${i}.example.com`,
+      category: "games" as const,
+    }));
+    const capped = await call(fakeStore({ overrides: [...global, ...family] }));
+    const map = (capped.body as unknown as { categoryOverrides: Record<string, string> }).categoryOverrides;
+    expect(Object.keys(map)).toHaveLength(5000);
+    expect(map).toHaveProperty(["fam-a.example.com"]);
+    expect(map).toHaveProperty(["fam-b.example.com"]);
+  });
+
   it("No limits", async () => {
     const res = await call(fakeStore());
     expect(res.status).toBe(200);

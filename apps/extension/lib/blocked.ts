@@ -21,6 +21,10 @@ export function addBlocked(queue: BlockedAttempt[], attempt: BlockedAttempt, now
   return pruneBlocked([...queue, attempt], now);
 }
 
+export function describeBlock(_search: string): string {
+  throw new Error("not implemented");
+}
+
 export function parseBlockedMessage(raw: unknown): { domain: string } | null {
   if (typeof raw !== "object" || raw === null) return null;
   const m = raw as { type?: unknown; domain?: unknown };

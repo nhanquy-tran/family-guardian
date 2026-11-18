@@ -1,6 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { addBlocked, parseBlockedMessage, parseBlockedQueue } from "./blocked";
+import { addBlocked, describeBlock, parseBlockedMessage, parseBlockedQueue } from "./blocked";
 import { NOW } from "./test-fakes";
+
+describe("describeBlock", () => {
+  it("Limit and generic text", () => {
+    const limit = describeBlock("?d=roblox.com&c=games");
+    expect(limit).toContain("Daily limit for games reached");
+    const generic = describeBlock("?d=roblox.com");
+    for (const text of [describeBlock("?d=roblox.com&c=music"), generic]) {
+      expect(text).toContain("This site is blocked");
+      expect(text).not.toContain("music");
+      expect(text).not.toContain("Daily limit");
+    }
+    for (const text of [limit, generic]) expect(text).not.toMatch(/https?:|\//);
+  });
+});
 
 // n seconds after 2026-11-17T00:00:00Z; n <= 1000 stays before NOW (10:05:30)
 const attempt = (n: number) => ({

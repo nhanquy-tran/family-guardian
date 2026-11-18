@@ -96,5 +96,18 @@ describe("RulesResponse limits and timezone", () => {
     const parsed = RulesResponse.parse(base) as unknown as { limits?: unknown; timezone?: unknown };
     expect(parsed.limits).toEqual([]);
     expect(parsed.timezone).toBeUndefined();
+    expect((parsed as { categoryOverrides?: unknown }).categoryOverrides).toEqual({});
+  });
+
+  it("Category overrides are bounded", () => {
+    const ok = { ...base, categoryOverrides: { "youtube.com": "education" } };
+    expect(RulesResponse.parse(ok)).toEqual({ ...ok, limits: [] });
+    const many = Object.fromEntries(Array.from({ length: 5001 }, (_, i) => [`d${i}.com`, "games"]));
+    const bad: Record<string, unknown>[] = [
+      { categoryOverrides: { "youtube.com": "music" } },
+      { categoryOverrides: { [`${"a".repeat(250)}.com`]: "games" } },
+      { categoryOverrides: many },
+    ];
+    for (const extra of bad) expect(RulesResponse.safeParse({ ...base, ...extra }).success).toBe(false);
   });
 });
