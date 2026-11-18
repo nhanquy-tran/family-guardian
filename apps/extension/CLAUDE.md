@@ -7,4 +7,4 @@ WXT, Manifest V3, for Chrome, Edge and Brave. Entrypoints in `entrypoints/` (thi
 - Requests are built from the zod contracts in `@fg/shared` (`HeartbeatRequest`, `PairRequest`), so no other field can be sent. At most `MAX_HEARTBEAT_ENTRIES` per heartbeat; split on `413`.
 - A `401` never wipes local data (it marks the device rejected and retries every 15 minutes).
 - Manifest comes from `lib/manifest.ts`; add a permission only with the change that uses it, and update `docs/chrome-web-store.md` justifications.
-- Store builds: `WXT_API_BASE_URL=https://family-guardian-one.vercel.app npm run zip -w extension`.
+- Store builds: `WXT_API_BASE_URL=https://family-guardian.co npm run zip -w extension`.
