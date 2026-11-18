@@ -190,6 +190,7 @@ async function load() {
     state.history = history.filter((r) => r.conclusion !== "skipped");
     linkPulls();
     state.models = buildIssueModels();
+    state.loadedAt = Date.now();
     renderBoard();
     renderRuns();
     renderCost();
@@ -953,10 +954,8 @@ function turnPage(key, to) {
 
 // ---------- live issue refresh ----------
 
-// While an issue's timeline is open, only that issue is re-read every few seconds: the issue, its PRs, their
-// comments (metrics, reviews, gates) and running factory runs with their current step.
-const LIVE_MS_TOKEN = 5000;
-const LIVE_MS_ANON = 30000;
+// While an issue's timeline is open, only that issue is re-read: the issue, its PRs, their comments (metrics,
+// reviews, gates) and running factory runs with their current step. Timing rules are in live-core.js.
 const AGENT_WORKFLOW_PATHS = /(factory-spec|factory-build|factory-review|claude)\.yml$/;
 // Workflow step name → [timeline step, agent name in the metrics comment].
 const LIVE_STEP = {
@@ -968,18 +967,7 @@ const LIVE_STEP = {
   "Stage 1: spec compliance": ["review", "spec-reviewer"],
   "Stage 2: code quality": ["review", "quality-reviewer"],
 };
-const live = { n: null, timer: null, busy: false, at: 0, error: "", runs: [] };
-const NOW_TEXT = {
-  "needs-spec": "Waiting for the spec writer to start",
-  "spec-in-progress": "Spec writer is starting",
-  "spec-review": "Spec PR waiting for AI review and the spec gate",
-  ready: "Spec approved, waiting for a build",
-  "build-now": "Build requested, waiting for a runner",
-  "in-progress": "Build is starting",
-  "in-review": "Build PR waiting for AI review and the build gate",
-  "needs-human": "Needs a human: a gate failed or an agent has a question",
-  "on-hold": "On hold",
-};
+const live = { n: null, timer: null, busy: false, at: 0, error: "", runs: [], ended: false };
 
 // The issue a run works on: spec/<n> or factory/<n> branch, "#n" in the run name, or a PR or issue title.
 function runIssue(run) {
@@ -1038,9 +1026,7 @@ async function refreshIssue(n) {
       hidden: fix && !/claude-code-action/i.test(step?.name || ""),
     };
   }));
-  // A queued run waits behind a running one of the same workflow (concurrency group): show the running one.
-  const busy = new Set(found.filter((r) => r.status === "in_progress" && !r.hidden).map((r) => r.name));
-  live.runs = found.filter((r) => !r.hidden && (r.status === "in_progress" || !busy.has(r.name)));
+  live.runs = LiveCore.visibleRuns(found);
 
   state.models = buildIssueModels();
   renderBoard();
@@ -1049,34 +1035,38 @@ async function refreshIssue(n) {
 }
 
 function nowText(n) {
-  const issue = state.byNumber.get(n);
-  if (live.runs.length) {
-    const parts = live.runs.map((r) => r.status === "in_progress" ? `${r.name}: ${r.stepName} (${short(Date.now() - r.stepStart) || "0s"})` : `${r.name}: ${r.status}`);
-    return [...new Set(parts)].join(" · ");
-  }
-  if (issue?.state === "closed") return "Done";
-  const label = [...COLUMNS, "build-now", "on-hold"].reverse().find((l) => issue?.labels.some((x) => x.name === l));
-  return NOW_TEXT[label] || "Not in the factory yet";
+  return live.runs.length ? LiveCore.runningText(live.runs, Date.now(), short) : LiveCore.waitingText(state.byNumber.get(n));
 }
 
 function renderLiveLine() {
   const el = $("issue-live");
   if (!el || live.n === null) return;
-  const every = (getToken() ? LIVE_MS_TOKEN : LIVE_MS_ANON) / 1000;
   const at = live.at ? new Date(live.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "…";
-  put("issue-live", html`<span class="live-dot${live.error ? " off" : ""}"></span>
+  const status = live.error ? `Update failed: ${live.error}`
+    : live.timer ? `Live every ${LiveCore.LIVE_MS / 1000} s · updated ${at}`
+    : live.ended ? `Issue closed: live updates stopped · updated ${at}`
+    : `Updated ${at} · add a token for live updates every ${LiveCore.LIVE_MS / 1000} s`;
+  put("issue-live", html`<span class="live-dot${live.timer && !live.error ? "" : " off"}"></span>
     <span><strong>Now:</strong> ${nowText(live.n)}</span>
-    <span class="muted small">${live.error ? `Update failed: ${live.error}` : `Live every ${every} s · updated ${at}`}${getToken() ? "" : " · add a token for 5 s updates"}</span>`);
+    <span class="muted small">${status}</span>
+    ${live.timer ? "" : html`<button type="button" class="small" data-act="live-refresh"${live.busy ? html` disabled` : ""}>Update now</button>`}`);
 }
 
-async function liveTick() {
-  if (live.busy || live.n === null || document.hidden) return;
+async function liveTick({ manual = false } = {}) {
+  // The close event can arrive late (for example in a background tab): never poll for a closed popup.
+  if (!$("issue-dialog").open) { stopLive(); return; }
+  if (live.busy || live.n === null || (document.hidden && !manual)) return;
   live.busy = true;
   const n = live.n;
   try {
     await refreshIssue(n);
     live.error = "";
     live.at = Date.now();
+    if (live.timer && !LiveCore.keepPolling(state.byNumber.get(n), live.runs)) {
+      clearInterval(live.timer);
+      live.timer = null;
+      live.ended = true;
+    }
     if (live.n === n && $("issue-dialog").open) issueDetail(n, { keepScroll: true });
   } catch (e) {
     live.error = e.message;
@@ -1086,18 +1076,21 @@ async function liveTick() {
   }
 }
 
-function startLive(n) {
-  if (live.n === n && live.timer) return;
+// Without a token there is no timer: the popup shows the data of the last full load and an "Update now" button.
+function startLive(n, { force = false } = {}) {
+  if (live.n === n && !force) return;
   stopLive();
   live.n = n;
-  live.at = Date.now();
-  live.timer = setInterval(liveTick, getToken() ? LIVE_MS_TOKEN : LIVE_MS_ANON);
+  live.at = state.loadedAt || Date.now();
+  const ms = LiveCore.liveInterval(!!getToken());
+  if (!ms) return;
+  live.timer = setInterval(liveTick, ms);
   liveTick();
 }
 
 function stopLive() {
   clearInterval(live.timer);
-  Object.assign(live, { n: null, timer: null, error: "", runs: [] });
+  Object.assign(live, { n: null, timer: null, error: "", runs: [], ended: false });
 }
 
 // ---------- dialogs and actions ----------
@@ -1258,6 +1251,7 @@ $("token-dialog").addEventListener("close", () => {
   else if (choice === "forget") setToken("");
   else return;
   updateTokenButton();
+  if (live.n !== null) startLive(live.n, { force: true });
   load();
 });
 
@@ -1276,6 +1270,7 @@ document.addEventListener("click", (ev) => {
   else if (btn.dataset.act === "comment") commentAction(n);
   else if (btn.dataset.act === "merge") mergeAction(n);
   else if (btn.dataset.act === "issue") issueDetail(n);
+  else if (btn.dataset.act === "live-refresh") liveTick({ manual: true });
   else if (btn.dataset.act === "flow") selectFlow(btn.dataset.id);
   else if (btn.dataset.act === "flow-kind") selectFlow(null, btn.dataset.kind);
   else if (btn.dataset.act === "page") turnPage(btn.dataset.key, Number(btn.dataset.to));
