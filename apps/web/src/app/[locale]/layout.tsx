@@ -4,11 +4,10 @@ import type { ReactNode } from "react";
 import { LanguageSwitcher } from "../../components/site/language-switcher";
 import { SiteFooter } from "../../components/site/site-footer";
 import { SiteHeader } from "../../components/site/site-header";
-import { LOCALES, isLocale, localePath, type Locale } from "../../lib/i18n/locale";
+import { LOCALES, isLocale, localePath } from "../../lib/i18n/locale";
 import { getMessages } from "../../lib/i18n/messages";
+import { OG_LOCALE } from "../../lib/i18n/page-metadata";
 import { SITE_URL } from "../../lib/site";
-
-const OG_LOCALE: Record<Locale, string> = { en: "en_US", vi: "vi_VN", zh: "zh_CN" };
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params;

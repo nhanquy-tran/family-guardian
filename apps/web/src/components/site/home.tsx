@@ -12,7 +12,7 @@ const FEATURES = ["activity", "blocking", "score", "alerts", "privacy"] as const
 const COLLECTED = ["domain", "time"] as const;
 const NEVER = ["urls", "content", "keystrokes", "screenshots"] as const;
 
-export function Home({ messages }: { locale: Locale; messages: Messages }) {
+export function Home({ locale, messages }: { locale: Locale; messages: Messages }) {
   const m = messages;
   return (
     <main className={`${container} flex flex-col gap-10`}>
@@ -56,6 +56,9 @@ export function Home({ messages }: { locale: Locale; messages: Messages }) {
             );
           })}
         </ol>
+        <a href={`/${locale}/setup`} className={textLink}>
+          {m.setup.homeLink}
+        </a>
       </section>
 
       <section id="features" className="flex flex-col gap-4">

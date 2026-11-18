@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -24,6 +24,9 @@ import { config } from "../proxy";
 import RootPage from "./page";
 import { dynamicParams, generateStaticParams } from "./[locale]/page";
 import { generateMetadata } from "./[locale]/layout";
+import * as setupPage from "./[locale]/setup/page";
+import * as faqPage from "./[locale]/faq/page";
+import * as helpPage from "./[locale]/help/page";
 import robots from "./robots";
 import sitemap from "./sitemap";
 
@@ -92,7 +95,10 @@ describe("public site routing and SEO", () => {
 
   it("Sitemap and robots", () => {
     const urls = sitemap().map((e) => e.url);
-    expect([...urls].sort()).toEqual([`${ORIGIN}/en`, `${ORIGIN}/privacy`, `${ORIGIN}/vi`, `${ORIGIN}/zh`]);
+    const paths = ["en", "vi", "zh", "privacy"];
+    for (const page of ["setup", "faq", "help"]) for (const l of ["en", "vi", "zh"]) paths.push(`${l}/${page}`);
+    expect(urls).toHaveLength(13);
+    expect([...urls].sort()).toEqual(paths.map((p) => `${ORIGIN}/${p}`).sort());
     for (const u of urls) expect(u).not.toMatch(/dashboard|login|install|api|auth/);
 
     const r = robots();
@@ -102,5 +108,74 @@ describe("public site routing and SEO", () => {
     expect(allow).toContain("/");
     for (const p of ["/dashboard", "/api", "/auth", "/login", "/install"]) expect(disallow, p).toContain(p);
     expect(r.sitemap).toBe(`${ORIGIN}/sitemap.xml`);
+  });
+
+  it("Routes and 404", async () => {
+    for (const page of [setupPage, faqPage, helpPage]) {
+      expect(page.dynamicParams).toBe(false);
+      const params = await page.generateStaticParams();
+      expect(params.map((p) => p.locale).sort()).toEqual(["en", "vi", "zh"]);
+    }
+    for (const d of ["setup", "faq", "help"]) {
+      expect(readFileSync(resolve(here, "[locale]", d, "page.tsx"), "utf8"), d).not.toContain("<html");
+    }
+  });
+
+  it("Metadata and hreflang", async () => {
+    const meta = await faqPage.generateMetadata({ params: Promise.resolve({ locale: "vi" }) });
+    const m = getMessages("vi") as unknown as { faq: { meta: { title: string; description: string } } };
+    expect(meta.title).toBe(m.faq.meta.title);
+    expect(meta.description).toBe(m.faq.meta.description);
+    expect(meta.alternates?.canonical).toBe(`${ORIGIN}/vi/faq`);
+    expect(meta.alternates?.languages).toEqual({
+      en: `${ORIGIN}/en/faq`,
+      vi: `${ORIGIN}/vi/faq`,
+      zh: `${ORIGIN}/zh/faq`,
+      "x-default": `${ORIGIN}/en/faq`,
+    });
+    expect(meta.openGraph).toMatchObject({
+      title: meta.title,
+      description: meta.description,
+      url: `${ORIGIN}/vi/faq`,
+      siteName: "Family Guardian",
+      type: "website",
+      locale: "vi_VN",
+    });
+    for (const [page, mod] of [["setup", setupPage], ["help", helpPage]] as const) {
+      const og = (await mod.generateMetadata({ params: Promise.resolve({ locale: "zh" }) })).openGraph;
+      expect(og?.url, page).toBe(`${ORIGIN}/zh/${page}`);
+      expect(og?.locale, page).toBe("zh_CN");
+    }
+  });
+
+  it("Help and FAQ text matches the product", () => {
+    for (const l of ["en", "vi", "zh"] as const) {
+      const m = getMessages(l) as unknown as {
+        help: { s5: { step2: string } };
+        faq: { a5: string };
+      };
+      expect(m.help.s5.step2, l).not.toMatch(/alert|cảnh báo|提醒/i);
+    }
+    const en = getMessages("en") as unknown as { faq: { a5: string } };
+    expect(en.faq.a5).toContain("share of time on your homework sites, minus a penalty for switching");
+  });
+
+  it("Same metadata rules for setup and help", async () => {
+    const zh = () => ({ params: Promise.resolve({ locale: "zh" }) });
+    const setup = await setupPage.generateMetadata(zh());
+    const help = await helpPage.generateMetadata(zh());
+    const faq = await faqPage.generateMetadata(zh());
+    expect(setup.alternates?.canonical).toBe(`${ORIGIN}/zh/setup`);
+    expect(help.alternates?.canonical).toBe(`${ORIGIN}/zh/help`);
+    expect(new Set([text(setup.title), text(faq.title), text(help.title)]).size).toBe(3);
+  });
+
+  it("Page reads the env variable", () => {
+    const page = readFileSync(resolve(here, "[locale]", "help", "page.tsx"), "utf8");
+    expect(page).toContain("NEXT_PUBLIC_SUPPORT_EMAIL");
+    const dir = resolve(here, "../components/site");
+    for (const f of readdirSync(dir).filter((n) => n.endsWith(".tsx") && !n.includes(".test."))) {
+      expect(readFileSync(resolve(dir, f), "utf8"), f).not.toContain("NEXT_PUBLIC_SUPPORT_EMAIL");
+    }
   });
 });

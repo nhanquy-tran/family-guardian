@@ -123,7 +123,7 @@ Both generated files SHALL start with the line `Windows Registry Editor Version 
 - **THEN** both return status 404 (lookup uses own properties only)
 
 ### Requirement: Install instructions page
-The `/install` page SHALL render `InstallInstructions`, which shows download links to both files and step-by-step instructions. The Standard-account warning SHALL appear before the first download link. The instructions SHALL explain how to verify the policy in `chrome://policy`, `edge://policy` and `brave://policy`. The home page SHALL link to `/install`.
+The `/install` page SHALL render `InstallInstructions`, which shows download links to both files and step-by-step instructions. The Standard-account warning SHALL appear before the first download link. The instructions SHALL explain how to verify the policy in `chrome://policy`, `edge://policy` and `brave://policy`. The public home page SHALL link to `/install`.
 
 #### Scenario: Download links
 - **WHEN** a test renders `InstallInstructions` with `renderToStaticMarkup` (`install-instructions.test.ts`)
@@ -147,4 +147,4 @@ The `/install` page SHALL render `InstallInstructions`, which shows download lin
 #### Scenario: Page and home link exist
 - **WHEN** a test reads the file system (`install-instructions.test.ts`)
 - **THEN** `apps/web/src/app/install/page.tsx` exists and its source references `InstallInstructions`
-- **AND** `apps/web/src/app/page.tsx` contains `href="/install"`
+- **AND** `apps/web/src/components/site/home.tsx` contains `href="/install"`

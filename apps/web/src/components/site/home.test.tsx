@@ -126,6 +126,13 @@ describe("public home page", () => {
     }
   });
 
+  it("Footer and home links", async () => {
+    const footer = /<footer\b[\s\S]*?<\/footer>/.exec(await renderLayout("vi"))?.[0] ?? "";
+    const hrefs = anchors(footer).map((a) => attr(a, "href"));
+    for (const h of ["/vi/setup", "/vi/faq", "/vi/help"]) expect(hrefs, h).toContain(h);
+    expect(anchors(renderHome("vi")).some((a) => attr(a, "href") === "/vi/setup")).toBe(true);
+  });
+
   it("Focus ring and local illustrations", async () => {
     for (const l of LOCALES) {
       const html = renderHome(l) + (await renderLayout(l));

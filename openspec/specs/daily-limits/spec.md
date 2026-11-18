@@ -1,7 +1,7 @@
 # daily-limits Specification
 
 ## Purpose
-TBD - created by archiving change add-daily-category-limits. Update Purpose after archive.
+Parents set a daily time limit in minutes per category for each child; the limits are stored under family-scoped RLS, bump the child's rules version and reach devices through the rules API together with the family timezone.
 
 ## Requirements
 

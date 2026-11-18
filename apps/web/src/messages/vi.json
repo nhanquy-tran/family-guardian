@@ -79,6 +79,103 @@
     "privacy": "Quyền riêng tư",
     "help": "Trợ giúp",
     "faq": "Câu hỏi thường gặp",
-    "note": "Family Guardian miễn phí và phi thương mại."
+    "note": "Family Guardian miễn phí và phi thương mại.",
+    "setup": "Hướng dẫn cài đặt"
+  },
+  "setup": {
+    "meta": {
+      "title": "Hướng dẫn cài đặt Family Guardian trên laptop của con",
+      "description": "Từng bước: đăng nhập, thêm con, lấy mã ghép nối, cài tiện ích trên Windows và kiểm tra bảng điều khiển."
+    },
+    "title": "Hướng dẫn cài đặt",
+    "intro": "Làm theo tám bước dưới đây theo thứ tự. Mất khoảng mười phút.",
+    "steps": {
+      "signIn": "Đăng nhập với tư cách phụ huynh bằng tài khoản Google.",
+      "child": "Thêm con trong bảng điều khiển.",
+      "code": "Lấy mã ghép nối cho laptop của con. Mã có hiệu lực 1 giờ.",
+      "installer": "Trên laptop Windows của con, chạy tệp cài đặt .reg bằng quyền quản trị (administrator).",
+      "standard": "Đảm bảo con dùng tài khoản Windows loại Standard (tiêu chuẩn), không phải Administrator (quản trị viên).",
+      "restart": "Đóng hẳn rồi mở lại Chrome, Edge và Brave.",
+      "pair": "Mở tiện ích và nhập mã ghép nối.",
+      "dashboard": "Kiểm tra bảng điều khiển: laptop sẽ hiện trực tuyến sau vài phút."
+    },
+    "loginLink": "Đăng nhập",
+    "installLink": "Mở trang cài đặt để lấy tệp",
+    "homeLink": "Xem hướng dẫn cài đặt đầy đủ"
+  },
+  "faq": {
+    "meta": {
+      "title": "Câu hỏi thường gặp về Family Guardian",
+      "description": "Giải đáp về dữ liệu thu thập, trình duyệt hỗ trợ, chặn trang, điểm tập trung, cảnh báo, xóa dữ liệu và ai xem được dữ liệu."
+    },
+    "title": "Câu hỏi thường gặp",
+    "privacyLink": "Xem trang quyền riêng tư",
+    "q1": "Family Guardian thu thập những gì?",
+    "a1": "Chỉ tên miền của mỗi trang web (ví dụ example.com) và số giây đã dùng, cùng trình duyệt, Windows và phiên bản tiện ích. Không bao giờ thu thập địa chỉ đầy đủ (URL), tiêu đề, nội dung trang, tìm kiếm, phím gõ hay ảnh chụp màn hình.",
+    "q2": "Hỗ trợ trình duyệt và hệ điều hành nào?",
+    "a2": "Chrome, Edge và Brave trên laptop Windows.",
+    "q3": "Con có tự tắt được không?",
+    "a3": "Tài khoản Windows loại Standard không thể gỡ tiện ích. Trình cài đặt tắt cửa sổ ẩn danh (incognito) và khách (guest) nên không thể dùng để lẩn tránh.",
+    "q4": "Tôi có chặn được trang web không?",
+    "a4": "Có. Chặn từng trang hoặc cả nhóm trang trong bảng điều khiển và đặt giới hạn thời gian mỗi ngày. Thay đổi đến laptop sau vài phút.",
+    "q5": "Điểm tập trung là gì?",
+    "a5": "Một con số mỗi ngày: tỷ lệ thời gian dành cho các trang bài tập của con, trừ đi điểm phạt khi chuyển trang liên tục.",
+    "q6": "Cảnh báo ngoại tuyến là gì?",
+    "a6": "Bạn nhận được thông báo khi tiện ích không báo cáo trong một thời gian. Laptop tắt máy trông giống như tiện ích bị gỡ, nên hãy kiểm tra laptop đã bật chưa.",
+    "q7": "Quản lý các con và thiết bị thế nào?",
+    "a7": "Thêm từng con trong bảng điều khiển, rồi ghép nối từng laptop bằng mã riêng. Một con có thể có nhiều thiết bị.",
+    "q8": "Tôi có thể xóa con hoặc dữ liệu không?",
+    "a8": "Có thể xóa một con trong bảng điều khiển, dữ liệu của con cũng bị xóa. Xóa cả tài khoản được thực hiện theo yêu cầu: dùng liên hệ trên trang quyền riêng tư.",
+    "q9": "Family Guardian có miễn phí không?",
+    "a9": "Có. Ứng dụng miễn phí và phi thương mại.",
+    "q10": "Ai xem được dữ liệu của con tôi?",
+    "a10": "Chỉ các phụ huynh trong gia đình đăng nhập vào bảng điều khiển. Không ai khác xem được.",
+    "q11": "Dữ liệu được lưu bao lâu?",
+    "a11": "Dữ liệu sử dụng được lưu 13 tháng rồi bị xóa."
+  },
+  "help": {
+    "meta": {
+      "title": "Trợ giúp: khắc phục sự cố thường gặp của Family Guardian",
+      "description": "Khắc phục sự cố: không thấy tiện ích, thiết bị ngoại tuyến, mã ghép nối hết hạn, trang bị chặn vẫn mở, không nhận được e-mail."
+    },
+    "title": "Trợ giúp và khắc phục sự cố",
+    "intro": "Tìm sự cố của bạn bên dưới và thử các bước theo thứ tự.",
+    "contactTitle": "Vẫn chưa được?",
+    "contactText": "Hãy viết cho chúng tôi để được giúp:",
+    "s1": {
+      "title": "Không thấy tiện ích",
+      "text": "Tiện ích được cài bằng tệp .reg và chỉ xuất hiện sau khi trình duyệt khởi động lại.",
+      "step1": "Đóng hẳn rồi mở lại trình duyệt.",
+      "step2": "Mở trang tiện ích của trình duyệt và kiểm tra Family Guardian có trong danh sách.",
+      "step3": "Nếu không có, chạy lại trình cài đặt bằng quyền quản trị."
+    },
+    "s2": {
+      "title": "Thiết bị hiện ngoại tuyến",
+      "text": "Laptop tắt máy trông giống như tiện ích bị gỡ.",
+      "step1": "Bật laptop và mở trình duyệt.",
+      "step2": "Chờ vài phút để có báo cáo kế tiếp.",
+      "step3": "Nếu vẫn ngoại tuyến, kiểm tra tiện ích còn được bật."
+    },
+    "s3": {
+      "title": "Mã ghép nối đã hết hạn",
+      "text": "Mã ghép nối có hiệu lực 1 giờ. Lấy mã mới sẽ thay thế mã cũ.",
+      "step1": "Mở trang của con trong bảng điều khiển.",
+      "step2": "Lấy mã mới.",
+      "step3": "Nhập mã mới vào tiện ích trong vòng 1 giờ."
+    },
+    "s4": {
+      "title": "Trang bị chặn vẫn mở được",
+      "text": "Quy tắc mới đến laptop sau vài phút.",
+      "step1": "Chờ vài phút rồi tải lại trang.",
+      "step2": "Kiểm tra tên miền của trang có trong danh sách chặn.",
+      "step3": "Đảm bảo đã khởi động lại trình duyệt sau khi cài đặt."
+    },
+    "s5": {
+      "title": "Không nhận được e-mail",
+      "text": "Cảnh báo và báo cáo hằng tuần được gửi đến e-mail bạn dùng để đăng nhập.",
+      "step1": "Kiểm tra thư mục spam hoặc thư rác.",
+      "step2": "Trong Cài đặt, kiểm tra giờ gửi bản tóm tắt qua e-mail và bật Báo cáo hằng tuần nếu bạn muốn nhận.",
+      "step3": "Thêm người gửi vào danh bạ."
+    }
   }
 }

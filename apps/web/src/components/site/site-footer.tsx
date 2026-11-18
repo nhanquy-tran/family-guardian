@@ -21,6 +21,9 @@ export function SiteFooter({
           <Link href="/privacy" className={navLink}>
             {messages.footer.privacy}
           </Link>
+          <a href={`/${locale}/setup`} className={navLink}>
+            {messages.footer.setup}
+          </a>
           <a href={`/${locale}/help`} className={navLink}>
             {messages.footer.help}
           </a>

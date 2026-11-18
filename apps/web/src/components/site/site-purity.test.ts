@@ -9,7 +9,10 @@ vi.mock("next/navigation", () => ({ usePathname: () => null }));
 import LocaleLayout from "../../app/[locale]/layout";
 import { LOCALES, type Locale } from "../../lib/i18n/locale";
 import { getMessages } from "../../lib/i18n/messages";
+import { Faq } from "./faq";
+import { Help } from "./help";
 import { Home } from "./home";
+import { SetupGuide } from "./setup-guide";
 
 const src = resolve(__dirname, "../..");
 const read = (p: string) => readFileSync(resolve(src, p), "utf8");
@@ -73,6 +76,18 @@ describe("public site purity", () => {
       const footer = /<footer\b[\s\S]*?<\/footer>/.exec(layout)?.[0] ?? "";
       expect(header, l).toContain("flex-wrap");
       expect(footer, l).toContain("flex-wrap");
+    }
+  });
+
+  it("Guide pages are mobile friendly", () => {
+    for (const l of LOCALES) {
+      const m = getMessages(l);
+      for (const C of [SetupGuide, Faq, Help]) {
+        const html = renderToStaticMarkup(createElement(C, { locale: l, messages: m }));
+        expect(html, l).not.toMatch(/w-\[|min-w-\[|whitespace-nowrap/);
+        for (const img of html.match(/<img\b[^>]*>/g) ?? []) expect(img).toContain('src="/icon.svg"');
+        for (const a of html.match(/<a\b[^>]*>/g) ?? []) expect(a, l).toContain("focus-visible:");
+      }
     }
   });
 
