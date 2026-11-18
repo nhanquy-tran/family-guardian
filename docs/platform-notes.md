@@ -14,7 +14,7 @@ Facts about the platforms we build on that caused real defects or failures. Ever
 ## Vercel / Next.js
 
 - **Previews share the production database**, which gets a PR's migration only on merge. DB-dependent behaviour of a migration PR can only be verified on production after merge. (#10)
-- New environment variables apply only to **new deployments**: redeploy after adding one. (#9)
+- New environment variables apply only to **new deployments**: redeploy after adding one. `NEXT_PUBLIC_*` variables are also inlined at build time, so redeploy after setting them. (#9)
 - `next build` type-checks every `.ts` file under the app, including tests: each app declares the dev tools its files import. (#8)
 - React server rendering of forms with server actions **injects an inline `<script>`** (form replay). Never assert "no `<script>`" to prove "works without JavaScript"; assert plain links/forms instead. (#13)
 - Vercel is on **Pro** (since 2026-11-18). Production builds only from `main` when `apps/web`, `packages`, dependencies or `vercel-ignore.sh` change; previews build only for `factory/*` branches (the build gate's UI check). Spec, docs and other branches are skipped. Hobby's daily deployment limit stopped all deploys on 2026-11-17.
@@ -33,6 +33,8 @@ Facts about the platforms we build on that caused real defects or failures. Ever
 
 ## Product behaviour
 
+- The extension tracker credits no time across a gap over 120 s (`MAX_GAP_MS`): tests of time-based features need an alarm at least every 2 minutes.
+- Allowed hours: if the window start changes while the child is paused, the `h` in the paused redirect stays stale until the next edge (only rule presence is reconciled).
 - A laptop that is switched off looks exactly like a removed extension. Alerts must not fire every evening (throttle, wording). (#18)
 - A server-side bug that returns 401 must not wipe every device: keep local data on 401 and recover on the next success. (#11)
 - Queues must never get stuck on one bad item or on size: validate items one by one, cap batch sizes, and give the client a distinct "split the batch" signal (413). (#10)
