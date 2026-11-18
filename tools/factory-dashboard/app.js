@@ -491,9 +491,10 @@ function buildIssueModels() {
   }
 
   // Runs that posted no metrics: @claude fix rounds (before they were measured) and factory runs that failed early.
+  const liveRuns = new Map(live.runs.map((r) => [r.id, r]));
   for (const run of state.history) {
     const fix = run.path.endsWith("claude.yml");
-    if (measured.has(`${run.id}:${fix ? "fix" : "factory"}`)) continue;
+    if (measured.has(`${run.id}:${fix ? "fix" : "factory"}`) || liveRuns.has(run.id)) continue;
     const target = runTarget(run);
     if (!target) continue;
     const n = issueOf(target);
@@ -506,6 +507,13 @@ function buildIssueModels() {
       step = isBuildPr(n, target) || (target === n && specMerged && start > Date.parse(specMerged)) ? "build-fix" : "spec-fix";
     }
     model(n).acts.push({ step, start, end, cost: null, turns: null, run: run.id, attempt: run.run_attempt || 1, ok: run.conclusion === "success" || run.status !== "completed", url: run.html_url, agent: fix ? "@claude" : run.name, unmeasured: true });
+  }
+
+  // The agent step running right now in the open issue's runs (live refresh); its metrics comment comes when it ends.
+  for (const r of live.runs) {
+    if (live.n === null || !r.agentStep || r.status !== "in_progress") continue;
+    if (state.metrics.some((m) => m.run_id === r.id && m.agent === r.agentKey && Date.parse(m.at) >= r.stepStart)) continue;
+    model(live.n).acts.push({ step: r.agentStep, start: r.stepStart, end: Date.now(), cost: null, turns: null, run: r.id, attempt: r.attempt, ok: true, url: r.url, agent: r.agentName, live: true });
   }
 
   for (const g of state.gates) {
@@ -705,7 +713,7 @@ function gantt(m) {
         marks.push(html`<a class="gate ${g.approved ? "ok" : "no"}" style="left:${pct(g.at).toFixed(2)}%" href="${g.url}" target="_blank" rel="noopener" title="${clock(g.at)} ${g.text}"></a>`);
       }
     } else {
-      marks = m.acts.filter((a) => a.step === s.key).map((a) => bar(a.start, a.end, `${s.kind} ${s.phase}${a.ok ? "" : " failed"}`,
+      marks = m.acts.filter((a) => a.step === s.key).map((a) => bar(a.start, a.end, `${s.kind} ${s.phase}${a.ok ? "" : " failed"}${a.live ? " live" : ""}`,
         `${stepLabel(s.key)} · ${clock(a.start)} · ${short(a.end - a.start)}${a.cost !== null ? ` · ${money(a.cost)}` : ""}${a.turns ? ` · ${a.turns} turns` : ""}${a.attempt > 1 ? ` · attempt ${a.attempt}` : ""}${a.ok ? "" : " · failed"}`, a.url));
     }
     const ms = m.stepMs[s.key];
@@ -722,7 +730,7 @@ function gantt(m) {
   <p class="legend small muted"><span class="bar agent spec"></span> agent <span class="bar review spec"></span> AI review <span class="bar fix spec"></span> fix round <span class="bar wait"></span> waiting on gate or queue <span class="bar pr-open"></span> PR open <span class="gate ok"></span> gate approved <span class="gate no"></span> gate: changes <span class="bar agent spec failed"></span> failed</p>`;
 }
 
-function issueDetail(n) {
+function issueDetail(n, { keepScroll = false } = {}) {
   const m = state.models.find((x) => x.n === n);
   const issue = state.byNumber.get(n);
   if (!m || !issue) return;
@@ -736,7 +744,10 @@ function issueDetail(n) {
   ].filter(Boolean);
   const gates = [r.specGateRounds && `${r.specGateRounds} spec gate round${r.specGateRounds > 1 ? "s" : ""} with changes`, r.buildGateRounds && `${r.buildGateRounds} build gate round${r.buildGateRounds > 1 ? "s" : ""} with changes`].filter(Boolean);
   $("issue-title").textContent = `#${n} ${issue.title}`;
+  const dlg = $("issue-dialog");
+  const top = dlg.scrollTop;
   put("issue-body", html`
+    <div id="issue-live" class="live-line" aria-live="polite"></div>
     <p class="small"><a href="${issue.html_url}" target="_blank" rel="noopener">Issue on GitHub</a>
       ${m.prs.spec ? html` · ${prLink("spec", m.prs.spec)}` : ""}${m.prs.factory ? html` · ${prLink("build", m.prs.factory)}` : ""}</p>
     <div class="tiles">
@@ -755,16 +766,19 @@ function issueDetail(n) {
         <td>${stepLabel(a.step)}</td><td>${a.agent}</td>
         <td>${new Date(a.start).toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" })}</td>
         <td class="num">${short(a.end - a.start)}</td>
-        <td class="num">${a.cost === null ? html`<span class="muted">n/a</span>` : money(a.cost)}</td>
+        <td class="num">${a.live ? "" : a.cost === null ? html`<span class="muted">n/a</span>` : money(a.cost)}</td>
         <td class="num">${a.turns ?? ""}</td>
-        <td><a href="${a.url}" target="_blank" rel="noopener" class="${a.ok ? "st-success" : "st-failure"}">${a.ok ? "ok" : "failed"}</a>${a.attempt > 1 ? html` <span class="muted">attempt ${a.attempt}</span>` : ""}</td>
+        <td><a href="${a.url}" target="_blank" rel="noopener" class="${a.live ? "st-in_progress" : a.ok ? "st-success" : "st-failure"}">${a.live ? "running" : a.ok ? "ok" : "failed"}</a>${a.attempt > 1 ? html` <span class="muted">attempt ${a.attempt}</span>` : ""}</td>
       </tr>`)}
       ${m.gates.map((g) => html`<tr><td>${g.phase === "spec" ? "Spec gate" : "Build gate"}</td><td>Claude</td>
         <td>${new Date(g.at).toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" })}</td><td></td><td></td><td></td>
         <td><a href="${g.url}" target="_blank" rel="noopener" class="${g.approved ? "st-success" : "st-open"}">${g.approved ? "approved" : "changes"}</a></td></tr>`)}
       </tbody></table></div>
     <p class="small muted">Agent times are the Claude Code run time from each step's metrics comment. Runs without one (older @claude fix rounds, factory runs that failed early) use the GitHub run time and have no cost. Waits run from the last agent activity of a phase to the merge.</p>`);
-  if (!$("issue-dialog").open) $("issue-dialog").showModal();
+  if (!dlg.open) dlg.showModal();
+  if (keepScroll) dlg.scrollTop = top;
+  startLive(n);
+  renderLiveLine();
 }
 
 // ---------- factory workflow ----------
@@ -937,6 +951,155 @@ function turnPage(key, to) {
   Promise.resolve(render()).catch((e) => showBanner(`Could not load: ${e.message}`));
 }
 
+// ---------- live issue refresh ----------
+
+// While an issue's timeline is open, only that issue is re-read every few seconds: the issue, its PRs, their
+// comments (metrics, reviews, gates) and running factory runs with their current step.
+const LIVE_MS_TOKEN = 5000;
+const LIVE_MS_ANON = 30000;
+const AGENT_WORKFLOW_PATHS = /(factory-spec|factory-build|factory-review|claude)\.yml$/;
+// Workflow step name → [timeline step, agent name in the metrics comment].
+const LIVE_STEP = {
+  "Spec writer agent": ["spec", "spec-writer"],
+  "Test writer agent": ["tests", "test-writer"],
+  "Developer agent": ["dev", "developer"],
+  "Debugger agent": ["build-fix", "debugger"],
+  "Verifier agent": ["verify", "verifier"],
+  "Stage 1: spec compliance": ["review", "spec-reviewer"],
+  "Stage 2: code quality": ["review", "quality-reviewer"],
+};
+const live = { n: null, timer: null, busy: false, at: 0, error: "", runs: [] };
+const NOW_TEXT = {
+  "needs-spec": "Waiting for the spec writer to start",
+  "spec-in-progress": "Spec writer is starting",
+  "spec-review": "Spec PR waiting for AI review and the spec gate",
+  ready: "Spec approved, waiting for a build",
+  "build-now": "Build requested, waiting for a runner",
+  "in-progress": "Build is starting",
+  "in-review": "Build PR waiting for AI review and the build gate",
+  "needs-human": "Needs a human: a gate failed or an agent has a question",
+  "on-hold": "On hold",
+};
+
+// The issue a run works on: spec/<n> or factory/<n> branch, "#n" in the run name, or a PR or issue title.
+function runIssue(run) {
+  const m = /^(?:spec|factory)\/(\d+)$/.exec(run.head_branch || "");
+  if (m) return Number(m[1]);
+  const target = runTarget(run);
+  return target ? issueOf(target) : null;
+}
+
+function upsert(list, item, key = "id") {
+  const i = list.findIndex((x) => x[key] === item[key]);
+  if (i >= 0) list[i] = item;
+  else list.unshift(item);
+}
+
+async function refreshIssue(n) {
+  const [issue, pulls, runs] = await Promise.all([
+    gh(`/repos/${REPO}/issues/${n}`),
+    gh(`/repos/${REPO}/pulls?state=all&sort=updated&direction=desc&per_page=20`),
+    gh(`/repos/${REPO}/actions/runs?per_page=50`).then((r) => r.workflow_runs),
+  ]);
+  upsert(state.issues, issue, "number");
+  state.byNumber.set(n, issue);
+  for (const pr of pulls) upsert(state.pulls, pr, "number");
+  linkPulls();
+
+  const prs = state.linked.get(n) || {};
+  const targets = [n, prs.spec?.number, prs.factory?.number].filter(Boolean);
+  const comments = (await Promise.all(targets.map((t) => ghPages(`/repos/${REPO}/issues/${t}/comments`, 3)))).flat();
+  const mine = new Set(targets);
+  state.metrics = [...state.metrics.filter((m) => !mine.has(m.target)), ...parseMetrics(comments)];
+  state.gates = [...state.gates.filter((g) => !mine.has(g.target)), ...parseGates(comments)];
+  const reviews = parseReviews(comments);
+  for (const t of targets) if (reviews.has(t)) state.reviews.set(t, reviews.get(t));
+
+  for (const run of runs.filter((r) => HISTORY_WORKFLOWS.some((w) => r.path.endsWith(w)) && r.conclusion !== "skipped")) upsert(state.history, run);
+  for (const run of runs.filter((r) => SHOWN_WORKFLOWS.test(r.name) && r.conclusion !== "skipped")) upsert(state.runs, run);
+
+  const running = runs.filter((r) => r.status !== "completed" && AGENT_WORKFLOW_PATHS.test(r.path) && runIssue(r) === n);
+  const found = await Promise.all(running.map(async (run) => {
+    const jobs = run.status === "in_progress" ? (await gh(`/repos/${REPO}/actions/runs/${run.id}/jobs?per_page=30`)).jobs : [];
+    const job = jobs.find((j) => j.status === "in_progress");
+    const step = job?.steps?.find((s) => s.status === "in_progress");
+    const [mapped, agentKey] = (step && LIVE_STEP[step.name]) || [];
+    const fix = run.path.endsWith("claude.yml");
+    const onBuild = /^factory\//.test(run.head_branch || "") || prs.factory?.title === run.display_title;
+    const agentStep = fix ? (onBuild || prs.spec?.merged_at ? "build-fix" : "spec-fix")
+      : mapped === "review" ? (onBuild ? "build-review" : "spec-review") : mapped || null;
+    return {
+      id: run.id, name: run.name, url: job?.html_url || run.html_url, status: run.status, attempt: run.run_attempt || 1,
+      stepName: step?.name || (run.status === "in_progress" ? "starting" : run.status),
+      stepStart: Date.parse(step?.started_at || run.run_started_at || run.created_at),
+      runStart: Date.parse(run.run_started_at || run.created_at),
+      agentStep, agentKey: fix ? "fixer" : agentKey, agentName: fix ? "@claude" : agentKey,
+      // Every comment starts a "Claude on demand" run that skips itself unless it mentions @claude.
+      hidden: fix && !/claude-code-action/i.test(step?.name || ""),
+    };
+  }));
+  // A queued run waits behind a running one of the same workflow (concurrency group): show the running one.
+  const busy = new Set(found.filter((r) => r.status === "in_progress" && !r.hidden).map((r) => r.name));
+  live.runs = found.filter((r) => !r.hidden && (r.status === "in_progress" || !busy.has(r.name)));
+
+  state.models = buildIssueModels();
+  renderBoard();
+  renderCost();
+  renderHealth();
+}
+
+function nowText(n) {
+  const issue = state.byNumber.get(n);
+  if (live.runs.length) {
+    const parts = live.runs.map((r) => r.status === "in_progress" ? `${r.name}: ${r.stepName} (${short(Date.now() - r.stepStart) || "0s"})` : `${r.name}: ${r.status}`);
+    return [...new Set(parts)].join(" · ");
+  }
+  if (issue?.state === "closed") return "Done";
+  const label = [...COLUMNS, "build-now", "on-hold"].reverse().find((l) => issue?.labels.some((x) => x.name === l));
+  return NOW_TEXT[label] || "Not in the factory yet";
+}
+
+function renderLiveLine() {
+  const el = $("issue-live");
+  if (!el || live.n === null) return;
+  const every = (getToken() ? LIVE_MS_TOKEN : LIVE_MS_ANON) / 1000;
+  const at = live.at ? new Date(live.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "…";
+  put("issue-live", html`<span class="live-dot${live.error ? " off" : ""}"></span>
+    <span><strong>Now:</strong> ${nowText(live.n)}</span>
+    <span class="muted small">${live.error ? `Update failed: ${live.error}` : `Live every ${every} s · updated ${at}`}${getToken() ? "" : " · add a token for 5 s updates"}</span>`);
+}
+
+async function liveTick() {
+  if (live.busy || live.n === null || document.hidden) return;
+  live.busy = true;
+  const n = live.n;
+  try {
+    await refreshIssue(n);
+    live.error = "";
+    live.at = Date.now();
+    if (live.n === n && $("issue-dialog").open) issueDetail(n, { keepScroll: true });
+  } catch (e) {
+    live.error = e.message;
+    renderLiveLine();
+  } finally {
+    live.busy = false;
+  }
+}
+
+function startLive(n) {
+  if (live.n === n && live.timer) return;
+  stopLive();
+  live.n = n;
+  live.at = Date.now();
+  live.timer = setInterval(liveTick, getToken() ? LIVE_MS_TOKEN : LIVE_MS_ANON);
+  liveTick();
+}
+
+function stopLive() {
+  clearInterval(live.timer);
+  Object.assign(live, { n: null, timer: null, error: "", runs: [] });
+}
+
 // ---------- dialogs and actions ----------
 
 // Opens the shared confirm dialog; resolves with the textarea value (or true) on OK, null on cancel.
@@ -1088,6 +1251,7 @@ async function openToken() {
   }
 }
 
+$("issue-dialog").addEventListener("close", stopLive);
 $("token-dialog").addEventListener("close", () => {
   const choice = $("token-dialog").returnValue;
   if (choice === "save" && $("token-input").value.trim()) setToken($("token-input").value.trim());
