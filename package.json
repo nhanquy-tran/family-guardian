@@ -3,7 +3,8 @@
   "private": true,
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "e2e"
   ],
   "scripts": {
     "dev:web": "npm run dev -w web",
@@ -12,7 +13,10 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "test": "vitest run",
-    "check": "npm run typecheck && npm run lint && npm run test"
+    "check": "npm run typecheck && npm run lint && npm run test",
+    "e2e": "npm run e2e -w @fg/e2e",
+    "e2e:seed": "npm run seed -w @fg/e2e --",
+    "e2e:reset": "npm run reset -w @fg/e2e"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.16",
