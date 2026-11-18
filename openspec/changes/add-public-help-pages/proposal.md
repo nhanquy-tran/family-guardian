@@ -11,10 +11,11 @@ The home page from #98 links to `/<locale>/help` and `/<locale>/faq`, which are 
 - Setup guide: ordered steps matching the real flow, linking to `/install` for the files.
 - FAQ: at least 10 questions as `<details>`/`<summary>`.
 - Help: five troubleshooting cases and an optional contact link (`mailto:` from `NEXT_PUBLIC_SUPPORT_EMAIL`, hidden when unset or malformed).
-- Footer and home link to the three pages; `sitemap.xml` and `hreflang` include them.
+- Footer and home link to the three pages; `sitemap.xml` (via a MODIFIED "SEO and sharing" requirement) and `hreflang` include them.
+- FAQ: whole-account deletion is described as on request via `/privacy`, never as self-service.
 
 ## Out of scope
 - Translating `/install`, `/privacy`, `/login` or the dashboard.
 - A contact form, chat, ticketing or any stored or logged data (so no ADR).
 - New dependencies, tracking, or any change to the device API, database, `proxy.ts` or what the extension collects.
-- Facts not already true in `openspec/specs/` (the FAQ promises no numbers for limits or retention).
+- Facts not already true in `openspec/specs/` (the FAQ promises no numbers for limits; it may state 13 months of retention, `RETENTION_MONTHS`).

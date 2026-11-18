@@ -1,3 +1,19 @@
+## MODIFIED Requirements
+
+### Requirement: SEO and sharing
+
+Each locale page SHALL have its own `<title>`, description, canonical URL, `hreflang` alternates for all three locales plus `x-default`, and Open Graph tags. `/sitemap.xml` SHALL list the public pages only and `/robots.txt` SHALL keep private paths out and point to the sitemap.
+
+#### Scenario: Metadata per locale
+- **GIVEN** `generateMetadata` of `apps/web/src/app/[locale]/layout.tsx`
+- **WHEN** `site-routing.test.ts` calls it for `en`, `vi` and `zh`
+- **THEN** each `title` and `description` equals that locale's `meta.title` and `meta.description` message, the three titles are different, and for `vi` `alternates.canonical` is `https://family-guardian.co/vi`, `alternates.languages` maps `en`, `vi`, `zh` to `https://family-guardian.co/<locale>` and `x-default` to `https://family-guardian.co/en`, and `openGraph` has the same title and description, `url` `https://family-guardian.co/vi`, `type` `website`, `siteName` "Family Guardian" and `locale` `vi_VN`
+
+#### Scenario: Sitemap and robots
+- **GIVEN** the default exports of `apps/web/src/app/sitemap.ts` and `apps/web/src/app/robots.ts`
+- **WHEN** `site-routing.test.ts` calls them
+- **THEN** the sitemap URLs are exactly `https://family-guardian.co/<path>` for the 13 paths `en`, `vi`, `zh`, `en/setup`, `vi/setup`, `zh/setup`, `en/faq`, `vi/faq`, `zh/faq`, `en/help`, `vi/help`, `zh/help` and `privacy`, none containing `dashboard`, `login`, `install`, `api` or `auth`; robots allows `/`, disallows `/dashboard`, `/api`, `/auth`, `/login` and `/install`, and its `sitemap` is `https://family-guardian.co/sitemap.xml`
+
 ## ADDED Requirements
 
 ### Requirement: Setup guide page
@@ -21,7 +37,7 @@ Each locale SHALL have `/<locale>/setup`, an ordered step-by-step guide for pare
 
 ### Requirement: FAQ page
 
-Each locale SHALL have `/<locale>/faq` with at least 10 questions as `<details>`/`<summary>` disclosure widgets. It SHALL answer: what is collected and what never is, which browsers and OS, whether a child can turn it off (Standard account, policy, incognito and guest blocked), how blocking and categories work, what the focus score means, offline alerts and digests, how many children and devices, deleting data and the account, cost (free, not commercial) and who can see the data.
+Each locale SHALL have `/<locale>/faq` with at least 10 questions as `<details>`/`<summary>` disclosure widgets, covering what is collected, browsers and OS, turning it off, blocking, focus score, offline alerts, children and devices, deleting, cost, who can see the data and retention (13 months, `RETENTION_MONTHS`). Whole-account deletion SHALL be described as on request via the contact on `/privacy`; the FAQ SHALL NOT claim self-service account deletion.
 
 #### Scenario: Disclosure widgets
 - **GIVEN** `Faq` rendered for each locale
@@ -30,8 +46,8 @@ Each locale SHALL have `/<locale>/faq` with at least 10 questions as `<details>`
 
 #### Scenario: Required topics
 - **GIVEN** `Faq` rendered for `en`
-- **WHEN** `faq.test.tsx` looks for the markers `collect`, `browser`, `turn`, `block`, `focus score`, `offline`, `children`, `delete`, `free` and `who can see` in the `<summary>` texts
-- **THEN** each marker appears in at least one summary, the answer about what is collected mentions `domain` and the words `URL`, `keystroke` and `screenshot`, and the answer about turning it off mentions `Standard`, `incognito` and `guest`
+- **WHEN** `faq.test.tsx` looks for the markers `collect`, `browser`, `turn off`, `block`, `focus score`, `offline`, `children`, `delete`, `free` and `who can see` in the `<summary>` texts
+- **THEN** each marker appears in at least one summary, the answer about what is collected mentions `domain` and the words `URL`, `keystroke` and `screenshot`, and the answer about browsers mentions `Chrome`, `Edge`, `Brave` and `Windows`, the answer about turning it off mentions `Standard`, `incognito` and `guest`, the answer about deleting mentions deleting a child and `on request` and links to `/privacy` (`href="/privacy"`), and no FAQ text says `delete your account` or `at any time`; `vi` and `zh` use the locale's wording for these markers
 
 #### Scenario: Same questions in every language
 - **GIVEN** the three message files
@@ -40,12 +56,12 @@ Each locale SHALL have `/<locale>/faq` with at least 10 questions as `<details>`
 
 ### Requirement: Help page
 
-Each locale SHALL have `/<locale>/help` with troubleshooting for: extension not showing, device offline, pairing code expired, blocked site still opens, and e-mails not arriving. It SHALL show a `mailto:` contact link built from `NEXT_PUBLIC_SUPPORT_EMAIL` and SHALL hide the contact section when the value is unset, empty or not an e-mail address.
+Each locale SHALL have `/<locale>/help` with troubleshooting for: extension not showing, device offline, pairing code expired, blocked site still opens, and e-mails not arriving. Pairing code expired SHALL say a code is valid for 1 hour and a new code replaces the old one. It SHALL show a `mailto:` contact link built from `NEXT_PUBLIC_SUPPORT_EMAIL` and SHALL hide the contact section when the value is unset, empty or not an e-mail address.
 
 #### Scenario: Troubleshooting cases
 - **GIVEN** `Help` rendered for each locale without a support e-mail
 - **WHEN** `apps/web/src/components/site/help.test.tsx` inspects the markup
-- **THEN** there is one `<h1>` and five sections, in the order extension not showing, device offline, pairing code expired, blocked site still opens, e-mails not arriving, each with a heading, a non-empty text and at least one `<li>` step
+- **THEN** there is one `<h1>` and five sections, in the order extension not showing, device offline, pairing code expired, blocked site still opens, e-mails not arriving, each with a heading, a non-empty text and at least one `<li>` step, and the pairing code section mentions 1 hour and a new code replacing the old one
 
 #### Scenario: Contact link shown
 - **GIVEN** `Help` rendered with `supportEmail` `owner@example.com`
@@ -64,7 +80,7 @@ Each locale SHALL have `/<locale>/help` with troubleshooting for: extension not 
 
 ### Requirement: Guide pages are routed, linked and indexed
 
-The pages `/<locale>/setup`, `/<locale>/faq` and `/<locale>/help` SHALL exist only for the three locales, SHALL be linked from the footer and the home page, SHALL have their own title, description, canonical URL and `hreflang` alternates with `x-default`, and SHALL be listed in `sitemap.xml`. Their message values SHALL follow the same rules as the home page (same keys in every language, no pricing words).
+The pages `/<locale>/setup`, `/<locale>/faq` and `/<locale>/help` SHALL exist only for the three locales, SHALL be linked from the footer and the home page, SHALL have their own title, description, canonical URL and `hreflang` alternates with `x-default`. Their message values SHALL follow the same rules as the home page (same keys in every language, no pricing words).
 
 #### Scenario: Routes and 404
 - **GIVEN** `apps/web/src/app/[locale]/setup/page.tsx`, `faq/page.tsx` and `help/page.tsx`
@@ -81,17 +97,12 @@ The pages `/<locale>/setup`, `/<locale>/faq` and `/<locale>/help` SHALL exist on
 - **WHEN** `site-routing.test.ts` calls each for `zh`
 - **THEN** the canonicals are `https://family-guardian.co/zh/setup` and `https://family-guardian.co/zh/help`, and the three page titles for `zh` (setup, faq, help) are different from each other
 
-#### Scenario: Sitemap lists the guide pages
-- **GIVEN** the default export of `apps/web/src/app/sitemap.ts`
-- **WHEN** `site-routing.test.ts` calls it
-- **THEN** the URLs are exactly `https://family-guardian.co/<path>` for the 13 paths `en`, `vi`, `zh`, `en/setup`, `vi/setup`, `zh/setup`, `en/faq`, `vi/faq`, `zh/faq`, `en/help`, `vi/help`, `zh/help` and `privacy`, none containing `dashboard`, `login`, `install`, `api` or `auth`
-
 #### Scenario: Footer and home links
 - **GIVEN** `SiteFooter` and `Home` rendered for `vi`
-- **WHEN** `apps/web/src/components/site/help.test.tsx` inspects the markup
+- **WHEN** `apps/web/src/components/site/home.test.tsx` inspects the markup
 - **THEN** the footer has links with `href` `/vi/setup`, `/vi/faq` and `/vi/help`, and the home page has a link with `href="/vi/setup"`
 
-#### Scenario: Language switcher keeps the page
-- **GIVEN** `LanguageSwitcher` with `locale` `zh` and `usePathname()` returning `/zh/faq`
-- **WHEN** `apps/web/src/components/site/language-switcher.test.tsx` inspects the markup
-- **THEN** the hrefs are `/en/faq`, `/vi/faq` and `/zh/faq`
+#### Scenario: Guide pages are mobile friendly
+- **GIVEN** `SetupGuide`, `Faq` and `Help` rendered for each locale
+- **WHEN** `apps/web/src/components/site/site-purity.test.ts` inspects the markup
+- **THEN** none contains `w-[`, `min-w-[` or `whitespace-nowrap`, every `<img` has `src="/icon.svg"`, and every `<a` has a `focus-visible:` class
