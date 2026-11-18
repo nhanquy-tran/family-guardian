@@ -166,6 +166,18 @@ describe("digest emails migration", () => {
     expect(left.rows.map((r) => r.period_start)).toEqual(["2026-08-02"]);
   });
 
+  it("Purge removes report claims", async () => {
+    await db.exec("delete from digest_runs");
+    await db.query(
+      "insert into digest_runs (family_id, frequency, period_start, claimed_at) values ($1, 'weekly_report', '2026-08-03', now() - interval '91 days'), ($1, 'weekly_report', '2026-08-10', now() - interval '89 days')",
+      [a.familyId],
+    );
+    const res = await attempt(db, "service", "select public.purge_digest_runs()");
+    expect(res.ok).toBe(true);
+    const left = await db.query<{ period_start: string }>("select period_start::text as period_start from digest_runs");
+    expect(left.rows.map((r) => r.period_start)).toEqual(["2026-08-10"]);
+  });
+
   it("Returned device resolves its incident", async () => {
     const childId = await scalar<string>(db, "insert into children (family_id, name) values ($1, 'Mia') returning id", [a.familyId]);
     const returned = await seedDevice(db, childId, "2026-11-17T11:55:00Z");

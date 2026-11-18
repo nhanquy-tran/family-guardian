@@ -77,3 +77,18 @@ export function latestDuePeriod(family: DigestFamily, now: Date): DuePeriod | nu
     end: new Date(localToInstantMs(formatter, sendDay * DAY_MS)).toISOString(),
   };
 }
+
+export type ReportPeriod = {
+  frequency: "weekly_report";
+  /** Local date (YYYY-MM-DD) of the Monday on which the reported week starts. */
+  periodStart: string;
+  /** UTC instants as ISO strings; the week is [start, end). */
+  start: string;
+  end: string;
+  /** Start of the week before, as an ISO string. */
+  prevStart: string;
+};
+
+export function reportPeriod(_family: DigestFamily, _now: Date): ReportPeriod | null {
+  throw new Error("not implemented");
+}

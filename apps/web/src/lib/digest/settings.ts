@@ -40,3 +40,14 @@ export async function captureFamilyTimezone(client: SupabaseClient, timezone: st
   if (!isValidTimezone(timezone)) return;
   await client.from("families").update({ timezone, timezone_known: true }).eq("timezone_known", false);
 }
+
+export type WeeklyReportSaveResult = { ok: true } | { ok: false; error: "invalid" | "failed" };
+export type WeeklyReportLoadResult = { ok: true; enabled: boolean } | { ok: false };
+
+export async function saveWeeklyReportSetting(_client: SupabaseClient, _enabled: unknown): Promise<WeeklyReportSaveResult> {
+  throw new Error("not implemented");
+}
+
+export async function loadWeeklyReportSetting(_client: SupabaseClient): Promise<WeeklyReportLoadResult> {
+  throw new Error("not implemented");
+}
