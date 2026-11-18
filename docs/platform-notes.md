@@ -56,3 +56,4 @@ Facts about the platforms we build on that caused real defects or failures. Ever
 - `openspec/specs/` is current behaviour. A change that alters existing behaviour uses MODIFIED (full requirement text, all scenarios kept or replaced) or REMOVED; ADDED for an existing requirement name fails archive.
 - MODIFIED cannot just drop a scenario: give a replacement scenario, or REMOVED plus ADDED.
 - `openspec validate --specs --strict` needs a real `## Purpose` in every spec; archive fails on placeholders.
+- The shared setup action restores `node_modules` from cache and skips `npm ci`; it must still run the extension's postinstall (`wxt prepare`), or vitest cannot load extension tests (#114's red-phase eval reported "tests do not run").
