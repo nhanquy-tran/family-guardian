@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export type UsageView = "today" | "week";
 export type LoadUsageInput = { childId: string; tz: string; view: UsageView; today: string };
 export type UsageResult =
-  | { status: "ok"; days: DayEntry[]; timeline: TimelineRow[] }
+  | { status: "ok"; days: DayEntry[]; timeline: TimelineRow[]; overrides: Record<string, Category> }
   | { status: "not-found" }
   | { status: "error" };
 export type BarSegment = { category: Category; widthPercent: number };
@@ -78,7 +78,13 @@ export async function loadUsage(client: SupabaseClient, input: LoadUsageInput): 
       seconds: Array.isArray(r.seconds) ? (r.seconds as number[]) : [],
     }));
   }
-  return { status: "ok", days: entries, timeline };
+  const { data: cats, error: catsError } = await client.from("domain_categories").select("domain, category, family_id");
+  if (catsError || !Array.isArray(cats)) return { status: "error" };
+  const rows = cats as { domain: string; category: Category; family_id: string | null }[];
+  const overrides: Record<string, Category> = {};
+  for (const r of rows) if (r.family_id === null) overrides[r.domain.toLowerCase()] = r.category;
+  for (const r of rows) if (r.family_id !== null) overrides[r.domain.toLowerCase()] = r.category;
+  return { status: "ok", days: entries, timeline, overrides };
 }
 
 export function formatDuration(seconds: number): string {

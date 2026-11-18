@@ -12,7 +12,7 @@ const TODAY = "2026-03-14";
 function result(domains: string[]) {
   return {
     status: "ok" as const,
-    days: domains.map((domain) => ({ day: TODAY, domain, seconds: 120 })),
+    days: domains.map((domain, i) => ({ day: TODAY, domain, seconds: 120 + (domains.length - i) * 60 })),
     timeline: [],
     overrides: {},
   };
