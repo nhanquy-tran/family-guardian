@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { attempt, createDb, createUser, migrationFiles, type Db } from "./harness";
+import { attempt, createDb, createDbFromMigrations, createUser, migrationFiles, type Db } from "./harness";
 
 const CHECK_VIOLATION = "23514";
 const PERMISSION_DENIED = "42501";
@@ -63,7 +63,7 @@ describe("devices migration", () => {
     expect(files.indexOf("20261118090000_devices_name.sql")).toBeGreaterThan(
       files.indexOf("20261117100000_heartbeat.sql"),
     );
-    await expect(createDb()).resolves.toBeDefined();
+    await expect(createDbFromMigrations()).resolves.toBeDefined();
   });
 
   it("parent reads the new columns", async () => {

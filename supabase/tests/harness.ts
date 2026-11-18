@@ -71,6 +71,9 @@ export async function ensureSnapshot(): Promise<string> {
     // Another worker published the same snapshot first.
     rmSync(tmp, { force: true });
   }
+  for (const old of readdirSync(SNAPSHOT_DIR)) {
+    if (old.endsWith(".tar") && join(SNAPSHOT_DIR, old) !== path) rmSync(join(SNAPSHOT_DIR, old), { force: true });
+  }
   return path;
 }
 
