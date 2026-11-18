@@ -57,3 +57,4 @@ Facts about the platforms we build on that caused real defects or failures. Ever
 - MODIFIED cannot just drop a scenario: give a replacement scenario, or REMOVED plus ADDED.
 - `openspec validate --specs --strict` needs a real `## Purpose` in every spec; archive fails on placeholders.
 - The shared setup action restores `node_modules` from cache and skips `npm ci`; it must still run the extension's postinstall (`wxt prepare`), or vitest cannot load extension tests (#114's red-phase eval reported "tests do not run").
+- A build whose `Touches` overlap an open, unmerged factory PR conflicts on rebase: the scheduler treats `in-review` like `in-progress`, and a conflicting build still pushes its work and opens the PR as `needs-human` (#89 lost a finished build before this).

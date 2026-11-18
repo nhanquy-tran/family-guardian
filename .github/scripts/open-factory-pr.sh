@@ -8,11 +8,13 @@ git diff --cached --quiet || git commit -m "feat: ${CHANGE} (#${ISSUE})"
 # Rebase onto the latest main so the branch never carries an older copy of files changed on main
 # meanwhile (GitHub rejects pushes that appear to edit workflow files without the workflow scope).
 git fetch -q origin main
+# On a conflict the built work is still pushed (never thrown away) and the PR opens with
+# `needs-human`; the watchdog then merges main or asks @claude to resolve it.
+CONFLICT=""
 if ! git rebase -q origin/main; then
   git rebase --abort
-  gh issue comment "$ISSUE" --body "Factory: the build could not be rebased onto main (conflict). Needs a human."
-  gh issue edit "$ISSUE" --remove-label in-progress --add-label needs-human
-  exit 1
+  CONFLICT=$(git diff --name-only HEAD...origin/main | tr '
+' ' ')
 fi
 git push -u origin "factory/${ISSUE}" --force-with-lease
 # The rebase rewrote commits: point the evidence at the test commit as it exists now.
@@ -29,6 +31,10 @@ NOTES_FILE="openspec/changes/${CHANGE}/NOTES.md"
   echo
   echo "OpenSpec change: \`openspec/changes/${CHANGE}\`"
   echo
+  if [ -n "$CONFLICT" ]; then
+    echo "> **Conflicts with main**, not rebased. Main changed these files during the build: ${CONFLICT}. The watchdog merges main or asks @claude to resolve it; the gate re-checks after."
+    echo
+  fi
   echo "## Evidence (at build time)"
   echo
   echo "Later pushes add an \"Evidence (latest push)\" section above this one (\`factory-evidence.yml\`)."
@@ -68,7 +74,7 @@ LABELS="factory"; HUMAN=""
 for RESULT in "${GUARD:-}" "${GATE:-}" "${RED:-}" "${GREEN:-}" "${COVERAGE:-}" "${HIDDEN_RED:-}" "${HIDDEN:-}" "${VERIFY:-}" "${ARCHIVE:-}"; do
   case "$RESULT" in pass*|"skipped (light mode)") ;; arbitrated*) LABELS="$LABELS,test-arbitrated" ;; *) HUMAN=1 ;; esac
 done
-[ -n "$HUMAN" ] && LABELS="$LABELS,needs-human"
+[ -n "$HUMAN" ] || [ -n "$CONFLICT" ] && LABELS="$LABELS,needs-human"
 
 OPEN_PR=$(gh pr list --head "factory/${ISSUE}" --state open --json number -q '.[0].number')
 if [ -n "$OPEN_PR" ]; then
