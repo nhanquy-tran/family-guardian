@@ -10,6 +10,6 @@
 
 ## Extension
 - [ ] `lib/hours.ts`: `inAllowedHours`, `nextEdge`, `buildHoursRule`; tests in `apps/extension/lib/hours.test.ts`
-- [ ] `syncRules`/`applyRules` keep the hours rule and store `rulesAllowedHours`; tests in `rules.test.ts`
-- [ ] Controller: `reconcileHours`, `hours-edge` alarm, start-up, re-pair reset; tests in `controller.test.ts`, `pairing.test.ts`
+- [ ] `Rule` condition gains `regexFilter`; `applyRules` never removes id 2000000; `syncRules` stores `rulesAllowedHours` and calls `reconcileHours`; tests in `rules.test.ts`
+- [ ] Controller: `reconcileHours` (rule presence from `getDynamicRules()`), `hours-edge` alarm, limit path keeps the rule, re-pair key reset; tests in `controller.test.ts`, `pairing.test.ts`
 - [ ] Block page `h` parameter; tests in `blocked.test.ts`
