@@ -1,7 +1,7 @@
 # limit-badge Specification
 
 ## Purpose
-TBD - created by archiving change add-minutes-left-badge. Update Purpose after archive.
+The extension icon shows the minutes left in the current category when a daily limit is about to run out, so a child sees the block coming.
 
 ## Requirements
 

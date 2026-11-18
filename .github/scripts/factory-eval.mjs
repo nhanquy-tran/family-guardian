@@ -6,6 +6,7 @@
 import { appendFileSync, existsSync, readFileSync, readdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
+import { lintChange } from "./spec-lint.mjs";
 
 const [mode, change, ...rest] = process.argv.slice(2);
 if (!mode || !change) {
@@ -84,6 +85,10 @@ function evalSpec() {
     details.unshift("```", String(e.stdout || "") + String(e.stderr || ""), "```");
   }
   if (existsSync(join(dir, "QUESTIONS.md"))) details.push("- note: QUESTIONS.md present");
+
+  const lint = lintChange({ change, light: process.env.MODE === "light" });
+  problems.push(...lint.problems);
+  details.push(...lint.warnings.map((w) => `- warning: ${w}`));
 
   const ok = problems.length === 0;
   const summary = `${reqCount} requirements, ${scenCount} scenarios${ok ? "" : `, ${problems.length} problems`}`;

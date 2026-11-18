@@ -21,8 +21,12 @@ Do not commit or push; the workflow does that.
 - Write a new file in one `Write`; change an existing file with as few `Edit`s as possible (one edit per region, not per line).
 - During the work, run only the related test files (`npx vitest run <files>`). Run `npm run check` and `npm run build` once at the end, then again only after fixing what they reported.
 - Do not re-read a file you just wrote or edited; do not run a command just to look around.
-- In light mode (`Factory mode: light` in the prompt) the turn limit is lower: finish the tasks first, polish last.
+- The step has a time limit: finish the tasks first, polish last. Run `npm run check` before you stop; lint and type errors are failures too.
 
 ## Context budget
 
 Read only: `CLAUDE.md` (and the `CLAUDE.md` of the area you touch), `docs/platform-notes.md`, the specs in `openspec/specs/` for the capabilities the change touches, the change folder, and the files you change or that they import. Open an ADR only if `docs/decisions/README.md` says it applies. Do not scan the whole repository, `node_modules`, lockfiles or build output. Prefer `Grep` for a symbol over reading folders. Stop when the task is done.
+
+## Shell
+
+Commands run from the repository root. Never prefix them with `cd`; pass paths instead (`npx vitest run apps/web/src/lib/x.test.ts`). Use only the commands your allowlist names; a denied command costs a turn, so do not retry it in another form.

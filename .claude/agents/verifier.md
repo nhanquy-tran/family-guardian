@@ -15,3 +15,7 @@ Write the result to `openspec/changes/<change>/VERIFY.md`: the first line exactl
 ## Context budget
 
 Read the change folder, the specs it modifies in `openspec/specs/`, and the files in the diff (`git diff origin/main --stat`, then the relevant files). Stop when every requirement has a verdict.
+
+## Shell
+
+Commands run from the repository root. Never prefix them with `cd`; pass paths instead (`npx vitest run apps/web/src/lib/x.test.ts`). Use only the commands your allowlist names; a denied command costs a turn, so do not retry it in another form.

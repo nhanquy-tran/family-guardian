@@ -21,3 +21,7 @@ Read only: `CLAUDE.md` (and the `CLAUDE.md` of the area you touch), `docs/platfo
 ## Light mode
 
 When the prompt says `Factory mode: light`: skip step 3 (no `acceptance/` tests). Write one test per scenario, named after it, and put related assertions in the same test instead of splitting them. Create each test file in one `Write`, run the new tests once to confirm they fail for the right reason, then stop.
+
+## Shell
+
+Commands run from the repository root. Never prefix them with `cd`; pass paths instead (`npx vitest run apps/web/src/lib/x.test.ts`). Use only the commands your allowlist names; a denied command costs a turn, so do not retry it in another form.

@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 // live-core.js is a plain browser script; load it the way the page does, with a CommonJS-style module object.
 const mod = { exports: {} };
 new Function("module", readFileSync(new URL("./live-core.js", import.meta.url), "utf8"))(mod);
-const { LIVE_MS, liveInterval, visibleRuns, runningText, waitingText, keepPolling } = mod.exports;
+const { LIVE_MS, liveInterval, visibleRuns, runningText, waitingText, keepPolling, reworkCost, deniedPerRun } = mod.exports;
 
 const short = (ms) => `${Math.round(ms / 1000)}s`;
 const run = (over) => ({ name: "Factory 3: build #87", status: "in_progress", stepName: "Developer agent", stepStart: 0, hidden: false, ...over });
@@ -76,5 +76,32 @@ describe("keepPolling", () => {
 
   it("stops once the issue is closed and nothing runs", () => {
     expect(keepPolling(issue([], "closed"), [])).toBe(false);
+  });
+});
+
+describe("reworkCost", () => {
+  const act = (step, cost, start) => ({ step, cost, start });
+
+  it("counts fix rounds and every run of a step after its first", () => {
+    const acts = [act("spec", 0.4, 1), act("spec", 0.45, 5), act("spec-review", 0.1, 2), act("tests", 0.5, 3), act("dev", 0.5, 4), act("build-fix", 0.2, 6), act("spec-fix", 0.15, 7), act("dev", 0.6, 8)];
+    expect(reworkCost(acts)).toBeCloseTo(0.45 + 0.2 + 0.15 + 0.6);
+  });
+
+  it("does not count reviews as rework, even when repeated after a fix", () => {
+    expect(reworkCost([act("build-review", 0.1, 1), act("build-review", 0.1, 2)])).toBe(0);
+  });
+
+  it("ignores runs without a measured cost", () => {
+    expect(reworkCost([act("dev", 0.5, 1), act("dev", null, 2), act("build-fix", null, 3)])).toBeCloseTo(0);
+  });
+});
+
+describe("deniedPerRun", () => {
+  it("averages denied tool calls over the agent runs that report them", () => {
+    expect(deniedPerRun([{ denied: ["Bash(cd x)", "Bash(cd y)"] }, { denied: [] }, { denied: ["Bash(sed)"] }, {}])).toBe(1);
+  });
+
+  it("is null with no runs", () => {
+    expect(deniedPerRun([])).toBeNull();
   });
 });

@@ -49,7 +49,8 @@ Facts about the platforms we build on that caused real defects or failures. Ever
 - Permission rules for the verifier: a narrow `Write(<glob>)` did not match the absolute path the agent used, so the report was lost. The verifier gets `Write` and the workflow reverts every edit except `VERIFY.md`.
 
 - `bump_rules_version()` (child-level, used by `block_rules` and `child_category_limits`) bumps twice on UPDATE (old and new child); `bump_family_rules_version()` bumps once since #91. Specs that count versions must say so.
-- The agent action fails a step that goes over `--max-turns` even when the work is done: agent steps use `continue-on-error` and the gates decide (#87 lost a finished spec at a cap of 20).
+- `--max-turns` does not stop the agent: the action checks it after the run and fails a finished step (#87 lost a spec, the docs job lost its edits). Agent steps use step `timeout-minutes` instead, with `continue-on-error`, and the gates decide (ADR 0019).
+- Agents prefix commands with `cd <dir> &&`; an allowlist without `Bash(cd:*)` denies the whole command and the agent loses a turn (about 230 denials in one day). Allowlists include it and agent files say to run from the repository root.
 
 ## OpenSpec
 

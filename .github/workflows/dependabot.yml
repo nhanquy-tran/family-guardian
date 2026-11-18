@@ -1,0 +1,31 @@
+name: Dependabot triage
+
+# Patch and minor updates merge on their own once the required checks pass; major updates wait for a
+# human (audit v5, R4). Auto-merge needs Settings > General > "Allow auto-merge".
+
+on: pull_request
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  triage:
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ github.event.pull_request.html_url }}
+    steps:
+      - id: meta
+        uses: dependabot/fetch-metadata@v2
+      - name: Auto-merge patch and minor
+        if: steps.meta.outputs.update-type != 'version-update:semver-major'
+        run: |
+          gh pr merge --auto --squash "$PR" || gh pr comment "$PR" --body "Patch/minor update: merge when the required checks pass (auto-merge is off in the repository settings)."
+      - name: Major updates need a human
+        if: steps.meta.outputs.update-type == 'version-update:semver-major'
+        run: |
+          gh pr edit "$PR" --add-label needs-human
+          gh pr comment "$PR" --body "Major update of ${{ steps.meta.outputs.dependency-names }} (${{ steps.meta.outputs.previous-version }} → ${{ steps.meta.outputs.new-version }}). Check the release notes for breaking changes; fix on this branch or close it."

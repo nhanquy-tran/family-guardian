@@ -17,6 +17,8 @@ Unchanged in both modes: test-first, tests-not-weakened, check and build, the de
 
 Full mode stays for risky changes: privacy, security, auth, migrations that change existing data, and anything the gate escalates. The gate may build a single issue in full mode by labelling it `full-mode` before `build-now` (the router passes it). Not adopted: a cheaper model per role; it is the owner's choice and can be set through the existing `FACTORY_*_MODEL` variables.
 
+Update 2026-11-18: turn caps are replaced by step time limits (ADR 0019); `--max-turns` never stopped a run.
+
 ## Consequences
 - Expected about $1.2–1.4 per issue (−40 to −45 %), measured on the first light-mode issues and reported in `docs/factory-learnings.md`.
 - Weaker independent checks: no hidden tests and no verifier, so the gate's own review matters more. Escalation rules (ADR 0013) are unchanged.
