@@ -23,6 +23,7 @@ export default defineBackground(() => {
             post: fetchPost,
             get: fetchGet,
             dnr: browser.declarativeNetRequest,
+            badge: browser.action,
             baseUrl: baseUrl as string,
             extensionVersion: browser.runtime.getManifest().version,
             os: osName(os),

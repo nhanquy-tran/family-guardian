@@ -79,6 +79,17 @@ export function addUsage(
   return usage;
 }
 
+export function minutesLeft(
+  limits: CategoryLimit[],
+  seconds: Partial<Record<Category, number>>,
+  category: Category | null,
+): number | null {
+  const limit = limits.find((l) => l.category === category);
+  if (limit === undefined || category === null) return null;
+  const left = limit.minutesPerDay * 60 - (seconds[category] ?? 0);
+  return left > 0 && left <= 300 ? Math.ceil(left / 60) : null;
+}
+
 export function overLimitCategories(limits: CategoryLimit[], seconds: Partial<Record<Category, number>>): Category[] {
   return limits.filter((l) => (seconds[l.category] ?? 0) >= l.minutesPerDay * 60).map((l) => l.category);
 }

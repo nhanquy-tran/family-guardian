@@ -3,7 +3,16 @@ import { type PairResult, pairWithCode, readToken } from "./pairing";
 import { enqueue, parseQueue, pruneQueue } from "./queue";
 import { flushQueue } from "./sender";
 import { addBlocked, parseBlockedQueue } from "./blocked";
-import { addUsage, evaluateLimitBlocks, readOverrides } from "./limits";
+import { categorize } from "@fg/shared";
+import {
+  addUsage,
+  dayKey,
+  evaluateLimitBlocks,
+  minutesLeft,
+  readLimits,
+  readOverrides,
+  readUsage,
+} from "./limits";
 import { applyRules, type Dnr, syncRules } from "./rules";
 import type { Get, KeyValueStore, Post } from "./storage";
 import {
@@ -19,6 +28,10 @@ export interface ControllerDeps {
   post: Post;
   get?: Get;
   dnr?: Dnr;
+  badge?: {
+    setBadgeText(details: { text: string }): Promise<unknown>;
+    setBadgeBackgroundColor(details: { color: string }): Promise<unknown>;
+  };
   baseUrl: string;
   extensionVersion: string;
   os: string;
@@ -33,6 +46,7 @@ export interface Controller {
 }
 
 const MINUTE_MS = 60_000;
+const BADGE_COLOR = "#F59E0B";
 const REJECTED_RETRY_MINUTES = 15;
 const BROWSERS: readonly string[] = ["chrome", "edge", "brave", "other"];
 const IDLE_STATES: readonly unknown[] = ["active", "idle", "locked"];
@@ -81,7 +95,29 @@ export function createController(deps: ControllerDeps): Controller {
     return parseTracker(await store.get("trackerState"));
   }
 
+  async function setBadge(text: string): Promise<void> {
+    if (deps.badge === undefined) return;
+    try {
+      await deps.badge.setBadgeText({ text });
+      if (text !== "") await deps.badge.setBadgeBackgroundColor({ color: BADGE_COLOR });
+    } catch {
+      deps.log("Family Guardian: badge update failed");
+    }
+  }
+
+  async function updateBadge(now: number): Promise<void> {
+    if (deps.badge === undefined) return;
+    const domain = (await loadTracker()).domain;
+    const timezone = await store.get("rulesTimezone");
+    const tz = typeof timezone === "string" ? timezone : undefined;
+    const category = domain === null ? null : categorize(domain, readOverrides(await store.get("rulesOverrides")));
+    const usage = readUsage(await store.get("limitUsage"), dayKey(now, tz));
+    const left = minutesLeft(readLimits(await store.get("rulesLimits")), usage.seconds, category);
+    await setBadge(left === null ? "" : String(left));
+  }
+
   async function alarmWhileRejected(token: string, now: number): Promise<void> {
+    await setBadge("");
     const stored = parseQueue(await store.get("queue"));
     const pruned = pruneQueue(stored, now);
     if (pruned.length !== stored.length) await store.set("queue", pruned);
@@ -135,6 +171,7 @@ export function createController(deps: ControllerDeps): Controller {
       }
     }
     if (result.kind !== "unauthorized" && deps.dnr !== undefined) await evaluateLimits(deps.dnr, now);
+    await updateBadge(now);
   }
 
   async function evaluateLimits(dnr: Dnr, now: number): Promise<void> {
@@ -160,6 +197,7 @@ export function createController(deps: ControllerDeps): Controller {
       return serialize(async () => {
         if ((await readToken(store)) === null || (await isRejected())) return;
         await store.set("trackerState", applyEvent(await loadTracker(), event));
+        await updateBadge(event.at);
       }, undefined);
     },
     onAlarm(now) {
