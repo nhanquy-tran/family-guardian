@@ -147,7 +147,7 @@ File: `packages/shared/src/block-rules.test.ts`
 - **THEN** it returns `[]`
 
 ### Requirement: Rules API for devices
-`GET /api/device/rules` with a valid `Authorization: Bearer <device token>` SHALL return 200, `Cache-Control: no-store` and a `RulesResponse` for the token's child. `domains` come from `expandBlockRules` over the child's rules and the global plus family `domain_categories` rows (family rows win). `limits` lists the child's daily category limits as `{ category, minutesPerDay }` and `timezone` is the family's timezone. The version is read before the rules. A missing, malformed or unknown token gets 401.
+`GET /api/device/rules` with a valid device bearer token SHALL return 200, `Cache-Control: no-store` and a `RulesResponse` for the token's child. `domains` come from `expandBlockRules` over the child's rules and the global plus family `domain_categories` rows (family rows win). `limits` lists the child's daily category limits as `{ category, minutesPerDay }` and `timezone` is the family's timezone. The version is read before the rules. A missing, malformed or unknown token gets 401.
 
 #### Scenario: Valid token returns version and domains
 File: `apps/web/src/lib/device/rules-endpoint.test.ts`

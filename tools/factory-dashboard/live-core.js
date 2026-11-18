@@ -1,6 +1,6 @@
 "use strict";
 
-// Rules of the live issue refresh, kept free of the DOM and the network so they can be unit-tested.
+// Rules of the live issue refresh and the cost KPIs, kept free of the DOM and the network so they can be unit-tested.
 // Loaded as a plain script before app.js (window.LiveCore) and by live-core.test.mjs (module.exports).
 (function (root) {
   // With a token the popup polls every 5 s. Without one GitHub allows 60 calls an hour, which one poll
@@ -53,7 +53,30 @@
     return !issue || issue.state !== "closed" || runs.length > 0;
   }
 
-  const api = { LIVE_MS, liveInterval, visibleRuns, runningText, waitingText, keepPolling };
+  // Rework: fix rounds (fixer, debugger) plus every run of a writer step after its first (rebuilds, rewrites).
+  // Reviews are not rework: they rerun by design after each push.
+  const FIX_STEPS = ["spec-fix", "build-fix"];
+  const WRITER_STEPS = ["spec", "tests", "dev", "verify"];
+  function reworkCost(acts) {
+    const seen = new Set();
+    let sum = 0;
+    for (const a of [...acts].sort((x, y) => x.start - y.start)) {
+      if (FIX_STEPS.includes(a.step)) sum += a.cost || 0;
+      else if (WRITER_STEPS.includes(a.step)) {
+        if (seen.has(a.step)) sum += a.cost || 0;
+        seen.add(a.step);
+      }
+    }
+    return sum;
+  }
+
+  // Older metrics comments have no `denied` field; they are left out of the average.
+  function deniedPerRun(metrics) {
+    const runs = metrics.filter((m) => Array.isArray(m.denied));
+    return runs.length ? runs.reduce((s, m) => s + m.denied.length, 0) / runs.length : null;
+  }
+
+  const api = { LIVE_MS, liveInterval, visibleRuns, runningText, waitingText, keepPolling, reworkCost, deniedPerRun };
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.LiveCore = api;
 })(typeof window !== "undefined" ? window : globalThis);

@@ -26,6 +26,8 @@ jobs:
         run: bash .github/scripts/check-migrations.sh
       - uses: ./.github/actions/setup
       - run: npm run check
+      - name: Source-of-truth specs valid
+        run: npx openspec validate --specs --strict --no-interactive
 
   # Runs next to `check` to cut wall time; both are required on main. The name avoids clashing with the
   # factory's matrix job `build (<issue>)`.

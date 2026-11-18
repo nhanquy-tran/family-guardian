@@ -105,7 +105,7 @@ File: `apps/web/src/components/daily-limits-card.test.ts`
 - **THEN** the markup contains the `card` and `buttonPrimary` class strings from `ui.ts` and no raw palette class (`bg-blue-`, `text-gray-`, hex colour)
 
 ### Requirement: Rules contract carries limits and timezone
-`RulesResponse` SHALL accept `limits` (an array of at most 9 `{ category, minutesPerDay }` with a known category and an integer from 5 to 1440, default `[]`), an optional non-empty `timezone` string of at most 64 characters, and `categoryOverrides` (a map of domain string, at most 253 characters, to known category with at most `MAX_RULE_DOMAINS` entries, default `{}`). `limits` SHALL NOT contain the same category twice. A body without the new fields SHALL still parse, and unknown fields SHALL be stripped.
+`RulesResponse` SHALL accept `limits` (an array of at most 9 `{ category, minutesPerDay }` with a known category and an integer from 5 to 1440, default `[]`), an optional non-empty `timezone` string of at most 64 characters, and `categoryOverrides` (domain of at most 253 characters → known category, at most `MAX_RULE_DOMAINS` entries, default `{}`). `limits` SHALL NOT contain the same category twice. A body without the new fields SHALL still parse, and unknown fields SHALL be stripped.
 
 #### Scenario: New fields parse and are bounded
 File: `packages/shared/src/contracts.test.ts`

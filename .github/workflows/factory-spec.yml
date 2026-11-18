@@ -47,7 +47,8 @@ jobs:
           gh issue edit "$ISSUE" --remove-label needs-spec --add-label spec-in-progress
       - name: Spec writer agent
         id: agent
-        # Going over the turn cap fails the action even when the spec is finished; the spec eval decides.
+        timeout-minutes: 12
+        # A timeout or action error must not discard a finished spec; the spec eval decides.
         continue-on-error: true
         uses: anthropics/claude-code-action@v1
         env:
@@ -61,9 +62,8 @@ jobs:
             Repository: ${{ github.repository }}. Issue number: ${{ env.ISSUE }}.
           claude_args: |
             --model ${{ vars.FACTORY_SPEC_MODEL || 'claude-sonnet-5-5' }}
-            --max-turns 30
             --permission-mode default
-            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(gh issue view:*),Bash(npx openspec:*),Bash(openspec:*),Bash(ls:*)"
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(cd:*),Bash(gh issue view:*),Bash(npx openspec:*),Bash(openspec:*),Bash(ls:*),Bash(node .github/scripts/factory-eval.mjs:*)"
       - name: Metrics (spec-writer)
         if: always()
         continue-on-error: true

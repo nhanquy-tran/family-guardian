@@ -452,7 +452,7 @@ function parseGates(comments) {
     .filter((c) => TRUSTED_AUTHORS.includes(c.author_association) && /^Gate \(Claude\)/.test(c.body || ""))
     .map((c) => {
       const first = c.body.split("\n")[0];
-      return { target: Number(c.issue_url.split("/").pop()), at: Date.parse(c.created_at), url: c.html_url, approved: /approved/i.test(first) && !/changes needed/i.test(first), text: first.slice(0, 200) };
+      return { target: Number(c.issue_url.split("/").pop()), at: Date.parse(c.created_at), url: c.html_url, approved: /approved/i.test(first) && !/changes needed/i.test(first), round: /changes needed|fix first/i.test(first), text: first.slice(0, 200) };
     });
 }
 
@@ -564,6 +564,7 @@ function deriveIssue(m) {
   }
   m.claudeMs = sumOf(m.acts, (a) => a.end - a.start);
   m.cost = sumOf(m.acts, (a) => a.cost);
+  m.rework = LiveCore.reworkCost(m.acts);
   m.unmeasured = m.acts.filter((a) => a.unmeasured).length;
   m.start = Math.min(...m.acts.map((a) => a.start), spec ? t(spec.created_at) : Infinity);
   m.done = !!factory?.merged_at;
@@ -579,8 +580,8 @@ function deriveIssue(m) {
     specFix: m.stepCount["spec-fix"],
     buildFix: m.stepCount["build-fix"],
     reruns,
-    specGateRounds: m.gates.filter((g) => g.phase === "spec" && !g.approved).length,
-    buildGateRounds: m.gates.filter((g) => g.phase === "build" && !g.approved).length,
+    specGateRounds: m.gates.filter((g) => g.phase === "spec" && g.round).length,
+    buildGateRounds: m.gates.filter((g) => g.phase === "build" && g.round).length,
   };
   m.retries = m.retry.spec + m.retry.build + m.retry.specFix + m.retry.buildFix + m.retry.reruns;
 }
@@ -608,6 +609,8 @@ function renderCost() {
     tile(money(total(since(startOfWeek()))), "this week"),
     tile(money(total(ms)), "total"),
     tile(done.length ? money(sumOf(done, (m) => m.cost) / done.length) : "—", "per issue done end to end"),
+    tile(done.length ? `${Math.round((sumOf(done, (m) => m.rework) / sumOf(done, (m) => m.cost)) * 100)}%` : "—", "rework share (fix rounds, rebuilds)"),
+    tile(deniedText(since(startOfWeek())), "denied tool calls per agent run, this week"),
   ]);
   const rows = state.models.filter((m) => m.acts.length);
   if (!rows.length) {
@@ -617,16 +620,23 @@ function renderCost() {
   const { items, pager } = pageOf("cost", rows);
   const stepTotal = (key) => sumOf(rows, (m) => m.stepCost[key]);
   put("cost-issues", html`<table class="steps">
-    <thead>${phaseHeader(AGENT_STEPS, 1)}
-      <tr><th>Issue</th>${AGENT_STEPS.map((s) => html`<th class="num ${s.phase}">${s.label}</th>`)}<th class="num">Total</th></tr></thead>
+    <thead>${phaseHeader(AGENT_STEPS, 2)}
+      <tr><th>Issue</th>${AGENT_STEPS.map((s) => html`<th class="num ${s.phase}">${s.label}</th>`)}<th class="num" title="Fix rounds and repeated writer runs, included in the total">Rework</th><th class="num">Total</th></tr></thead>
     <tbody>${items.map((m) => html`<tr data-issue="${m.n}">
       <td class="wrap">${issueButton(m)}</td>
       ${AGENT_STEPS.map((s) => html`<td class="num ${s.phase}">${m.stepCost[s.key] === null ? (m.stepCount[s.key] ? html`<span class="muted" title="Ran before its cost was measured">n/a</span>` : "") : money(m.stepCost[s.key])}</td>`)}
+      <td class="num">${m.rework ? money(m.rework) : ""}</td>
       <td class="num"><strong>${money(m.cost)}</strong></td>
     </tr>`)}</tbody>
     <tfoot><tr><td>Total, all ${rows.length} issues</td>
       ${AGENT_STEPS.map((s) => html`<td class="num ${s.phase}">${money(stepTotal(s.key))}</td>`)}
+      <td class="num">${money(sumOf(rows, (m) => m.rework))}</td>
       <td class="num">${money(sumOf(rows, (m) => m.cost))}</td></tr></tfoot></table>${pager}`);
+}
+
+function deniedText(metrics) {
+  const v = LiveCore.deniedPerRun(metrics);
+  return v === null ? "—" : v.toFixed(1);
 }
 
 // ---------- factory health ----------
@@ -649,6 +659,7 @@ function renderHealth() {
     tile(claudeDone ? `${Math.round((claudeDone / sumOf(done, (m) => m.e2e)) * 100)}%` : "—", "of end to end spent running agents"),
     tile(rows.length ? (sumOf(rows, (m) => m.retries) / rows.length).toFixed(1) : "—", "retries per issue (reruns, fix rounds)"),
     tile(`${mergedReviews.filter((r) => r.verdict === "changes-needed").length}/${mergedReviews.length}`, "PRs merged over an AI \"changes needed\""),
+    tile(done.length ? `${(sumOf(done, (m) => m.retry.specGateRounds) / done.length).toFixed(1)} / ${(sumOf(done, (m) => m.retry.buildGateRounds) / done.length).toFixed(1)}` : "—", "gate fix rounds per issue (spec / build)"),
   ]);
 
   const cell = (m, s) => {

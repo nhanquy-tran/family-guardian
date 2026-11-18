@@ -37,7 +37,9 @@ Owner writes issue (Depends on: #a, #b) ──label autopilot──▶ Factory 6
                                 │
    Factory 8 evidence (every later push to a factory PR): recomputes tests, coverage, hidden tests,
         verify and archive rows into "Evidence (latest push)" in the PR body
-   Factory 7 docs (nightly): applies "Docs to update" notes ──▶ docs PR
+   Factory 7 docs (nightly): applies "Docs to update" notes, 5 changes per run, queue in
+        docs/docs-notes-applied.txt ──▶ docs PR
+   Dependabot triage: patch/minor auto-merge on green checks; majors get needs-human (ADR 0019)
 ```
 
 ### Light and full mode (ADR 0018)

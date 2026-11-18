@@ -59,6 +59,7 @@ jobs:
           if [ "$MODE" = "light" ] && [[ "$HEAD" == spec/* ]]; then echo "skip=true" >> "$GITHUB_OUTPUT"; echo "Light mode: no AI review on spec PRs" >> "$GITHUB_STEP_SUMMARY"; else echo "skip=false" >> "$GITHUB_OUTPUT"; fi
       - name: "Stage 1: spec compliance"
         id: spec
+        timeout-minutes: 8
         if: steps.mode.outputs.skip != 'true'
         uses: anthropics/claude-code-action@v1
         with:
@@ -69,9 +70,8 @@ jobs:
             Repository: ${{ github.repository }}. PR number: ${{ env.PR }}.
           claude_args: |
             --model ${{ vars.FACTORY_REVIEW_MODEL || 'claude-sonnet-5-5' }}
-            --max-turns 20
             --permission-mode default
-            --allowedTools "Read,Glob,Grep,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(gh issue view:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*)"
+            --allowedTools "Read,Glob,Grep,Bash(cd:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(gh issue view:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*)"
       - name: Stage 1 verdict
         id: stage1
         if: always() && steps.spec.outcome == 'success'
@@ -88,6 +88,7 @@ jobs:
           echo "Stage 1 verdict: ${V:-unknown}" >> "$GITHUB_STEP_SUMMARY"
       - name: "Stage 2: code quality"
         id: quality
+        timeout-minutes: 8
         if: always() && steps.stage1.outputs.quality == 'run'
         uses: anthropics/claude-code-action@v1
         with:
@@ -98,9 +99,8 @@ jobs:
             Repository: ${{ github.repository }}. PR number: ${{ env.PR }}.
           claude_args: |
             --model ${{ vars.FACTORY_REVIEW_MODEL || 'claude-sonnet-5-5' }}
-            --max-turns 15
             --permission-mode default
-            --allowedTools "Read,Glob,Grep,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*)"
+            --allowedTools "Read,Glob,Grep,Bash(cd:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*)"
       - name: Review verdict
         if: always() && steps.spec.outcome == 'success'
         continue-on-error: true
