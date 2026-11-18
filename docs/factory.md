@@ -46,7 +46,7 @@ The repo variable `FACTORY_MODE` picks the pipeline; `light` is used during the 
 
 | Step | Full | Light |
 |---|---|---|
-| Spec writer | as above | ≤ 20 scenarios, short design and tasks, 20 turns |
+| Spec writer | as above | ≤ 20 scenarios, short design and tasks (30 turns, as full) |
 | AI review of spec PRs | stage 1 | none (Claude's spec gate) |
 | Test writer | visible + 3–6 hidden tests | visible tests only, 30 turns |
 | Developer | 70 turns | 50 turns |

@@ -47,6 +47,8 @@ jobs:
           gh issue edit "$ISSUE" --remove-label needs-spec --add-label spec-in-progress
       - name: Spec writer agent
         id: agent
+        # Going over the turn cap fails the action even when the spec is finished; the spec eval decides.
+        continue-on-error: true
         uses: anthropics/claude-code-action@v1
         env:
           GH_TOKEN: ${{ github.token }} # read-only use (gh issue view); never the owner PAT (ADR 0017)
@@ -59,7 +61,7 @@ jobs:
             Repository: ${{ github.repository }}. Issue number: ${{ env.ISSUE }}.
           claude_args: |
             --model ${{ vars.FACTORY_SPEC_MODEL || 'claude-sonnet-5-5' }}
-            --max-turns ${{ env.MODE == 'light' && 20 || 30 }}
+            --max-turns 30
             --permission-mode default
             --allowedTools "Read,Write,Edit,Glob,Grep,Bash(gh issue view:*),Bash(npx openspec:*),Bash(openspec:*),Bash(ls:*)"
       - name: Metrics (spec-writer)

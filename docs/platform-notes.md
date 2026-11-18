@@ -48,6 +48,9 @@ Facts about the platforms we build on that caused real defects or failures. Ever
 - Agents can only delete files with `git rm` (allowed for developer, debugger and `@claude`). CI fails any PR that changes, renames or deletes a migration already on main. Edit and Write tools cannot delete.
 - Permission rules for the verifier: a narrow `Write(<glob>)` did not match the absolute path the agent used, so the report was lost. The verifier gets `Write` and the workflow reverts every edit except `VERIFY.md`.
 
+- `bump_rules_version()` (child-level, used by `block_rules` and `child_category_limits`) bumps twice on UPDATE (old and new child); `bump_family_rules_version()` bumps once since #91. Specs that count versions must say so.
+- The agent action fails a step that goes over `--max-turns` even when the work is done: agent steps use `continue-on-error` and the gates decide (#87 lost a finished spec at a cap of 20).
+
 ## OpenSpec
 
 - `openspec/specs/` is current behaviour. A change that alters existing behaviour uses MODIFIED (full requirement text, all scenarios kept or replaced) or REMOVED; ADDED for an existing requirement name fails archive.

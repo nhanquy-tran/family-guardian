@@ -7,7 +7,7 @@ Agent cost per issue rose from about $1.6 (MVP median, 21 issues) to about $2.2â
 
 ## Decision
 A repo variable `FACTORY_MODE` (`light` or `full`, default `full`) switches the pipeline. Light mode:
-- Spec writer: at most 20 scenarios, short design and tasks, 20 turns.
+- Spec writer: at most 20 scenarios, short design and tasks (turn cap 30 as in full mode: 20 cut off a finished spec, #87).
 - No AI review on spec PRs (the spec gate reviews them).
 - Test writer: no hidden acceptance tests, one test per scenario, 30 turns.
 - Developer: 50 turns (efficiency rules apply in both modes: whole-file writes, few edits, targeted test runs, check and build once at the end).
