@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { applyRules, buildRules, syncRules } from "./rules";
 import { createDnr, createGet, createStore, type Reply } from "./test-fakes";
 
@@ -90,6 +90,93 @@ describe("syncRules", () => {
     expect(updates).toEqual([{ removeRuleIds: [1], addRules: [rule(1, "a.com")] }]);
     expect(data.get("rulesVersion")).toBe(3);
     expect(data.get("rulesDomains")).toEqual(["a.com"]);
+  });
+});
+
+describe("syncRules and limits", () => {
+  const body = (extra: Record<string, unknown>): Reply => ({
+    status: 200,
+    body: { rulesVersion: 3, domains: [], truncated: false, ...extra },
+  });
+  const limitState = {
+    rulesVersion: 2,
+    rulesDomains: [],
+    rulesLimits: [{ category: "games", minutesPerDay: 1 }],
+    rulesTimezone: "UTC",
+    rulesOverrides: {},
+    limitUsage: { day: "2026-11-17", seconds: { games: 120 }, domains: {} },
+    limitBlocked: { "roblox.com": "games" },
+  };
+  const paths = (rules: { action: { redirect: { extensionPath: string } } }[]) =>
+    rules.map((r) => r.action.redirect.extensionPath);
+
+  async function withToday<T>(run: () => Promise<T>): Promise<T> {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.parse("2026-11-17T10:05:30Z"));
+    try {
+      return await run();
+    } finally {
+      vi.useRealTimers();
+    }
+  }
+
+  it("Sync stores inputs and unblocks", async () => {
+    await withToday(async () => {
+      const raised = { limits: [{ category: "games", minutesPerDay: 5 }] };
+      const first = createDnr([1, 2]);
+      const a = sync(limitState, always2(body(raised)).get, first.dnr);
+      expect(await a.result).toEqual({ kind: "ok", rulesVersion: 3 });
+      // 120 seconds is below 5 * 60 = 300, so no games rule is applied
+      expect(paths(first.updates[0]?.addRules ?? [])).toEqual([]);
+      expect(a.data.get("rulesLimits")).toEqual(raised.limits);
+      expect(a.data.get("limitBlocked")).toEqual({});
+
+      const second = createDnr([1, 2]);
+      const b = sync(limitState, always2(body({ limits: [] })).get, second.dnr);
+      await b.result;
+      expect(b.data.get("rulesLimits")).toEqual([]);
+      expect(b.data.get("limitBlocked")).toEqual({});
+      expect(paths(second.updates[0]?.addRules ?? [])).toEqual([]);
+    });
+  });
+
+  it("Failed sync keeps limits", async () => {
+    const keep = {
+      rulesVersion: 2,
+      rulesDomains: ["old.com"],
+      rulesLimits: [{ category: "games", minutesPerDay: 5 }],
+      rulesTimezone: "Asia/Ho_Chi_Minh",
+      rulesOverrides: { "youtube.com": "education" },
+    };
+    const replies: Reply[] = [{ status: 500 }, "network", body({ categoryOverrides: "x" })];
+    for (const reply of replies) {
+      const { dnr, updates } = createDnr([1]);
+      const { result, data } = sync(keep, always2(reply).get, dnr);
+      expect(await result).toEqual({ kind: "failed" });
+      expect(updates).toHaveLength(0);
+      expect(data.get("rulesLimits")).toEqual(keep.rulesLimits);
+      expect(data.get("rulesTimezone")).toBe(keep.rulesTimezone);
+      expect(data.get("rulesOverrides")).toEqual(keep.rulesOverrides);
+    }
+  });
+
+  it("Manual-rule sync keeps limit blocks", async () => {
+    await withToday(async () => {
+      const over = {
+        ...limitState,
+        limitUsage: { day: "2026-11-17", seconds: { games: 300 }, domains: {} },
+      };
+      const answer = body({ domains: ["tiktok.com"], limits: [{ category: "games", minutesPerDay: 5 }], timezone: "UTC" });
+      const { dnr, updates } = createDnr([1, 2]);
+      const { result, data } = sync(over, always2(answer).get, dnr);
+      await result;
+      const added = updates[0]?.addRules ?? [];
+      const all = paths(added);
+      expect(all).toContain("/blocked.html?d=tiktok.com");
+      expect(all).toContain("/blocked.html?d=roblox.com&c=games");
+      expect(added.find((r) => r.condition.requestDomains[0] === "tiktok.com")?.id).toBe(1);
+      expect(data.get("limitBlocked")).toMatchObject({ "roblox.com": "games" });
+    });
   });
 });
 

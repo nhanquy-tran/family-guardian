@@ -1,4 +1,4 @@
-import { BlockedAttempt, MAX_BLOCKED_ATTEMPTS } from "@fg/shared";
+import { BlockedAttempt, CATEGORIES, MAX_BLOCKED_ATTEMPTS } from "@fg/shared";
 
 const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -19,6 +19,22 @@ export function pruneBlocked(queue: BlockedAttempt[], now: number): BlockedAttem
 
 export function addBlocked(queue: BlockedAttempt[], attempt: BlockedAttempt, now: number): BlockedAttempt[] {
   return pruneBlocked([...queue, attempt], now);
+}
+
+export function describeBlock(search: string): string {
+  const category = new URLSearchParams(search).get("c");
+  if (category !== null && (CATEGORIES as readonly string[]).includes(category)) {
+    return `Daily limit for ${category} reached`;
+  }
+  return "This site is blocked";
+}
+
+export function describeBlockDetail(search: string): string {
+  const category = new URLSearchParams(search).get("c");
+  if (category !== null && (CATEGORIES as readonly string[]).includes(category)) {
+    return "The daily limit for this kind of site is reached. It opens again tomorrow.";
+  }
+  return "Your parent has blocked this site. Ask them if you need it for school.";
 }
 
 export function parseBlockedMessage(raw: unknown): { domain: string } | null {

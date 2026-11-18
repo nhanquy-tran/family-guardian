@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createController, registerSchedule } from "./controller";
 import { connectionStatus } from "./pairing";
+import { limitBlockDomains } from "./limits";
 import { buildRules } from "./rules";
 import {
   always,
@@ -442,5 +443,111 @@ describe("controller serialization", () => {
     for (const [message] of log.mock.calls) {
       expect(message).not.toMatch(/youtube|tok-1|https?:/);
     }
+  });
+});
+
+describe("controller limit enforcement", () => {
+  const limitsGames = [{ category: "games", minutesPerDay: 5 }];
+  const base = { ...paired, rulesVersion: 3, rulesDomains: [], rulesLimits: limitsGames, rulesTimezone: "UTC" };
+  const paths = (rules: unknown[]) =>
+    (rules as { action: { redirect: { extensionPath: string } } }[]).map((r) => r.action.redirect.extensionPath);
+
+  // The tracker credits no time across a gap above 2 minutes, so alarms must run every minute like the real schedule.
+  const alarms = async (controller: { onAlarm(now: number): Promise<void> }, from: number, to: number) => {
+    for (let m = from; m <= to; m++) await controller.onAlarm(at(`10:${String(m).padStart(2, "0")}:05`));
+  };
+
+  it("Limit reached blocks the category", async () => {
+    const { dnr, rules } = createDnr();
+    const { controller, data } = setup(base, always(ok).post, { dnr });
+    await track(controller, "10:00:00", "https://www.roblox.com/");
+    // minutes 10:00..10:05 complete by 10:06:05 = 6 * 60 = 360 seconds >= 300
+    await alarms(controller, 1, 6);
+    const all = paths(rules());
+    expect(all).toContain("/blocked.html?d=roblox.com&c=games");
+    expect(all.some((p) => new URLSearchParams(p.split("?")[1]).get("d") === "youtube.com")).toBe(false);
+    expect(data.get("limitBlocked")).toMatchObject({ "roblox.com": "games" });
+  });
+
+  it("Reset at midnight in the family timezone", async () => {
+    const gamesBlocked = limitBlockDomains(["games"], {}, {}, []);
+    const state = {
+      ...base,
+      rulesTimezone: "Asia/Ho_Chi_Minh",
+      limitUsage: { day: "2026-11-17", seconds: { games: 600 }, domains: {} },
+      limitBlocked: gamesBlocked,
+    };
+    const { dnr, updates, rules } = createDnr([5]);
+    const { controller, data } = setup(state, always(ok).post, { dnr });
+    await controller.onAlarm(at("16:59:30"));
+    expect(updates).toHaveLength(0);
+    expect(data.get("limitBlocked")).toEqual(gamesBlocked);
+    await controller.onAlarm(at("17:00:30"));
+    expect(rules()).toEqual([]);
+    expect(data.get("limitBlocked")).toEqual({});
+    expect(data.get("limitUsage")).toMatchObject({ day: "2026-11-18", seconds: {} });
+  });
+
+  it("Works offline", async () => {
+    const { dnr, rules } = createDnr();
+    const { controller } = setup(base, always("network").post, { dnr });
+    await track(controller, "10:00:00", "https://roblox.com/");
+    await alarms(controller, 1, 6);
+    expect(paths(rules())).toContain("/blocked.html?d=roblox.com&c=games");
+  });
+
+  it("Survives a restart", async () => {
+    const fake = createStore(base);
+    const dnrBox = createDnr();
+    const make = () =>
+      createController({
+        store: fake.store,
+        post: always(ok).post,
+        get: noRules().get,
+        dnr: dnrBox.dnr,
+        baseUrl: "https://fg.example",
+        extensionVersion: "0.2.0",
+        os: "Windows",
+        log: () => undefined,
+      });
+    const first = make();
+    await track(first, "10:00:00", "https://roblox.com/");
+    // minutes 10:00..10:03 = 4 * 60 = 240 of 300 seconds
+    await alarms(first, 1, 4);
+    expect(dnrBox.rules()).toEqual([]);
+    const second = make();
+    // minutes 10:04 and 10:05 add 120 seconds: 360 >= 300
+    await alarms(second, 5, 6);
+    expect(paths(dnrBox.rules())).toContain("/blocked.html?d=roblox.com&c=games");
+  });
+
+  it("DNR failure retries", async () => {
+    const inner = createDnr();
+    let calls = 0;
+    const dnr = {
+      getDynamicRules: inner.dnr.getDynamicRules,
+      async updateDynamicRules(options: Parameters<typeof inner.dnr.updateDynamicRules>[0]) {
+        calls += 1;
+        if (calls === 1) throw new Error("update failed");
+        return inner.dnr.updateDynamicRules(options);
+      },
+    };
+    const { controller, data } = setup(base, always(ok).post, { dnr });
+    await track(controller, "10:00:00", "https://roblox.com/");
+    // 300 seconds are complete at 10:05:05: the first DNR update fails there
+    await alarms(controller, 1, 5);
+    expect(data.has("limitBlocked")).toBe(false);
+    await alarms(controller, 6, 6);
+    expect(paths(inner.rules())).toContain("/blocked.html?d=roblox.com&c=games");
+    expect(data.get("limitBlocked")).toMatchObject({ "roblox.com": "games" });
+  });
+
+  it("Limit-blocked domain recorded", async () => {
+    const { controller, data } = setup(
+      { ...paired, rulesDomains: [], limitBlocked: { "roblox.com": "games" } },
+      always(ok).post,
+    );
+    await controller.recordBlocked("roblox.com", at("10:05:30"));
+    expect(data.get("blockedQueue")).toEqual([{ at: "2026-11-17T10:05:30.000Z", domain: "roblox.com" }]);
   });
 });
