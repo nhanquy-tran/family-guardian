@@ -33,7 +33,7 @@ async function sessionCookies(env: LocalSupabase, email: string): Promise<Cookie
 
 type StageFixtures = { fixture: Fixture; shot: (name: string) => Promise<void> };
 
-/** Seeds `stage` once per file (teardown first, so every run starts clean) and signs every page in as its parent. */
+/** Seeds `stage` before the file runs, once per project (teardown first, so every run starts clean) and signs every page in as its parent. */
 export function stageTest(stage: Stage) {
   let fixture: Fixture;
   let cookies: Cookie[] = [];
@@ -48,6 +48,8 @@ export function stageTest(stage: Stage) {
     },
   });
   test.beforeAll(async () => {
+    // Teardown, about 2,000 inserts and a sign-in; the first call after the stack starts can be slow.
+    test.setTimeout(120_000);
     const env = localSupabase();
     fixture = generate(stage);
     await seed(supabaseStore(env), fixture);

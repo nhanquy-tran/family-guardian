@@ -13,8 +13,10 @@ test.describe("stage rules-applied: block rules, daily limit and allowed hours f
     await expect(page.getByRole("heading", heading("Block sites for Leo"))).toBeVisible();
     const rules = page.getByRole("listitem").filter({ has: page.getByRole("button", { name: "Remove" }) });
     await expect(rules).toHaveCount(2);
-    await expect(rules.filter({ hasText: /^domain\s*tiktok\.com/ })).toHaveCount(1);
-    await expect(rules.filter({ hasText: /^category\s*social/ })).toHaveCount(1);
+    const rule = (kind: string, value: string) =>
+      rules.filter({ has: page.getByText(kind, { exact: true }) }).filter({ has: page.getByText(value, { exact: true }) });
+    await expect(rule("domain", "tiktok.com")).toHaveCount(1);
+    await expect(rule("category", "social")).toHaveCount(1);
     await expect(page.locator('input[name="limit_games"]')).toHaveValue("60");
     await expect(page.locator('input[name="limit_entertainment"]')).toHaveValue("");
     await expect(page.locator('input[name="allowed_start"]')).toHaveValue("07:00");
@@ -29,7 +31,7 @@ test.describe("stage rules-applied: block rules, daily limit and allowed hours f
     await expect(page.locator('input[name="allowed_start"]')).toHaveValue("");
   });
 
-  test("Leo's week after the rules: no social sites since the block, games within the limit", async ({ page, shot, fixture }) => {
+  test("Leo's week after the rules: tiktok.com counts only the time before the block", async ({ page, shot, fixture }) => {
     await page.goto(`/dashboard/usage/${LEO}?${TZ}&view=week`);
     await expect(page.getByRole("heading", heading("Usage"))).toBeVisible();
     // tiktok.com still lists the days before the block; its total is only that time.
@@ -37,7 +39,7 @@ test.describe("stage rules-applied: block rules, daily limit and allowed hours f
     const tiktok = fixture.usage.filter((u) => leoDevices.has(u.device_id) && u.domain === "tiktok.com");
     const minutes = Math.round(tiktok.reduce((s, u) => s + u.seconds, 0) / 60);
     const label = minutes >= 60 ? `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, "0")} min` : `${minutes} min`;
-    await expect(page.getByRole("listitem").filter({ hasText: /^tiktok\.com/ })).toContainText(label);
+    await expect(page.getByRole("listitem").filter({ has: page.getByText("tiktok.com", { exact: true }) })).toContainText(label);
     await shot("usage-leo-week-after-rules");
   });
 

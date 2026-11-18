@@ -56,6 +56,8 @@ export type AlertRow = {
 
 export type Fixture = {
   stage: Stage;
+  /** The clock the rows were generated against, so checks use the same local days. */
+  generatedAt: string;
   parent: { email: string; fullName: string };
   family: {
     name: string;
@@ -212,6 +214,7 @@ export function generate(stage: Stage, now: Date = new Date()): Fixture {
 
   const fixture: Fixture = {
     stage,
+    generatedAt: iso(nowMs),
     parent: { email: `parent@${E2E_EMAIL_DOMAIN}`, fullName: "Alex Parker" },
     family: {
       name: "Parker family",

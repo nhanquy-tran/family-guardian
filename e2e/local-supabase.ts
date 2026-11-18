@@ -11,8 +11,15 @@ export function assertLocal(url: string): void {
   if (!LOCAL_HOSTS.has(host)) throw new Error(`e2e data only targets the local Supabase stack, not ${host}`);
 }
 
-/** Reads the running local stack's URL and keys from `supabase status`; start it with `npx supabase start`. */
+let cached: LocalSupabase | null = null;
+
+/** Reads the running local stack's URL and keys from `supabase status` (once per process); start it with `npx supabase start`. */
 export function localSupabase(): LocalSupabase {
+  cached ??= readStatus();
+  return cached;
+}
+
+function readStatus(): LocalSupabase {
   let raw: string;
   try {
     raw = execSync("npx supabase status -o json", {

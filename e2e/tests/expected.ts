@@ -6,7 +6,7 @@ import { addDays, dateKey, localDate } from "../fixtures/time.ts";
 export type TrendDay = { day: string; score: number | null };
 
 /** The seven-day trend the overview should show, computed from the seeded rows the way the dashboard does. */
-export function expectedTrend(f: Fixture, childId: string, now = new Date()): TrendDay[] {
+export function expectedTrend(f: Fixture, childId: string, now = new Date(f.generatedAt)): TrendDay[] {
   const child = f.children.find((c) => c.id === childId);
   if (!child) throw new Error(`no child ${childId}`);
   const devices = new Set(f.devices.filter((d) => d.child_id === childId).map((d) => d.id));
