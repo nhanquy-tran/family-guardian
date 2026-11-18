@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { addCategoryRule, addDomainRule, removeBlockRule, type BlockRuleResult } from "../../../../../lib/block-rules";
+import { CATEGORIES } from "@fg/shared";
+import { saveDailyLimits } from "../../../../../lib/daily-limits";
 import { createClient } from "../../../../../lib/supabase/server";
 
 const field = (formData: FormData, key: string) => String(formData.get(key) ?? "");
@@ -25,6 +27,18 @@ export async function addDomainAction(formData: FormData): Promise<void> {
 export async function addCategoryAction(formData: FormData): Promise<void> {
   const childId = field(formData, "childId");
   finish(childId, await addCategoryRule(await createClient(), childId, field(formData, "category")));
+}
+
+export async function saveLimitsAction(formData: FormData): Promise<void> {
+  const childId = field(formData, "childId");
+  const values = Object.fromEntries(CATEGORIES.map((c) => [c, field(formData, `limit_${c}`)]));
+  const result = await saveDailyLimits(await createClient(), childId, values);
+  const path = pathFor(childId);
+  if (result.ok) {
+    revalidatePath(path);
+    redirect(path);
+  }
+  redirect(`${path}?limitsError=${result.error}`);
 }
 
 export async function removeRuleAction(formData: FormData): Promise<void> {
