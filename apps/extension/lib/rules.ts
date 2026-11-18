@@ -1,4 +1,5 @@
-import { MAX_RULE_DOMAINS, RulesResponse } from "@fg/shared";
+import { MAX_RULE_DOMAINS, RulesResponse, type Category } from "@fg/shared";
+import { buildLimitRules, evaluateLimitBlocks } from "./limits";
 import type { Get, KeyValueStore } from "./storage";
 
 export interface Rule {
@@ -39,11 +40,16 @@ export function buildRules(domains: string[]): Rule[] {
   }));
 }
 
-export async function applyRules(dnr: Dnr, domains: string[]): Promise<void> {
+export async function applyRules(
+  dnr: Dnr,
+  domains: string[],
+  limitBlocked: Record<string, Category> = {},
+): Promise<void> {
   const existing = await dnr.getDynamicRules();
+  const manual = buildRules(domains);
   await dnr.updateDynamicRules({
     removeRuleIds: existing.map((r) => r.id),
-    addRules: buildRules(domains),
+    addRules: [...manual, ...buildLimitRules(limitBlocked, manual.length + 1)],
   });
 }
 
@@ -55,7 +61,21 @@ export async function syncRules(deps: SyncDeps): Promise<SyncResult> {
     if (response.status !== 200) return { kind: "failed" };
     const parsed = RulesResponse.safeParse(await response.json());
     if (!parsed.success) return { kind: "failed" };
-    await applyRules(deps.dnr, parsed.data.domains);
+    const { domains, limits, timezone, categoryOverrides } = parsed.data;
+    const limitBlocked = evaluateLimitBlocks({
+      limits,
+      usage: await deps.store.get("limitUsage"),
+      overrides: categoryOverrides,
+      manualDomains: domains,
+      now: Date.now(),
+      timezone,
+    });
+    await applyRules(deps.dnr, domains, limitBlocked);
+    await deps.store.set("rulesLimits", limits);
+    if (timezone === undefined) await deps.store.remove(["rulesTimezone"]);
+    else await deps.store.set("rulesTimezone", timezone);
+    await deps.store.set("rulesOverrides", categoryOverrides);
+    await deps.store.set("limitBlocked", limitBlocked);
     await deps.store.set("rulesDomains", parsed.data.domains);
     await deps.store.set("rulesVersion", parsed.data.rulesVersion);
     return { kind: "ok", rulesVersion: parsed.data.rulesVersion };

@@ -3,7 +3,8 @@ import { type PairResult, pairWithCode, readToken } from "./pairing";
 import { enqueue, parseQueue, pruneQueue } from "./queue";
 import { flushQueue } from "./sender";
 import { addBlocked, parseBlockedQueue } from "./blocked";
-import { type Dnr, syncRules } from "./rules";
+import { addUsage, evaluateLimitBlocks, readOverrides } from "./limits";
+import { applyRules, type Dnr, syncRules } from "./rules";
 import type { Get, KeyValueStore, Post } from "./storage";
 import {
   applyEvent,
@@ -103,6 +104,15 @@ export function createController(deps: ControllerDeps): Controller {
     const ticked = applyEvent(await loadTracker(), { type: "tick", at: now });
     const taken = takeCompletedEntries(ticked, now);
     await store.set("trackerState", taken.state);
+    const timezone = await store.get("rulesTimezone");
+    const usage = addUsage(
+      await store.get("limitUsage"),
+      taken.entries,
+      now,
+      typeof timezone === "string" ? timezone : undefined,
+      readOverrides(await store.get("rulesOverrides")),
+    );
+    await store.set("limitUsage", usage);
     const queue = enqueue(parseQueue(await store.get("queue")), taken.entries, now);
     await store.set("queue", queue);
     const active = taken.state.focused && taken.state.idle === "active";
@@ -124,6 +134,25 @@ export function createController(deps: ControllerDeps): Controller {
         await syncRules({ baseUrl: deps.baseUrl, token, store, get: deps.get, dnr: deps.dnr });
       }
     }
+    if (result.kind !== "unauthorized" && deps.dnr !== undefined) await evaluateLimits(deps.dnr, now);
+  }
+
+  async function evaluateLimits(dnr: Dnr, now: number): Promise<void> {
+    const timezone = await store.get("rulesTimezone");
+    const stored = await store.get("rulesDomains");
+    const manualDomains = Array.isArray(stored) ? stored.filter((d): d is string => typeof d === "string") : [];
+    const blocked = evaluateLimitBlocks({
+      limits: await store.get("rulesLimits"),
+      usage: await store.get("limitUsage"),
+      overrides: await store.get("rulesOverrides"),
+      manualDomains,
+      now,
+      timezone: typeof timezone === "string" ? timezone : undefined,
+    });
+    const current = readOverrides(await store.get("limitBlocked"));
+    if (JSON.stringify(blocked) === JSON.stringify(current)) return;
+    await applyRules(dnr, manualDomains, blocked);
+    await store.set("limitBlocked", blocked);
   }
 
   return {
@@ -145,7 +174,9 @@ export function createController(deps: ControllerDeps): Controller {
       return serialize(async () => {
         if ((await readToken(store)) === null) return;
         const known = await store.get("rulesDomains");
-        if (!Array.isArray(known) || !known.includes(domain)) return;
+        const limitBlocked = readOverrides(await store.get("limitBlocked"));
+        const manual = Array.isArray(known) && known.includes(domain);
+        if (!manual && !Object.hasOwn(limitBlocked, domain)) return;
         const queue = parseBlockedQueue(await store.get("blockedQueue"));
         await store.set("blockedQueue", addBlocked(queue, { at: new Date(now).toISOString(), domain }, now));
       }, undefined);

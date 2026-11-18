@@ -157,17 +157,17 @@ The controller SHALL record `{ at, domain }` when the blocked page reports a dom
 - **THEN** the body has no `blocked` key and `blockedQueue` is unchanged
 
 ### Requirement: Re-pairing resets rule state
-A successful `pairWithCode` SHALL remove `rulesVersion` and `blockedQueue`; a failed one SHALL change nothing.
+A successful `pairWithCode` SHALL remove `rulesVersion`, `blockedQueue`, `rulesLimits`, `rulesTimezone`, `rulesOverrides`, `limitUsage` and `limitBlocked`; a failed one SHALL change nothing.
 
 #### Scenario: Successful re-pair
-- **GIVEN** stored `rulesVersion` 4 and one queued attempt
+- **GIVEN** stored `rulesVersion` 4, one queued attempt and stored limit state
 - **WHEN** pairing succeeds (`pairing.test.ts`)
-- **THEN** both keys are removed, so the next alarm fetches rules
+- **THEN** all seven keys are removed, so the next alarm fetches rules
 
 #### Scenario: Failed pair
 - **GIVEN** the same state
 - **WHEN** pairing fails with `invalid_code` (`pairing.test.ts`)
-- **THEN** both keys are unchanged
+- **THEN** all keys are unchanged
 
 ### Requirement: Manifest grants only what blocking needs
 `buildManifest(apiOrigin)` SHALL include permissions `tabs`, `idle`, `storage`, `alarms`, `declarativeNetRequest`, host permissions for the API origin and `<all_urls>`, `blocked.html` as web accessible to `<all_urls>`, `incognito: "not_allowed"`, and no `declarativeNetRequestFeedback`.

@@ -75,7 +75,7 @@ describe("RulesResponse limits and timezone", () => {
 
   it("New fields parse and are bounded", () => {
     const ok = { ...base, limits: [games], timezone: "Asia/Ho_Chi_Minh" };
-    expect(RulesResponse.parse(ok)).toEqual(ok);
+    expect(RulesResponse.parse(ok)).toEqual({ ...ok, categoryOverrides: {} });
     const bad: Record<string, unknown>[] = [
       { limits: [{ category: "music", minutesPerDay: 60 }] },
       { limits: [{ category: "games", minutesPerDay: 4 }] },

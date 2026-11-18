@@ -35,6 +35,17 @@ export async function handleRules({ authorization, store }: RulesInput): Promise
     for (const row of rows) if (row.familyId === null) overrides[row.domain] = row.category;
     for (const row of rows) if (row.familyId !== null) overrides[row.domain] = row.category;
 
+    const capped: Record<string, Category> = {};
+    const mergedKeys = [
+      ...rows.filter((r) => r.familyId !== null).map((r) => r.domain),
+      ...rows.filter((r) => r.familyId === null).map((r) => r.domain),
+    ];
+    for (const key of new Set(mergedKeys)) {
+      if (Object.keys(capped).length >= MAX_RULE_DOMAINS) break;
+      const category = overrides[key];
+      if (category !== undefined) capped[key] = category;
+    }
+
     const explicit = [...new Set(rules.filter((r) => r.kind === "domain").map((r) => r.value))].sort();
     const explicitSet = new Set(explicit);
     const expanded = expandBlockRules(rules, overrides).filter((d) => !explicitSet.has(d));
@@ -45,6 +56,7 @@ export async function handleRules({ authorization, store }: RulesInput): Promise
       truncated: all.length > MAX_RULE_DOMAINS,
       limits,
       timezone: child.timezone,
+      categoryOverrides: capped,
     });
     return { status: 200, body, headers: HEADERS };
   } catch {
