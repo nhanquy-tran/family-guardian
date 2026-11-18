@@ -82,8 +82,9 @@ jobs:
           if git diff --cached --quiet && [ "${{ steps.agent.outcome }}" != "success" ]; then
             echo "::error::The docs agent did not finish and changed nothing"; exit 1
           fi
-          # Changes whose items were all already true are recorded too, so they are not offered again.
-          cat /tmp/docs-changes.txt >> docs/docs-notes-applied.txt
+          # Only a finished run marks its changes as handled (including items that were already true);
+          # after an early stop the same changes come back next run and finished items read as already true.
+          if [ "${{ steps.agent.outcome }}" = "success" ]; then cat /tmp/docs-changes.txt >> docs/docs-notes-applied.txt; fi
           git add docs
           BRANCH="docs/nightly-$(date -u +%Y%m%d-%H%M)"
           git config user.name "family-guardian-factory"
