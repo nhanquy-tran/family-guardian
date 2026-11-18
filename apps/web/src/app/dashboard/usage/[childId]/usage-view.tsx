@@ -43,10 +43,13 @@ function Sites({ sites }: { sites: SiteSummary[] }) {
       ) : (
         <ol className="space-y-1">
           {sites.map((s) => (
-            <li key={s.domain} className="flex gap-2 text-sm">
+            <li key={s.domain} className="flex flex-wrap gap-2 text-sm">
               <span className="min-w-0 flex-1 truncate">{s.domain}</span>
               <span>{formatDuration(s.seconds)}</span>
               <span className="w-10 text-right">{s.share} %</span>
+              <a href={`/dashboard/categories?domain=${encodeURIComponent(s.domain)}`} className="text-accent-ink underline">
+                Change category
+              </a>
             </li>
           ))}
         </ol>
@@ -72,7 +75,7 @@ export function UsageView({
   if (result.status !== "ok") return <p role="alert" className={alertError}>{USAGE_ERROR_TEXT}</p>;
 
   if (view === "week") {
-    const week = summarizeWeek(result.days, tz, today);
+    const week = summarizeWeek(result.days, tz, today, result.overrides);
     const max = Math.max(...week.days.map((d) => d.totalSeconds));
     const total = week.days.reduce((sum, d) => sum + d.totalSeconds, 0);
     const byCategory = emptyCategories();
@@ -105,8 +108,8 @@ export function UsageView({
     );
   }
 
-  const day = summarizeDay(result.days);
-  const slots = buildTimeline(result.timeline, tz, today);
+  const day = summarizeDay(result.days, result.overrides);
+  const slots = buildTimeline(result.timeline, tz, today, result.overrides);
   return (
     <div className="space-y-6">
       <p className="text-lg">Total active time: {formatDuration(day.totalSeconds)}</p>

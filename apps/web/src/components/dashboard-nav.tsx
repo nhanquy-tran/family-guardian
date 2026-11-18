@@ -7,6 +7,7 @@ import { navLink, navLinkCurrent } from "./ui";
 export const DASHBOARD_NAV: { label: string; href: string }[] = [
   { label: "Overview", href: "/dashboard" },
   { label: "Children", href: "/dashboard/children" },
+  { label: "Categories", href: "/dashboard/categories" },
   { label: "Devices", href: "/dashboard/devices" },
   { label: "Install", href: "/dashboard/install" },
 ];

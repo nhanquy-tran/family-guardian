@@ -136,6 +136,29 @@ describe("Day timeline", () => {
   });
 });
 
+describe("Usage categories use family overrides", () => {
+  it("Override changes the category breakdown", () => {
+    const s = summarizeDay([{ domain: "youtube.com", seconds: 600 }], { "youtube.com": "education" });
+    expect(s.byCategory.education).toBe(600);
+    expect(s.byCategory.entertainment).toBe(0);
+    const w = summarizeWeek(
+      [{ minuteUtc: "2026-03-10T09:00:00Z", domain: "youtube.com", seconds: 60 }],
+      "UTC",
+      "2026-03-14",
+      { "youtube.com": "games" },
+    );
+    expect(w.days[2]!.byCategory.games).toBe(60);
+    expect(w.days[2]!.byCategory.entertainment).toBe(0);
+    const slots = buildTimeline(
+      [{ minuteUtc: "2026-03-10T10:00:00Z", domains: ["youtube.com"], seconds: [30] }],
+      "UTC",
+      "2026-03-10",
+      { "youtube.com": "social" },
+    );
+    expect(slots[0]!.category).toBe("social");
+  });
+});
+
 describe("Timezone parameter", () => {
   it("Valid timezone", () => {
     expect(resolveTimezone("Asia/Ho_Chi_Minh")).toBe("Asia/Ho_Chi_Minh");

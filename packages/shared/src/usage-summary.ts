@@ -72,19 +72,21 @@ function topSites(totals: Map<string, number>, total: number): SiteSummary[] {
     .map(([domain, seconds]) => ({ domain, seconds, share: total > 0 ? Math.round((seconds / total) * 100) : 0 }));
 }
 
-export function summarizeDay(entries: { domain: string; seconds: number }[]): DaySummary {
+type Overrides = Readonly<Record<string, Category>>;
+
+export function summarizeDay(entries: { domain: string; seconds: number }[], overrides?: Overrides): DaySummary {
   const totals = new Map<string, number>();
   const byCategory = emptyCategories();
   let totalSeconds = 0;
   for (const e of entries) {
     totals.set(e.domain, (totals.get(e.domain) ?? 0) + e.seconds);
-    byCategory[categorize(e.domain)] += e.seconds;
+    byCategory[categorize(e.domain, overrides)] += e.seconds;
     totalSeconds += e.seconds;
   }
   return { totalSeconds, topSites: topSites(totals, totalSeconds), byCategory };
 }
 
-export function summarizeWeek(entries: (DayEntry | MinuteEntry)[], tz: string, lastDay: string): WeekSummary {
+export function summarizeWeek(entries: (DayEntry | MinuteEntry)[], tz: string, lastDay: string, overrides?: Overrides): WeekSummary {
   const days: WeekDay[] = Array.from({ length: 7 }, (_, i) => ({
     day: addDays(lastDay, i - 6),
     totalSeconds: 0,
@@ -97,14 +99,14 @@ export function summarizeWeek(entries: (DayEntry | MinuteEntry)[], tz: string, l
     const day = index.get("day" in e ? e.day : localDay(e.minuteUtc, tz));
     if (!day) continue;
     day.totalSeconds += e.seconds;
-    day.byCategory[categorize(e.domain)] += e.seconds;
+    day.byCategory[categorize(e.domain, overrides)] += e.seconds;
     totals.set(e.domain, (totals.get(e.domain) ?? 0) + e.seconds);
     total += e.seconds;
   }
   return { days, topSites: topSites(totals, total) };
 }
 
-export function buildTimeline(rows: TimelineRow[], tz: string, day: string): TimelineSlot[] {
+export function buildTimeline(rows: TimelineRow[], tz: string, day: string, overrides?: Overrides): TimelineSlot[] {
   const slots: TimelineSlot[] = [];
   for (const row of rows) {
     let minuteOfDay: number;
@@ -117,7 +119,7 @@ export function buildTimeline(rows: TimelineRow[], tz: string, day: string): Tim
     }
     const sums = emptyCategories();
     row.domains.forEach((domain, i) => {
-      sums[categorize(domain)] += row.seconds[i] ?? 0;
+      sums[categorize(domain, overrides)] += row.seconds[i] ?? 0;
     });
     let best: Category = CATEGORIES[0];
     for (const c of CATEGORIES) if (sums[c] > sums[best]) best = c;
