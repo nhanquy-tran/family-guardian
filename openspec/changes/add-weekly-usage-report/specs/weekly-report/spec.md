@@ -8,10 +8,10 @@ Test files:
 - `apps/web/src/lib/digest/schedule.test.ts`: `reportPeriod`.
 - `apps/web/src/lib/digest/weekly-report.test.ts`: `buildWeeklyReport` with fake source and totals.
 - `apps/web/src/lib/digest/weekly-report-send.test.ts`: `handleWeeklyReportSend` with a fake store and mailer. Valid auth is `Bearer s3cret`.
-- `apps/web/src/lib/alerts/resend.test.ts`: mailer body.
-- `apps/web/src/lib/digest/settings.test.ts`: `saveWeeklyReportSetting` with a fake client.
+- `apps/web/src/lib/alerts/resend.test.ts`: mailer body (see the offline-alerts delta).
+- `apps/web/src/lib/digest/settings.test.ts`: `saveWeeklyReportSetting` and `loadWeeklyReportSetting` with a fake client.
 - `apps/web/src/components/weekly-report-form.test.ts`: `WeeklyReportForm` rendered with `react-dom/server`.
-- `apps/web/src/app/api/digest/send/route.test.ts`: route wiring.
+- `apps/web/src/app/api/digest/send/route.test.ts`: route wiring (see the digest-emails delta).
 
 ## ADDED Requirements
 
@@ -46,6 +46,14 @@ Each family SHALL have `weekly_report_enabled` (boolean, default false), editabl
 - **WHEN** now is `2026-11-15T23:00:00Z` (Monday 08:00 in Tokyo)
 - **THEN** the Tokyo week runs from `2026-11-08T15:00:00Z` to `2026-11-15T15:00:00Z`, the invalid timezone is computed as `UTC`, and the new family gets `null`
 
+### Requirement: Report period follows daylight saving
+The start and end of the week and the start of the week before SHALL each be local Monday 00:00 in the family timezone, never `start - 7 days`.
+
+#### Scenario: Daylight saving change
+- **GIVEN** a family in `Europe/Zurich` with hour 8
+- **WHEN** now is `2026-11-02T07:00:00Z`
+- **THEN** the week runs from `2026-10-25T23:00:00Z` to `2026-11-01T23:00:00Z` and the previous week starts at `2026-10-18T22:00:00Z`
+
 ### Requirement: Report content
 For each child of the family the report SHALL show total active time, the top 5 categories with time (`categorize` from `@fg/shared`), the top 5 domains with time, the average focus score and the change in total time versus the week before. A child without usage in the week SHALL show only "No activity this week". It SHALL carry only domains, categories and times (ADR 0005), contain no URL except the dashboard link, and use no tracking pixel.
 
@@ -58,6 +66,11 @@ For each child of the family the report SHALL show total active time, the top 5 
 - **GIVEN** homework domains set and usage on two days whose daily scores are 100 and 50, and a third day with no usage
 - **WHEN** `buildWeeklyReport` runs
 - **THEN** the average focus score is 75 and days without a score are not counted
+
+#### Scenario: Focus days follow the family timezone across daylight saving
+- **GIVEN** a family in `Europe/Zurich`, the week from `2026-10-18T22:00:00Z` to `2026-10-25T23:00:00Z` (it contains the 25-hour `2026-10-25`), homework domains set, only homework usage at `2026-10-24T21:30:00Z` (local 24 Oct), and only non-homework usage at `2026-10-24T22:30:00Z` and `2026-10-25T22:30:00Z` (both local 25 Oct)
+- **WHEN** `buildWeeklyReport` runs
+- **THEN** the daily scores are 100 for 24 Oct and 0 for 25 Oct, so the average focus score is 50
 
 #### Scenario: No activity
 - **GIVEN** a child with no usage rows in the week, and another with usage
@@ -118,35 +131,27 @@ For each child of the family the report SHALL show total active time, the top 5 
 - **THEN** the first gives `500 { error: "server_error" }` and no mail; the log of the second contains no e-mail address, child name, domain, token or family id
 
 ### Requirement: Report authentication and fail-closed configuration
-`handleWeeklyReportSend` SHALL accept only `Authorization: Bearer <ALERT_CRON_SECRET>` compared in constant time, else `401 { "error": "unauthorized" }` with no store or mailer call. An unset or empty secret, or a missing mail key, sender address or `APP_URL`, SHALL give `500 { "error": "server_error" }` before any claim.
+`handleWeeklyReportSend` SHALL apply the same authentication and configuration checks as the digest (digest-emails: `Authorization: Bearer <ALERT_CRON_SECRET>` compared in constant time, else `401`; an unset secret or missing mail key, sender address or `APP_URL` gives `500`), with no store or mailer call before they pass and no claim before configuration is valid.
 
 #### Scenario: Wrong credentials
 - **GIVEN** secret `s3cret`
 - **WHEN** called with `null`, `""`, `"s3cret"`, `"Basic s3cret"`, `"Bearer wrong"`
 - **THEN** each is `401 { error: "unauthorized" }` and no store or mailer method is called
 
-#### Scenario: Not configured
-- **GIVEN** the secret unset, then valid auth with `APP_URL` missing, then with the mail not configured
+#### Scenario: Secret not configured
+- **GIVEN** the secret unset (and separately empty)
+- **WHEN** the handler is called with any credentials
+- **THEN** the response is `500 { error: "server_error" }` and `claimDigest` is never called
+
+#### Scenario: APP_URL missing
+- **GIVEN** valid auth and `APP_URL` missing
+- **WHEN** the handler is called
+- **THEN** the response is `500 { error: "server_error" }` and `claimDigest` is never called
+
+#### Scenario: Mail not configured
+- **GIVEN** valid auth and, one at a time, the mail key missing and the sender address missing
 - **WHEN** the handler is called
 - **THEN** each response is `500 { error: "server_error" }` and `claimDigest` is never called
-
-### Requirement: Report runs with the digest trigger
-`POST /api/digest/send` SHALL run the digest first and, when the digest answered 200, the weekly report, and SHALL return the digest's response body unchanged. A failing or unauthorized digest SHALL return its own response and send no report. `createResendMailer` SHALL include `html` in the Resend request body only when the message has one.
-
-#### Scenario: Route runs both
-- **GIVEN** valid auth, a due daily digest and a due opted-in report with fake stores and mailer
-- **WHEN** the route handler is called
-- **THEN** the response is `200` with the digest counts only, and both the digest and the report were mailed
-
-#### Scenario: Digest failure stops the report
-- **GIVEN** a digest run answering `500`, and separately wrong credentials
-- **WHEN** the route handler is called
-- **THEN** the response is that `500` or `401` and no report claim or mail happens
-
-#### Scenario: Mailer body
-- **GIVEN** a Resend mailer with a fake fetch
-- **WHEN** it sends a message with `text` only, then one with `text` and `html`
-- **THEN** the first request body has no `html` key and the second has both
 
 ### Requirement: Weekly report setting in the settings page
 `saveWeeklyReportSetting(client, enabled)` SHALL accept only a boolean, update only `weekly_report_enabled` of the caller's family, and return `{ ok: false, error: "failed" }` when the update errors or changes no row. `WeeklyReportForm` SHALL render a labelled "Weekly report" checkbox, unchecked unless enabled, a note about who receives the report and when, and a submit button.
@@ -165,3 +170,16 @@ For each child of the family the report SHALL show total active time, the top 5 
 - **GIVEN** `WeeklyReportForm` with `enabled` false, then true
 - **WHEN** it is rendered to static markup
 - **THEN** the markup has a `<label>` "Weekly report" tied to a checkbox that is unchecked, then checked, a note mentioning Monday and all parents, and a submit button
+
+### Requirement: Settings read failure is visible
+`loadWeeklyReportSetting(client)` SHALL read `weekly_report_enabled` in its own query, separate from the digest settings, and return `{ ok: false }` on a read error instead of defaults; the settings page SHALL then show an error, not an unchecked checkbox.
+
+#### Scenario: Settings read failure is not shown as defaults
+- **GIVEN** a client whose `families` read fails
+- **WHEN** `loadWeeklyReportSetting` runs, and the settings page loads with that result
+- **THEN** the result is `{ ok: false }` and the page shows an error message, not an unchecked "Weekly report" checkbox
+
+#### Scenario: Settings read
+- **GIVEN** a client returning `weekly_report_enabled` true, then false
+- **WHEN** `loadWeeklyReportSetting` runs
+- **THEN** it returns `{ ok: true, enabled: true }`, then `{ ok: true, enabled: false }`

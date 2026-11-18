@@ -1,5 +1,5 @@
 Depends on: none
-Touches: weekly-report, digest-emails, `supabase/migrations`, `packages/shared/src/index.ts`
+Touches: weekly-report, digest-emails, offline-alerts, `supabase/migrations`
 
 # Weekly usage report e-mail for parents (#90)
 
@@ -13,6 +13,7 @@ Parents get a daily or weekly digest focused on offline incidents and a top-3 si
 - HTML part (plain, accessible, no images or tracking pixels) plus a text part.
 - Runs inside the existing `POST /api/digest/send` call of the 15-minute `send-digests` cron job and the Resend sender. Same auth and fail-closed configuration.
 - Idempotent per family and week: claim row in the existing `digest_runs` table with frequency `weekly_report` (no new table; the existing 90-day purge applies).
+- The mailer sends an optional `html` part (offline-alerts delta); the route runs the report after the digest (digest-emails delta).
 - New SQL function `usage_total_seconds` for the prior-week total (aggregated in SQL, see platform notes).
 - ADR 0018 (new stored setting, report content computed on demand, claim reuse).
 
