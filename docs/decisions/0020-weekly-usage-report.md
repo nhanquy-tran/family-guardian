@@ -2,7 +2,7 @@
 
 Numbered 0018 in its change (`add-weekly-usage-report`); renumbered because 0018 was already the factory light mode.
 
-Date: 2026-11-18. Status: proposed (needs owner approval). Issue #90.
+Date: 2026-11-18. Status: accepted (approved by the owner on 2026-11-19). Issue #90.
 
 ## Context
 Parents want a weekly per-child summary (time, categories, domains, focus, trend). The digest (ADR 0016) already has the scheduler, claim table and Resend sender.
