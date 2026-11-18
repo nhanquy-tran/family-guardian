@@ -275,3 +275,39 @@ tfoot td:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
 @keyframes live-pulse { to { box-shadow: 0 0 0 8px transparent; } }
 @keyframes live-sweep { from { background-position: 100% 0; } to { background-position: -100% 0; } }
 @media (prefers-reduced-motion: reduce) { .live-dot, .bar.live { animation: none; } }
+
+/* ---------- issue popup fits the window: only the activities scroll ---------- */
+#issue-dialog[open] { display: flex; flex-direction: column; max-height: calc(100dvh - 24px); overflow: hidden; }
+#issue-dialog .dialog-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; gap: 10px; padding: 20px 24px; }
+#issue-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+#issue-body > * { flex-shrink: 0; margin-top: 0; margin-bottom: 0; }
+#issue-body .live-line { padding: 8px 14px; }
+#issue-body .tiles { margin: 0; }
+#issue-body .tile { padding: 10px 14px; }
+#issue-body .tile .v { font-size: 22px; }
+#issue-body .g-row { min-height: 22px; }
+#issue-body .g-track { height: 20px; }
+#issue-body .bar { top: 3px; }
+#issue-body .bar.pr-open { top: 8px; }
+#issue-body .gate { top: 4px; }
+.act-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; }
+.act-head h3 { margin: 4px 0 0; }
+.act-head details { max-width: 70ch; }
+.act-head summary { cursor: pointer; }
+#issue-body .activities { flex: 1 1 auto; min-height: 140px; overflow: auto; border: 1px solid var(--line); border-radius: var(--radius-sm); }
+#issue-body .activities table { border: 0; }
+#issue-body .activities thead th { position: sticky; top: 0; z-index: 1; background: var(--card); box-shadow: inset 0 -1px 0 var(--line); }
+@media (max-height: 820px) {
+  /* Laptop screens: drop empty timeline rows and tighten the tiles so the activities keep a few rows. */
+  #issue-body .g-row.none { display: none; }
+  #issue-body .tile { padding: 8px 12px; }
+  #issue-body .tile .v { font-size: 20px; }
+  #issue-body .tile .l { font-size: 11.5px; }
+  #issue-body .activities { min-height: 120px; }
+}
+@media (max-width: 720px), (max-height: 560px) {
+  /* Too little room for a fixed frame: the popup scrolls as a whole. */
+  #issue-body { display: block; }
+  #issue-body > * + * { margin-top: 10px; }
+  #issue-body .activities { overflow-x: auto; overflow-y: visible; }
+}
