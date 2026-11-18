@@ -17,15 +17,16 @@ const FOUND: Result = { data: { id: "child-1" }, error: null };
  * is answered by `page(call)`. An rpc() chain without .range() never resolves, so reads must use
  * explicit ranges.
  */
-function fakeClient(child: Result, page: (call: RpcCall) => Result) {
+function fakeClient(child: Result, page: (call: RpcCall) => Result, categories: Result = OK) {
   const rpcCalls: RpcCall[] = [];
-  const from = vi.fn(() => {
+  const from = vi.fn((table?: string) => {
+    const own = table === "domain_categories" ? categories : child;
     const chain: Record<string, unknown> = {
-      then: (resolve: (value: Result) => unknown) => resolve(child),
-      maybeSingle: () => Promise.resolve(child),
-      single: () => Promise.resolve(child),
+      then: (resolve: (value: Result) => unknown) => resolve(own),
+      maybeSingle: () => Promise.resolve(own),
+      single: () => Promise.resolve(own),
     };
-    for (const m of ["select", "eq"]) chain[m] = () => chain;
+    for (const m of ["select", "eq", "is", "not", "or", "order"]) chain[m] = () => chain;
     return chain;
   });
   const rpc = vi.fn((name: string, args: unknown) => {
@@ -91,6 +92,13 @@ describe("Usage data loading and access", () => {
     const f = fakeClient(FOUND, (c) =>
       c.from === 0 ? { data: rows(1000), error: null } : { data: null, error: { message: "boom" } },
     );
+    const result = await loadUsage(f.client, INPUT);
+    expect(result).toEqual({ status: "error" });
+    expect(JSON.stringify(result)).not.toContain("s0.com");
+  });
+
+  it("Overrides query failure shows the usage error", async () => {
+    const f = fakeClient(FOUND, () => ({ data: rows(3), error: null }), { data: null, error: { message: "boom" } });
     const result = await loadUsage(f.client, INPUT);
     expect(result).toEqual({ status: "error" });
     expect(JSON.stringify(result)).not.toContain("s0.com");

@@ -45,6 +45,7 @@ describe("DashboardShell", () => {
     expect(DASHBOARD_NAV).toEqual([
       { label: "Overview", href: "/dashboard" },
       { label: "Children", href: "/dashboard/children" },
+      { label: "Categories", href: "/dashboard/categories" },
       { label: "Devices", href: "/dashboard/devices" },
       { label: "Install", href: "/dashboard/install" },
     ]);
@@ -55,12 +56,18 @@ describe("DashboardShell", () => {
     const nav = html.match(/<nav[\s\S]*?<\/nav>/);
     expect(nav).not.toBeNull();
     const hrefs = [...(nav?.[0] ?? "").matchAll(/<a[^>]*href="([^"]*)"/g)].map((m) => m[1]);
-    expect(hrefs).toEqual(["/dashboard", "/dashboard/children", "/dashboard/devices", "/dashboard/install"]);
+    expect(hrefs).toEqual([
+      "/dashboard",
+      "/dashboard/children",
+      "/dashboard/categories",
+      "/dashboard/devices",
+      "/dashboard/install",
+    ]);
   });
 
   it("nav targets exist", () => {
     const dashboard = join(here, "..", "app", "dashboard");
-    for (const p of ["page.tsx", "children/page.tsx", "devices/page.tsx", "install/page.tsx"]) {
+    for (const p of ["page.tsx", "children/page.tsx", "categories/page.tsx", "devices/page.tsx", "install/page.tsx"]) {
       expect(existsSync(join(dashboard, p)), p).toBe(true);
     }
   });
