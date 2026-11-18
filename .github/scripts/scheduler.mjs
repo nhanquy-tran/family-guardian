@@ -65,8 +65,9 @@ const isDone = (n) => byNumber.get(n)?.state === "CLOSED";
 const specApproved = (n) => isDone(n) || ["ready", "build-now", "in-progress", "in-review"].some((l) => byNumber.get(n)?.labelNames.includes(l));
 
 let active = activeAgentRuns();
+// Areas of builds that run or have an unmerged PR: a second build there would conflict on rebase (#89).
 const busyTouches = new Set(
-  [...byNumber.values()].filter((i) => i.state === "OPEN" && i.labelNames.includes("in-progress")).flatMap((i) => touchesFor(i.number)),
+  [...byNumber.values()].filter((i) => i.state === "OPEN" && (i.labelNames.includes("in-progress") || i.labelNames.includes("in-review"))).flatMap((i) => touchesFor(i.number)),
 );
 const actions = [];
 const rows = [];
