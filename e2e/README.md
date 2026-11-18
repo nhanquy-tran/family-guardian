@@ -1,6 +1,6 @@
 # End-to-end tests
 
-Playwright tests for the parent dashboard against a local Supabase stack, with generated data in five stages (ADR 0019).
+Playwright tests for the parent dashboard against a local Supabase stack, with generated data in five stages (ADR 0020).
 
 ## Run
 

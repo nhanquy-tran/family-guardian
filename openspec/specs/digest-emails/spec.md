@@ -147,7 +147,7 @@ The endpoint SHALL accept only `Authorization: Bearer <ALERT_CRON_SECRET>`, comp
 - **THEN** each response is `500 { error: "server_error" }` and `claimDigest` is never called
 
 ### Requirement: Scheduled trigger and purge
-A migration SHALL schedule job `send-digests` every 15 minutes running `call_send_digests()` when `pg_cron` and `pg_net` are available. The function SHALL POST to `<app_url>/api/digest/send` with the bearer secret and `timeout_milliseconds` 10000, both values from Vault, and do nothing but warn if either is missing. `purge_digest_runs()` SHALL delete rows older than 90 days and be scheduled daily. The endpoint SHALL then run the weekly report (weekly-report) only when the digest answered 200, and SHALL return the digest response unchanged. `purge_digest_runs()` also removes `weekly_report` claims.
+Job `send-digests` SHALL run `call_send_digests()` every 15 minutes when `pg_cron` and `pg_net` exist. The function SHALL POST to `<app_url>/api/digest/send` with the Vault bearer secret and `timeout_milliseconds` 10000, and only warn if the Vault `app_url` or secret is missing. `purge_digest_runs()` SHALL delete rows, including `weekly_report` claims, older than 90 days, daily. The endpoint SHALL run the weekly report only after a digest 200 and return the digest response unchanged.
 
 #### Scenario: Migration loads and Vault handling
 - **GIVEN** PGlite has no `pg_cron`, with stubs for `vault.decrypted_secrets` and `net.http_post`

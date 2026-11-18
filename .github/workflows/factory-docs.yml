@@ -1,15 +1,17 @@
 name: "Factory 7: docs"
 
-# Nightly: applies the "## Docs to update" notes from changes merged in the last day and opens one docs PR (ADR 0017).
+# Nightly: applies the "## Docs to update" notes of archived changes and opens one docs PR (ADR 0017).
+# docs/docs-notes-applied.txt lists the changes already handled, so a failed night loses nothing; a few
+# changes per run keep the agent inside its time limit (audit v5, R4).
 
 on:
   schedule:
     - cron: "47 2 * * *"
   workflow_dispatch:
     inputs:
-      since:
-        description: Look back this far (git date, e.g. "3 days ago")
-        default: "1 day ago"
+      batch:
+        description: Changes per run
+        default: "5"
 
 concurrency:
   group: factory-docs
@@ -18,33 +20,46 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
+  issues: write
 
 jobs:
   docs:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ secrets.FACTORY_TOKEN || github.token }}
     steps:
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 0
           token: ${{ secrets.FACTORY_TOKEN || github.token }}
       - name: Collect docs notes
         id: collect
         env:
-          SINCE: ${{ inputs.since || '1 day ago' }}
+          BATCH: ${{ inputs.batch || '5' }}
         run: |
-          : > /tmp/docs-todo.md
-          for f in $(git log --since="$SINCE" --diff-filter=A --name-only --format= -- 'openspec/changes/archive/*/NOTES.md' | sort -u); do
-            [ -f "$f" ] || continue
+          : > /tmp/docs-todo.md; : > /tmp/docs-changes.txt
+          if [ -n "$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --search 'head:docs/nightly-' --json number -q '.[].number')" ]; then
+            echo "A docs PR is still open; skipping." >> "$GITHUB_STEP_SUMMARY"; echo "todo=no" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          touch docs/docs-notes-applied.txt
+          for f in openspec/changes/archive/*/NOTES.md; do
+            NAME=$(basename "$(dirname "$f")")
+            grep -qx "$NAME" docs/docs-notes-applied.txt && continue
             SECTION=$(awk '/^## Docs to update/{on=1;next} /^## /{on=0} on' "$f" | grep -v '^\s*$' || true)
+            [ -z "$SECTION" ] && continue
             echo "$SECTION" | grep -qiE '^\s*-\s*(none|n/a)\s*$' && continue
-            [ -n "$SECTION" ] && printf '## %s\n%s\n\n' "$(dirname "$f" | xargs basename)" "$SECTION" >> /tmp/docs-todo.md
+            [ "$(wc -l < /tmp/docs-changes.txt)" -ge "$BATCH" ] && break
+            echo "$NAME" >> /tmp/docs-changes.txt
+            printf '## %s\n%s\n\n' "$NAME" "$SECTION" >> /tmp/docs-todo.md
           done
           if [ -s /tmp/docs-todo.md ]; then echo "todo=yes" >> "$GITHUB_OUTPUT"; else echo "todo=no" >> "$GITHUB_OUTPUT"; fi
           cat /tmp/docs-todo.md >> "$GITHUB_STEP_SUMMARY"
       - name: Docs writer agent
         id: agent
         if: steps.collect.outputs.todo == 'yes'
+        timeout-minutes: 20
+        # A timeout or action error must not discard finished edits; the PR shows what was done.
+        continue-on-error: true
         uses: anthropics/claude-code-action@v1
         env:
           GH_TOKEN: ""
@@ -55,22 +70,39 @@ jobs:
           prompt: Follow .claude/agents/docs-writer.md exactly.
           claude_args: |
             --model ${{ vars.FACTORY_REVIEW_MODEL || 'claude-sonnet-5-5' }}
-            --max-turns 25
             --permission-mode default
-            --allowedTools "Read,Glob,Grep,Edit(docs/**),Write(docs/**),Write(/tmp/docs-report.md),Bash(git log:*),Bash(git show:*)"
-            --disallowedTools "Edit(docs/decisions/**),Write(docs/decisions/**)"
+            --allowedTools "Read,Glob,Grep,Edit(docs/**),Write(docs/**),Write(/tmp/docs-report.md),Bash(cd:*),Bash(git log:*),Bash(git show:*)"
+            --disallowedTools "Edit(docs/decisions/**),Write(docs/decisions/**),Edit(docs/docs-notes-applied.txt),Write(docs/docs-notes-applied.txt)"
       - name: Open docs PR
-        if: steps.collect.outputs.todo == 'yes'
-        env:
-          GH_TOKEN: ${{ secrets.FACTORY_TOKEN || github.token }}
+        id: pr
+        if: always() && steps.collect.outputs.todo == 'yes'
         run: |
+          git checkout -- docs/docs-notes-applied.txt 2>/dev/null || true
           git add docs
-          git diff --cached --quiet && { echo "No doc changes."; exit 0; }
-          BRANCH="docs/nightly-$(date -u +%Y%m%d)"
+          if git diff --cached --quiet && [ "${{ steps.agent.outcome }}" != "success" ]; then
+            echo "::error::The docs agent did not finish and changed nothing"; exit 1
+          fi
+          # Changes whose items were all already true are recorded too, so they are not offered again.
+          cat /tmp/docs-changes.txt >> docs/docs-notes-applied.txt
+          git add docs
+          BRANCH="docs/nightly-$(date -u +%Y%m%d-%H%M)"
           git config user.name "family-guardian-factory"
           git config user.email "factory@users.noreply.github.com"
           git checkout -b "$BRANCH"
           git commit -m "docs: apply docs notes from merged changes"
           git push -u origin "$BRANCH"
-          { echo "Docs notes from changes merged recently."; echo; echo "## Notes"; cat /tmp/docs-todo.md; echo; echo "## Report"; cat /tmp/docs-report.md 2>/dev/null || echo "no report"; } > /tmp/body.md
+          {
+            echo "Docs notes from $(wc -l < /tmp/docs-changes.txt) archived changes."
+            [ "${{ steps.agent.outcome }}" != "success" ] && echo && echo "**The docs agent stopped early** (timeout or error); check the report before merging."
+            echo; echo "## Notes"; cat /tmp/docs-todo.md
+            echo; echo "## Report"; cat /tmp/docs-report.md 2>/dev/null || echo "no report"
+          } > /tmp/body.md
           gh pr create --title "docs: apply docs notes from merged changes" --body-file /tmp/body.md --label docs --base main
+      - name: Flag failure
+        if: failure()
+        run: |
+          if [ -n "$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search 'in:title "Factory docs job failed"' --json number -q '.[].number')" ]; then
+            echo "A docs-failure issue is already open."; exit 0
+          fi
+          gh issue create --repo "$GITHUB_REPOSITORY" --title "Factory docs job failed $(date -u +%Y-%m-%d)" --label needs-human \
+            --body "The nightly docs job failed: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}. Pending notes stay in the queue (docs/docs-notes-applied.txt)."

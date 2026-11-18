@@ -38,9 +38,9 @@ Parent: any browser (phone/PC) ──────────▶  └───�
 ## Data model (MVP)
 
 ```
-families(id, name, created_at)
+families(id, name, timezone, timezone_known, digest_frequency, digest_hour, created_at)  -- digest settings; parents may update them
 parents(user_id -> auth.users, family_id)
-children(id, family_id, name, homework_categories[], rules_version, created_at)  -- rules_version bumped by triggers on block_rules and domain_categories
+children(id, family_id, name, homework_categories[], homework_domains[], rules_version, created_at)  -- rules_version bumped by triggers on block_rules and domain_categories
 devices(id, child_id, name, token_hash, browser, os, extension_version, last_seen_at, created_at)
 pairing_codes(code, child_id, expires_at)                    -- one active code per child; deleted on redeem
 pair_attempts(id, ip_hash, at)                               -- rate limit: keyed HMAC of the IP, purged after 10 min (ADR 0012)
@@ -48,11 +48,12 @@ usage_minutes(device_id, minute_utc, domain, seconds)        -- PK (device_id, m
 block_rules(id, child_id, kind: 'domain'|'category', value)
 domain_categories(domain, category)                          -- global seed + family overrides
 block_events(device_id, at, domain)
-alerts(id, device_id, kind, sent_at)
+alerts(id, device_id, kind, sent_at, incident_last_seen_at, emailed_at, resolved_at)  -- emailed_at unused since the digest
+digest_runs(family_id, frequency, period_start, claimed_at)  -- one claim per digest, service role only; purged after 90 days
 ```
 
 - Only the **registrable domain** (e.g. `youtube.com`) and seconds are stored. No URLs, titles, content, keystrokes or screenshots.
-- Retention: 13 months for usage and for `block_events` (blocked domain plus time), then deleted by a cron job.
+- Retention: 13 months for usage and for `block_events` (blocked domain plus time), then deleted by the `purge-old-data` pg_cron job (`purge_old_data`, daily 03:23 UTC).
 - Block rules: a `domain` rule is a bare hostname kept as typed (blocking `docs.google.com` does not block `google.com`); a `category` rule is one of the 9 categories. Both are checked in the database.
 - A new parent-editable `children` column needs a column grant too (parents have column-level update rights, see the heartbeat migration).
 
@@ -62,9 +63,10 @@ alerts(id, device_id, kind, sent_at)
 2. **Pair**: parent adds a child and gets a 6-character code (valid 1 hour). The extension options page takes the code, calls `/api/device/pair`, and receives a device token (stored in `chrome.storage.local`; only a hash is stored server-side). Pairing again replaces the token and clears the local queue and tracker state. The API base URL comes from `WXT_API_BASE_URL` (https, or http on localhost). A new code deletes the child's earlier code. `redeem_pairing_code` deletes the code and inserts the device in one transaction, so a code works once. `/api/device/pair` allows 10 attempts per IP per 10 minutes (`register_pair_attempt`, service role only) and fails closed if the limiter fails.
 3. **Track**: the extension counts seconds for the focused tab's domain while the user is active (`chrome.idle`, 60 s threshold). Every minute it posts a heartbeat with per-domain seconds for the last minute(s). Nothing is tracked before pairing. Completed minutes go into a local queue (`chrome.storage.local`, kept 7 days, sent oldest first in chunks of at most 1440, halved on `413`) and are removed only after a `200`; the server upserts idempotently. An alarm fires every minute and runs all work through one serialized chain. On `401` the device keeps its token and queue, stops tracking and retries with an empty heartbeat every 15 minutes; the options page then says to pair again.
 4. **Block**: the heartbeat response carries a rules version. On change, the extension fetches rules and updates `declarativeNetRequest` dynamic rules. Blocked navigations redirect to an extension page. `GET /api/device/rules` (device token) returns `{ rulesVersion, domains, truncated }`: the child's domain rules plus category rules expanded through the seed and overrides, capped at 5000 domains (explicit domains first). The version is read before the rules. The heartbeat may carry `blocked: [{ at, domain }]` (max 1000), stored once per `(device_id, at, domain)` in `block_events`.
-5. **Focus score**: per child per day. `focus = homework_seconds / total_seconds * 100 - switch_penalty`, where a switch is a change between a homework and a non-homework domain within an active session, and `switch_penalty = min(20, switches_per_hour * 2)`. Computed in `packages/shared` and shown on the dashboard.
-6. **Tamper alert**: a `pg_cron` job every 5 minutes marks devices silent for over 15 minutes during the child's usual hours and calls the alert endpoint, which e-mails the parent via Resend once per incident.
-7. **Install**: the dashboard generates a `.reg` file that sets `ExtensionInstallForcelist`, a private-mode policy (`IncognitoModeAvailability=1` for Chrome and Brave, `InPrivateModeAvailability=1` for Edge) and `BrowserGuestModeEnabled=0` (guest windows do not load extensions) for Chrome, Edge and Brave under `HKLM\SOFTWARE\Policies`. The child must use a Standard Windows account.
+5. **Focus score**: per child per day. `focus = homework_seconds / total_seconds * 100 - switch_penalty`, where a switch is a change between a homework and a non-homework domain within an active session, and `switch_penalty = min(20, switches_per_hour * 2)`. Computed in `packages/shared` and shown on the dashboard. `/dashboard` is a focus overview; a child's homework domains and categories are edited on the homework settings page (`/dashboard/children/[childId]/homework`).
+6. **Offline alert and digest**: a `pg_cron` job every 5 minutes calls `POST /api/alerts/offline` through `pg_net` (secret from Vault). The endpoint detects silent devices (15 min to 24 h) and records an incident in `alerts`; it resolves incidents (`resolved_at`) when the device reports again. It sends no e-mail itself, and the dashboard banner shows every active incident. A second `pg_cron` job every 15 minutes calls `POST /api/digest/send`, which e-mails each family's parents a digest via Resend, at most once per period (claimed in `digest_runs`), following the family's `digest_frequency`, `digest_hour` and `timezone`.
+7. **Usage view**: `/dashboard/usage/[childId]` shows per-day usage and a day timeline, computed by SQL aggregation functions (`usage_by_day`, `usage_timeline`). The timezone comes from the browser through the `?tz=` parameter (also read by `/dashboard`); it is not stored or logged.
+8. **Install**: the dashboard generates a `.reg` file that sets `ExtensionInstallForcelist`, a private-mode policy (`IncognitoModeAvailability=1` for Chrome and Brave, `InPrivateModeAvailability=1` for Edge) and `BrowserGuestModeEnabled=0` (guest windows do not load extensions) for Chrome, Edge and Brave under `HKLM\SOFTWARE\Policies`. The child must use a Standard Windows account.
 
 ## Security
 

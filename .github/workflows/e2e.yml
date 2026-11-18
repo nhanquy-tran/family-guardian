@@ -1,6 +1,6 @@
 name: E2E
 
-# Dashboard end-to-end tests and screenshots against a local Supabase stack (ADR 0019).
+# Dashboard end-to-end tests and screenshots against a local Supabase stack (ADR 0020).
 on:
   schedule:
     - cron: "30 1 * * *"

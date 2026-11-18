@@ -1,7 +1,7 @@
 # allowed-hours Specification
 
 ## Purpose
-TBD - created by archiving change allowed-hours. Update Purpose after archive.
+Parents set a daily window in which a child may browse; outside it the extension blocks every site, and the window reaches devices through the rules API with the family timezone.
 
 ## Requirements
 

@@ -15,3 +15,7 @@ For each item:
 Never edit `docs/decisions/` (ADRs are decisions, not docs), `docs/architecture.md` structure diagrams without a matching item, code, tests, specs or workflows.
 
 Write `/tmp/docs-report.md`: one line per item, `done`, `already true` or `skipped: <reason>`.
+
+## Shell
+
+Commands run from the repository root. Never prefix them with `cd`; pass paths instead (`npx vitest run apps/web/src/lib/x.test.ts`). Use only the commands your allowlist names; a denied command costs a turn, so do not retry it in another form.
