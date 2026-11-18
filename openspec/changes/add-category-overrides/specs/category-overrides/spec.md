@@ -75,7 +75,18 @@ File: `apps/web/src/lib/category-overrides.test.ts`
 - **GIVEN** the fake delete returns one row
 - **WHEN** `removeCategoryOverride(client, id)` is called
 - **THEN** it deletes from `domain_categories` filtered by `id` and returns `{ ok: true }`
-- **AND GIVEN** the delete returns zero rows, the result is `{ ok: false, error: "not_found" }`, and with an error it is `{ ok: false, error: "failed" }`
+
+#### Scenario: Remove a missing or foreign override
+File: `apps/web/src/lib/category-overrides.test.ts`
+- **GIVEN** the fake delete returns zero rows
+- **WHEN** `removeCategoryOverride(client, id)` is called
+- **THEN** the result is `{ ok: false, error: "not_found" }`
+
+#### Scenario: Remove store failure
+File: `apps/web/src/lib/category-overrides.test.ts`
+- **GIVEN** the fake delete returns an error
+- **WHEN** `removeCategoryOverride(client, id)` is called
+- **THEN** the result is `{ ok: false, error: "failed" }` and nothing throws
 
 ### Requirement: Categories page
 The page `/dashboard/categories` SHALL render `CategoryOverridesView`: each override with its domain, category and a remove form carrying its id, a form with a domain input and a `<select>` of exactly the 9 categories, an empty-state message, a readable message per error code, and a domain input pre-filled from the `domain` prop. Each remove button SHALL name the domain it removes. Styles SHALL come from `ui.ts`, without fixed widths.
@@ -96,6 +107,11 @@ File: `apps/web/src/components/category-overrides-view.test.ts`
 - **WHEN** the view renders with `domain` `"roblox.com"`
 - **THEN** the domain input has `value="roblox.com"`
 - **AND** without `domain` the input has no value
+
+#### Scenario: Invalid domain parameter leaves the input empty
+File: `apps/web/src/components/category-overrides-view.test.ts`
+- **WHEN** the page's `?domain=` value `"localhost"` is resolved with `normalizeBlockDomain` and the view renders with the result
+- **THEN** the domain input has no value
 
 #### Scenario: Empty state and error messages
 File: `apps/web/src/components/category-overrides-view.test.ts`

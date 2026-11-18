@@ -5,9 +5,10 @@
 - **Remove** deletes by id; RLS limits it to the family's rows, so a global row or another family's row deletes zero rows and returns `not_found`.
 - **List** returns the family's rows only (`family_id` not null), sorted by domain. A query error returns a failed result, never an empty list.
 - **rules_version**: bumped by the existing trigger `domain_categories_bump_rules_version` (insert, update, delete; family rows only). Saving an unchanged category still bumps (harmless).
-- **Page** `app/dashboard/categories/page.tsx` stays thin: renders `CategoryOverridesView` with server actions in `actions.ts` (redirect with `?error=<code>`, like the rules page). `?domain=` pre-fills the domain input; it is normalised and ignored if invalid.
+- **Page** `app/dashboard/categories/page.tsx` stays thin: renders `CategoryOverridesView` with server actions in `actions.ts` (redirect with `?error=<code>`, like the rules page). `?domain=` pre-fills the domain input; it is normalised and ignored (input left empty) if invalid.
+- **Usage categories**: the shared summary functions take an optional `overrides` map (`Record<string, Category>`) passed to `categorize`. `loadUsage` reads `domain_categories` with the session client (global rows first, family rows win) and returns `{ status: "error" }` if that query fails, never seed-only categories. The focus score is unchanged.
 - **Usage link** is a plain `<a href>` (works without JavaScript, per platform notes) with the domain URL-encoded.
-- **Style**: `ui.ts` classes only; form rows wrap and the list is a card with no fixed widths, so 375 px works.
+- **Style**: `ui.ts` classes only; form rows wrap, the list is a card with no fixed widths, and the usage top-sites row wraps (`flex-wrap`), so 375 px works.
 
 ## Risks
 
