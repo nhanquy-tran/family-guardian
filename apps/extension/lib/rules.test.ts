@@ -174,7 +174,7 @@ describe("syncRules and limits", () => {
       const all = paths(added);
       expect(all).toContain("/blocked.html?d=tiktok.com");
       expect(all).toContain("/blocked.html?d=roblox.com&c=games");
-      expect(added.find((r) => r.condition.requestDomains[0] === "tiktok.com")?.id).toBe(1);
+      expect(added.find((r) => r.condition.requestDomains?.[0] === "tiktok.com")?.id).toBe(1);
       expect(data.get("limitBlocked")).toMatchObject({ "roblox.com": "games" });
     });
   });

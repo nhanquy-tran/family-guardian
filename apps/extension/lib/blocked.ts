@@ -21,7 +21,14 @@ export function addBlocked(queue: BlockedAttempt[], attempt: BlockedAttempt, now
   return pruneBlocked([...queue, attempt], now);
 }
 
+function pausedUntil(search: string): string | null {
+  const h = new URLSearchParams(search).get("h");
+  return h !== null && /^[0-9]{2}:[0-9]{2}$/.test(h) ? h : null;
+}
+
 export function describeBlock(search: string): string {
+  const until = pausedUntil(search);
+  if (until !== null) return `Browsing is paused until ${until}`;
   const category = new URLSearchParams(search).get("c");
   if (category !== null && (CATEGORIES as readonly string[]).includes(category)) {
     return `Daily limit for ${category} reached`;
@@ -30,6 +37,7 @@ export function describeBlock(search: string): string {
 }
 
 export function describeBlockDetail(search: string): string {
+  if (pausedUntil(search) !== null) return "Your parent set the hours when browsing is allowed.";
   const category = new URLSearchParams(search).get("c");
   if (category !== null && (CATEGORIES as readonly string[]).includes(category)) {
     return "The daily limit for this kind of site is reached. It opens again tomorrow.";

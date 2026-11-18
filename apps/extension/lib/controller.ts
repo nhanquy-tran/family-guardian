@@ -13,6 +13,7 @@ import {
   readOverrides,
   readUsage,
 } from "./limits";
+import { reconcileHours } from "./hours";
 import { applyRules, type Dnr, syncRules } from "./rules";
 import type { Get, KeyValueStore, Post } from "./storage";
 import {
@@ -168,7 +169,7 @@ export function createController(deps: ControllerDeps): Controller {
     if (result.kind === "ok" && deps.get !== undefined && deps.dnr !== undefined) {
       const stored = await store.get("rulesVersion");
       if (stored !== result.rulesVersion) {
-        await syncRules({ baseUrl: deps.baseUrl, token, store, get: deps.get, dnr: deps.dnr, now });
+        await syncRules({ baseUrl: deps.baseUrl, token, store, get: deps.get, dnr: deps.dnr, now, alarms: deps.alarms });
       }
     }
     if (result.kind !== "unauthorized" && deps.dnr !== undefined) await evaluateLimits(deps.dnr, now);
@@ -205,8 +206,12 @@ export function createController(deps: ControllerDeps): Controller {
       return serialize(async () => {
         const token = await readToken(store);
         if (token === null) return;
-        if (await isRejected()) await alarmWhileRejected(token, now);
-        else await alarmNormal(token, now);
+        try {
+          if (await isRejected()) await alarmWhileRejected(token, now);
+          else await alarmNormal(token, now);
+        } finally {
+          if (deps.dnr !== undefined) await reconcileHours({ store, dnr: deps.dnr, alarms: deps.alarms, now });
+        }
       }, undefined);
     },
     recordBlocked(domain, now) {

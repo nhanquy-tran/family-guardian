@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { addCategoryRule, addDomainRule, removeBlockRule, type BlockRuleResult } from "../../../../../lib/block-rules";
 import { CATEGORIES } from "@fg/shared";
+import { saveAllowedHours } from "../../../../../lib/allowed-hours";
 import { saveDailyLimits } from "../../../../../lib/daily-limits";
 import { createClient } from "../../../../../lib/supabase/server";
 
@@ -39,6 +40,20 @@ export async function saveLimitsAction(formData: FormData): Promise<void> {
     redirect(path);
   }
   redirect(`${path}?limitsError=${result.error}`);
+}
+
+export async function saveAllowedHoursAction(formData: FormData): Promise<void> {
+  const childId = field(formData, "childId");
+  const result = await saveAllowedHours(await createClient(), childId, {
+    start: field(formData, "allowed_start"),
+    end: field(formData, "allowed_end"),
+  });
+  const path = pathFor(childId);
+  if (result.ok) {
+    revalidatePath(path);
+    redirect(path);
+  }
+  redirect(`${path}?hoursError=${result.error}`);
 }
 
 export async function removeRuleAction(formData: FormData): Promise<void> {
