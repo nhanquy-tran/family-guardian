@@ -1,6 +1,6 @@
 # 0019. End-to-end tests on a local Supabase stack with generated, revertable data
 
-Date: 2026-11-18. Status: proposed (needs owner approval).
+Date: 2026-11-18. Status: accepted (owner approved 2026-11-18). Issue #123.
 
 ## Context
 Unit and PGlite tests cover logic and SQL, but nothing exercised the dashboard in a browser against real data, and there were no realistic screens to look at (empty states, a week of usage, rules, alerts) on desktop and mobile.
