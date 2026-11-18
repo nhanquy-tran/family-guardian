@@ -3,6 +3,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { browserLabel } from "../devices/status";
 import type { DigestChild, DigestIncident, DigestSource } from "./content";
 import type { DigestStore } from "./send";
+import type { WeeklyTotals } from "./weekly-report";
+import type { ReportStore } from "./weekly-report-send";
 
 function fail(what: string): never {
   throw new Error(`${what} failed`);
@@ -61,16 +63,52 @@ export function createDigestStore(client: SupabaseClient): DigestStore {
   };
 }
 
+export function createReportStore(client: SupabaseClient): ReportStore {
+  const { claimDigest, releaseDigest, listParentEmails } = createDigestStore(client);
+  return {
+    claimDigest,
+    releaseDigest,
+    listParentEmails,
+    async listReportFamilies() {
+      const { data, error } = await client
+        .from("families")
+        .select("id, digest_frequency, digest_hour, timezone, created_at")
+        .eq("weekly_report_enabled", true);
+      if (error || !data) fail("list report families");
+      return (data as FamilyRow[]).map((f) => ({
+        id: f.id,
+        frequency: f.digest_frequency,
+        hour: f.digest_hour,
+        timezone: f.timezone,
+        createdAt: f.created_at,
+      }));
+    },
+  };
+}
+
+export function createWeeklyTotals(client: SupabaseClient): WeeklyTotals {
+  return async (childIds, start, end) => {
+    const { data, error } = await client.rpc("usage_total_seconds", { p_child_ids: childIds, p_start: start, p_end: end });
+    if (error || !data) fail("usage totals");
+    return Object.fromEntries((data as { child_id: string; seconds: number | string }[]).map((r) => [r.child_id, Number(r.seconds)]));
+  };
+}
+
 type ChildRow = { id: string; name: string; homework_categories: Category[] | null; homework_domains: string[] | null };
 type DeviceRow = { id: string; child_id: string; browser: string; os: string };
 type AlertRow = { device_id: string; incident_last_seen_at: string; resolved_at: string | null };
 type UsageRow = { minute_utc: string; domain: string; seconds: number };
 
 export function createDigestSource(client: SupabaseClient): DigestSource {
+  const deviceIdCache = new Map<string, string[]>();
   async function deviceIds(childId: string): Promise<string[]> {
+    const cached = deviceIdCache.get(childId);
+    if (cached) return cached;
     const { data, error } = await client.from("devices").select("id").eq("child_id", childId);
     if (error || !data) fail("list devices");
-    return (data as { id: string }[]).map((d) => d.id);
+    const ids = (data as { id: string }[]).map((d) => d.id);
+    deviceIdCache.set(childId, ids);
+    return ids;
   }
 
   return {

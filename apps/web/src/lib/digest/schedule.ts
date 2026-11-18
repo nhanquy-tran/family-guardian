@@ -77,3 +77,27 @@ export function latestDuePeriod(family: DigestFamily, now: Date): DuePeriod | nu
     end: new Date(localToInstantMs(formatter, sendDay * DAY_MS)).toISOString(),
   };
 }
+
+export type ReportPeriod = {
+  frequency: "weekly_report";
+  /** Local date (YYYY-MM-DD) of the Monday on which the reported week starts. */
+  periodStart: string;
+  /** UTC instants as ISO strings; the week is [start, end). */
+  start: string;
+  end: string;
+  /** Start of the week before, as an ISO string. */
+  prevStart: string;
+};
+
+export function reportPeriod(family: DigestFamily, now: Date): ReportPeriod | null {
+  const due = latestDuePeriod({ ...family, frequency: "weekly" }, now);
+  if (!due) return null;
+  const startDay = Date.parse(`${due.periodStart}T00:00:00Z`) / DAY_MS;
+  return {
+    frequency: "weekly_report",
+    periodStart: due.periodStart,
+    start: due.start,
+    end: due.end,
+    prevStart: new Date(localToInstantMs(formatterFor(family.timezone), (startDay - 7) * DAY_MS)).toISOString(),
+  };
+}

@@ -41,7 +41,7 @@ const PAGE = 1000;
 const MAX_PAGES = 30;
 const TOP_DOMAINS = 3;
 
-async function readAllUsage(source: DigestSource, childId: string, start: string, end: string): Promise<UsageEntry[]> {
+export async function readAllUsage(source: DigestSource, childId: string, start: string, end: string): Promise<UsageEntry[]> {
   const all: UsageEntry[] = [];
   // One page past the cap: any row there means the child has more data than we read, which is an error.
   for (let page = 0; page <= MAX_PAGES; page++) {
@@ -56,7 +56,7 @@ async function readAllUsage(source: DigestSource, childId: string, start: string
   return all;
 }
 
-function formatDuration(totalSeconds: number): string {
+export function formatDuration(totalSeconds: number): string {
   const minutes = Math.round(totalSeconds / 60);
   if (minutes < 60) return `${minutes} min`;
   return `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, "0")} min`;

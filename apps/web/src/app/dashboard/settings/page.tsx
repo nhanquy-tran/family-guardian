@@ -1,6 +1,8 @@
 import { alertError, buttonPrimary, card, input, pageTitle, pillGreen } from "../../../components/ui";
+import { WeeklyReportForm } from "../../../components/weekly-report-form";
+import { loadWeeklyReportSetting } from "../../../lib/digest/settings";
 import { createClient } from "../../../lib/supabase/server";
-import { saveDigestSettingsAction } from "./actions";
+import { saveDigestSettingsAction, saveWeeklyReportAction } from "./actions";
 import { TimezoneField } from "./timezone-field";
 
 type SearchParams = Promise<{ error?: string | string[]; saved?: string | string[] }>;
@@ -17,6 +19,7 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
   const frequency = family?.digest_frequency ?? "daily";
   const hour = family?.digest_hour ?? 8;
   const error = first(params.error);
+  const report = await loadWeeklyReportSetting(client);
 
   return (
     <div className="space-y-6">
@@ -59,6 +62,13 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
           </p>
         ) : null}
       </form>
+      {report.ok ? (
+        <WeeklyReportForm enabled={report.enabled} action={saveWeeklyReportAction} />
+      ) : (
+        <p role="alert" className={alertError}>
+          Could not load the weekly report setting
+        </p>
+      )}
     </div>
   );
 }

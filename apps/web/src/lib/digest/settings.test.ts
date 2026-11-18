@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it, vi } from "vitest";
-import { captureFamilyTimezone, saveDigestSettings } from "./settings";
+import { captureFamilyTimezone, loadWeeklyReportSetting, saveDigestSettings, saveWeeklyReportSetting } from "./settings";
 
 type Row = Record<string, unknown>;
 
@@ -89,5 +89,67 @@ describe("captureFamilyTimezone", () => {
     const known = fakeClient([{ ...defaults(), timezone: "Asia/Tokyo", timezone_known: true }]);
     await captureFamilyTimezone(known.client, "Europe/Zurich");
     expect(known.rows[0]).toMatchObject({ timezone: "Asia/Tokyo", timezone_known: true });
+  });
+});
+
+describe("saveWeeklyReportSetting", () => {
+  it("Valid save", async () => {
+    const f = fakeClient([defaults()]);
+    expect(await saveWeeklyReportSetting(f.client, true)).toEqual({ ok: true });
+    expect(await saveWeeklyReportSetting(f.client, false)).toEqual({ ok: true });
+    expect(f.updates).toEqual([{ weekly_report_enabled: true }, { weekly_report_enabled: false }]);
+  });
+
+  it("Invalid input or failed update", async () => {
+    for (const value of ["true", 1, null, undefined]) {
+      const f = fakeClient([defaults()]);
+      expect(await saveWeeklyReportSetting(f.client, value), String(value)).toEqual({ ok: false, error: "invalid" });
+      expect(f.updates, String(value)).toEqual([]);
+    }
+    const erroring = fakeClient([defaults()], { fail: true });
+    expect(await saveWeeklyReportSetting(erroring.client, true)).toEqual({ ok: false, error: "failed" });
+    const noRows = fakeClient([defaults()], { noRows: true });
+    expect(await saveWeeklyReportSetting(noRows.client, true)).toEqual({ ok: false, error: "failed" });
+  });
+});
+
+/** Read-only fake for `families`: records the selected columns; single-row reads get an object, others an array. */
+function readClient(result: { data: Row | null; error: { message: string } | null }) {
+  const selects: string[] = [];
+  const from = vi.fn((table: string) => {
+    expect(table).toBe("families");
+    const builder = {
+      select(columns: string) {
+        selects.push(columns);
+        return builder;
+      },
+      limit: () => builder,
+      eq: () => builder,
+      single: async () => result,
+      maybeSingle: async () => result,
+      then(resolve: (v: unknown) => void) {
+        resolve({ data: result.data ? [result.data] : [], error: result.error });
+      },
+    };
+    return builder;
+  });
+  return { client: { from } as unknown as SupabaseClient, selects };
+}
+
+describe("loadWeeklyReportSetting", () => {
+  it("Settings read", async () => {
+    const on = readClient({ data: { weekly_report_enabled: true }, error: null });
+    expect(await loadWeeklyReportSetting(on.client)).toEqual({ ok: true, enabled: true });
+    const off = readClient({ data: { weekly_report_enabled: false }, error: null });
+    expect(await loadWeeklyReportSetting(off.client)).toEqual({ ok: true, enabled: false });
+    // its own query: only the report column, not the digest columns
+    expect(on.selects).toHaveLength(1);
+    expect(on.selects[0]).toContain("weekly_report_enabled");
+    expect(on.selects[0]).not.toContain("digest_");
+  });
+
+  it("Settings read failure is not shown as defaults", async () => {
+    const failing = readClient({ data: null, error: { message: "db error" } });
+    expect(await loadWeeklyReportSetting(failing.client)).toEqual({ ok: false });
   });
 });
