@@ -57,7 +57,7 @@ jobs:
       ISSUE: ${{ matrix.issue }}
       GH_TOKEN: ${{ secrets.FACTORY_TOKEN || github.token }}
       MODEL: ${{ vars.FACTORY_BUILD_MODEL || 'claude-sonnet-5-5' }}
-      # light (heavy build phase): no hidden tests, no verifier, lower turn caps (ADR 0018). full: everything.
+      # light (heavy build phase): no hidden tests, no verifier, smaller specs (ADR 0018). full: everything.
       MODE: ${{ vars.FACTORY_MODE || 'full' }}
     steps:
       - uses: actions/checkout@v5
@@ -96,7 +96,8 @@ jobs:
 
       - name: Test writer agent
         id: test_writer
-        # The gates below decide; a turn-cap or action error must not discard finished work.
+        timeout-minutes: 12
+        # The gates below decide; a timeout or action error must not discard finished work.
         continue-on-error: true
         uses: anthropics/claude-code-action@v1
         env:
@@ -110,9 +111,8 @@ jobs:
             OpenSpec change: ${{ steps.change.outputs.name }}. Issue: #${{ matrix.issue }}.
           claude_args: |
             --model ${{ env.MODEL }}
-            --max-turns ${{ env.MODE == 'light' && 30 || vars.FACTORY_TEST_MAX_TURNS || 45 }}
             --permission-mode default
-            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(npx vitest:*),Bash(npm run typecheck:*),Bash(npm test:*),Bash(ls:*),Bash(mkdir:*)"
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(cd:*),Bash(npx vitest:*),Bash(npm run typecheck:*),Bash(npm test:*),Bash(ls:*),Bash(mkdir:*)"
 
       - name: Transcript (test-writer)
         if: always() && steps.test_writer.outputs.execution_file != ''
@@ -186,6 +186,7 @@ jobs:
 
       - name: Developer agent
         id: developer
+        timeout-minutes: 20
         continue-on-error: true
         uses: anthropics/claude-code-action@v1
         env:
@@ -200,9 +201,8 @@ jobs:
             If a test looks wrong, STOP and write it under "## Test concerns" in NOTES.md; never work around a test in the code.
           claude_args: |
             --model ${{ env.MODEL }}
-            --max-turns ${{ env.MODE == 'light' && 50 || vars.FACTORY_DEV_MAX_TURNS || 70 }}
             --permission-mode default
-            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(npm run:*),Bash(npm test:*),Bash(npx vitest:*),Bash(npx openspec:*),Bash(npm install:*),Bash(ls:*),Bash(date:*),Bash(git status:*),Bash(git diff:*),Bash(git rm:*)"
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(cd:*),Bash(npm run:*),Bash(npm test:*),Bash(npx vitest:*),Bash(npx openspec:*),Bash(npm install:*),Bash(ls:*),Bash(date:*),Bash(git status:*),Bash(git diff:*),Bash(git rm:*)"
             --disallowedTools "${{ steps.guardrails.outputs.deny }}"
 
       - name: Transcript (developer)
@@ -265,6 +265,7 @@ jobs:
       # wrong test by the spec. Once per build; test changes are labelled for the gate.
       - name: Debugger agent
         id: debugger
+        timeout-minutes: 12
         if: >-
           always() && steps.tests.outcome == 'success' && steps.guard.outputs.result == 'pass' &&
           (steps.green.outputs.result != 'pass' || steps.gate.outputs.result != 'pass')
@@ -281,9 +282,8 @@ jobs:
             OpenSpec change: ${{ steps.change.outputs.name }}. Issue: #${{ matrix.issue }}.
           claude_args: |
             --model ${{ env.MODEL }}
-            --max-turns 40
             --permission-mode default
-            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(npx vitest:*),Bash(npm run:*),Bash(git diff:*),Bash(git log:*),Bash(git status:*),Bash(git rm:*),Bash(ls:*)"
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(cd:*),Bash(npx vitest:*),Bash(npm run:*),Bash(git diff:*),Bash(git log:*),Bash(git status:*),Bash(git rm:*),Bash(ls:*)"
             --disallowedTools "Edit(acceptance/**),Write(acceptance/**),Edit(docs/architecture.md),Bash(git rm supabase/migrations:*)"
 
       - name: Transcript (debugger)
@@ -344,6 +344,7 @@ jobs:
       # failure. It changes nothing but NOTES.md, so the hidden gate stays meaningful; the gate acts on it.
       - name: Hidden test verdict (debugger)
         id: hidden_verdict
+        timeout-minutes: 8
         if: always() && startsWith(steps.hidden.outputs.result, 'fail (hidden')
         continue-on-error: true
         uses: anthropics/claude-code-action@v1
@@ -359,9 +360,8 @@ jobs:
             Hidden tests: acceptance/${{ steps.change.outputs.name }}/. Output: /tmp/hidden.log.
           claude_args: |
             --model ${{ env.MODEL }}
-            --max-turns 20
             --permission-mode default
-            --allowedTools "Read,Glob,Grep,Edit,Write,Bash(npx vitest run:*),Bash(git diff:*),Bash(git log:*),Bash(ls:*)"
+            --allowedTools "Read,Glob,Grep,Edit,Write,Bash(cd:*),Bash(npx vitest run:*),Bash(git diff:*),Bash(git log:*),Bash(ls:*)"
 
       - name: Keep only the verdict
         id: hidden_verdict_result
@@ -392,6 +392,7 @@ jobs:
 
       - name: Verifier agent
         id: verifier
+        timeout-minutes: 10
         if: always() && steps.tests.outcome == 'success' && env.MODE != 'light'
         continue-on-error: true
         uses: anthropics/claude-code-action@v1
@@ -407,9 +408,8 @@ jobs:
             Write the result to openspec/changes/${{ steps.change.outputs.name }}/VERIFY.md (first line VERIFY: PASS or VERIFY: CRITICAL).
           claude_args: |
             --model ${{ env.MODEL }}
-            --max-turns 30
             --permission-mode default
-            --allowedTools "Read,Glob,Grep,Write,Skill,Bash(npx openspec:*),Bash(openspec:*),Bash(npx vitest run:*),Bash(ls:*),Bash(git diff:*),Bash(git log:*),Bash(git status:*)"
+            --allowedTools "Read,Glob,Grep,Write,Skill,Bash(cd:*),Bash(npx openspec:*),Bash(openspec:*),Bash(npx vitest run:*),Bash(ls:*),Bash(git diff:*),Bash(git log:*),Bash(git status:*)"
 
       - name: Transcript (verifier)
         if: always() && steps.verifier.outputs.execution_file != ''

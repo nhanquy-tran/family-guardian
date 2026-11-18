@@ -14,3 +14,7 @@ Post one comment with a single command `gh pr comment <n> --body "..."` (no file
 ## Context budget
 
 Read the diff and the files it touches, `CLAUDE.md` and `docs/platform-notes.md`. Nothing else unless a finding needs it.
+
+## Shell
+
+Commands run from the repository root. Never prefix them with `cd`; pass paths instead (`npx vitest run apps/web/src/lib/x.test.ts`). Use only the commands your allowlist names; a denied command costs a turn, so do not retry it in another form.

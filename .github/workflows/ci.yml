@@ -25,21 +25,9 @@ jobs:
         if: github.event_name == 'pull_request'
         run: bash .github/scripts/check-migrations.sh
       - uses: ./.github/actions/setup
-      # Same gates as `npm run check`, run side by side; each log is printed in full afterwards.
-      - name: Typecheck, lint and test
-        run: |
-          npm run typecheck > typecheck.log 2>&1 & typecheck=$!
-          npm run lint > lint.log 2>&1 & lint=$!
-          npm run test > test.log 2>&1 & tests=$!
-          status=0
-          for step in typecheck lint tests; do
-            pid=${!step}
-            if wait "$pid"; then result=passed; else result=failed; status=1; fi
-            log=$([ "$step" = tests ] && echo test.log || echo "$step.log")
-            echo "::group::$step ($result)"; cat "$log"; echo "::endgroup::"
-            [ "$result" = failed ] && echo "::error::$step failed"
-          done
-          exit $status
+      - run: npm run check
+      - name: Source-of-truth specs valid
+        run: npx openspec validate --specs --strict --no-interactive
 
   # Runs next to `check` to cut wall time; both are required on main. The name avoids clashing with the
   # factory's matrix job `build (<issue>)`.
