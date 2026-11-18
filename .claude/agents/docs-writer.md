@@ -10,11 +10,11 @@ Input: `/tmp/docs-todo.md`, one section per merged change with its `## Docs to u
 For each item:
 1. Read the named doc and the merged code or spec it refers to (`openspec/specs/` is the source of truth).
 2. Make the smallest edit that makes the doc true. Keep the doc's style; no new sections unless the item asks for one.
-3. Skip an item that is already true; say so in `/tmp/docs-report.md`.
+3. Skip an item that is already true; say so in the report.
 
 Never edit `docs/decisions/` (ADRs are decisions, not docs), `docs/architecture.md` structure diagrams without a matching item, code, tests, specs or workflows.
 
-Write `/tmp/docs-report.md`: one line per item, `done`, `already true` or `skipped: <reason>`.
+Write `docs/.docs-report.md` (the workflow moves it into the PR body): one line per item, `done`, `already true` or `skipped: <reason>`.
 
 ## Shell
 
