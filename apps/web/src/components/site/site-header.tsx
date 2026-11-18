@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Locale } from "../../lib/i18n/locale";
 import type { Messages } from "../../lib/i18n/messages";
 import { buttonPrimary, navLink } from "../ui";
@@ -10,9 +11,9 @@ export function SiteHeader({ locale, messages }: { locale: Locale; messages: Mes
         <img src="/icon.svg" alt="" width={28} height={28} />
         {messages.nav.brand}
       </a>
-      <a href="/login" className={buttonPrimary}>
+      <Link href="/login" className={buttonPrimary}>
         {messages.nav.signIn}
-      </a>
+      </Link>
     </header>
   );
 }

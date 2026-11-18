@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { CATEGORIES, type Category } from "@fg/shared";
 import type { ReactElement } from "react";
 import type { HomeworkError } from "../lib/homework";
@@ -29,7 +30,7 @@ export function HomeworkSettingsView({ childId, childName, categories, extraDoma
   return (
     <div className="space-y-6">
       <h1 className={pageTitle}>Homework for {childName}</h1>
-      <a href="/dashboard/children" className={LINK}>Back to children</a>
+      <Link href="/dashboard/children" className={LINK}>Back to children</Link>
       {error ? <p role="alert" className={alertError}>{MESSAGES[error] ?? MESSAGES.failed}</p> : null}
 
       <form action={actions?.saveCategoriesAction} className={`${card} space-y-3`}>

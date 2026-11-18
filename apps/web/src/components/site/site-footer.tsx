@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
 import type { Locale } from "../../lib/i18n/locale";
 import type { Messages } from "../../lib/i18n/messages";
@@ -17,9 +18,9 @@ export function SiteFooter({
       <div className="flex flex-col gap-2">
         <p className="text-sm text-ink-2">{messages.footer.note}</p>
         <div className="flex flex-wrap gap-1">
-          <a href="/privacy" className={navLink}>
+          <Link href="/privacy" className={navLink}>
             {messages.footer.privacy}
-          </a>
+          </Link>
           <a href={`/${locale}/help`} className={navLink}>
             {messages.footer.help}
           </a>

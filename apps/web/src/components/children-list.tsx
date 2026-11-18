@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ReactElement } from "react";
 import type { ChildRow } from "../lib/children";
 import { PAIRING_ERROR_MESSAGES, type PairingErrorReason } from "../lib/pairing/create-code";
@@ -96,7 +97,7 @@ export function ChildrenList({
           </div>
         </form>
       ) : null}
-      {pending ? <a href="/dashboard/children" className={LINK}>Cancel</a> : null}
+      {pending ? <Link href="/dashboard/children" className={LINK}>Cancel</Link> : null}
     </div>
   );
 }

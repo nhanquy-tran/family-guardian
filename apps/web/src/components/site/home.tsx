@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Locale } from "../../lib/i18n/locale";
 import type { Messages } from "../../lib/i18n/messages";
 import { buttonPrimary, buttonSecondary, card, cardTitle, container, pillAccent, pillGrey } from "../ui";
@@ -23,9 +24,9 @@ export function Home({ messages }: { locale: Locale; messages: Messages }) {
         </div>
         <p className="text-lg text-ink-2">{m.hero.subtitle}</p>
         <div className="flex flex-wrap gap-2">
-          <a href="/login" className={buttonPrimary}>
+          <Link href="/login" className={buttonPrimary}>
             {m.hero.signIn}
-          </a>
+          </Link>
           <a href="#how-it-works" className={buttonSecondary}>
             {m.hero.how}
           </a>
@@ -46,9 +47,9 @@ export function Home({ messages }: { locale: Locale; messages: Messages }) {
                   <h3 className={cardTitle}>{step.title}</h3>
                   <p className="text-sm text-ink-2">{step.text}</p>
                   {"link" in step && (
-                    <a href="/install" className={textLink}>
+                    <Link href="/install" className={textLink}>
                       {step.link}
-                    </a>
+                    </Link>
                   )}
                 </div>
               </li>
@@ -94,9 +95,9 @@ export function Home({ messages }: { locale: Locale; messages: Messages }) {
             </ul>
           </div>
         </div>
-        <a href="/privacy" className={textLink}>
+        <Link href="/privacy" className={textLink}>
           {m.privacy.link}
-        </a>
+        </Link>
       </section>
     </main>
   );
