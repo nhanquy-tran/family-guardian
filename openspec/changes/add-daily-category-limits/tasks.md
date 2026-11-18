@@ -8,7 +8,7 @@
 
 ## 2. Implementation
 
-- [ ] 2.1 Migration `<utc timestamp>_child_category_limits.sql` (use the `add-migration` skill)
+- [ ] 2.1 Migration `<utc timestamp>_child_category_limits.sql` with the limits table, its bump trigger and the families timezone trigger (use the `add-migration` skill)
 - [ ] 2.2 `RulesResponse` fields in `packages/shared/src/contracts.ts`
 - [ ] 2.3 `lib/daily-limits.ts`
 - [ ] 2.4 `DailyLimitsCard`, `saveLimitsAction`, rules page wiring
@@ -17,4 +17,4 @@
 ## 3. Finish
 
 - [ ] 3.1 `npm run check` and `npm run build` pass
-- [ ] 3.2 `NOTES.md` lists docs to update (`docs/architecture.md`: new table and rules response fields)
+- [ ] 3.2 `NOTES.md` lists docs to update (`docs/architecture.md`: new table and rules response fields; `docs/platform-notes.md`: `bump_rules_version()` bumps twice on UPDATE, and the timezone trigger)

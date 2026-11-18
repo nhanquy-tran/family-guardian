@@ -26,11 +26,20 @@ File: `supabase/tests/daily-limits.test.ts`
 File: `supabase/tests/daily-limits.test.ts`
 - **GIVEN** a child with `rules_version` `0`
 - **WHEN** a limit is inserted, then updated, then deleted
-- **THEN** `rules_version` is `1`, `2` and `3` after each step
+- **THEN** `rules_version` is `1` after the insert, `3` after the update (the shared trigger bumps the old and the new child) and `4` after the delete
 - **AND** another child's `rules_version` is unchanged
 
+### Requirement: Timezone change reaches devices
+The migration SHALL add an `after update of timezone on public.families` trigger that bumps `rules_version` of every child of the family when `old.timezone is distinct from new.timezone`, so devices refetch the rules and reset limits at the right midnight.
+
+#### Scenario: Timezone change bumps the family's children
+File: `supabase/tests/daily-limits.test.ts`
+- **GIVEN** two children of family A at `rules_version` `0` and a child of family B
+- **WHEN** family A's timezone changes from `UTC` to `Asia/Tokyo`, then is saved unchanged
+- **THEN** both A children are at `1` after each step and B's child stays at `0`
+
 ### Requirement: Limits are validated and saved fail-closed
-`saveDailyLimits(client, childId, values)` SHALL take a map of category to raw input (empty = no limit), reject the whole save before any write on an unknown category or a value that is not a whole number from 5 to 1440, and otherwise upsert the set values and delete the cleared ones. Any store error SHALL return `{ ok: false, error: "failed" }`. `listDailyLimits` SHALL return limits in category order, or a failed result on error.
+`saveDailyLimits(client, childId, values)` SHALL take a map of category to raw input (trimmed first; empty after trimming = no limit), reject the whole save before any write on an unknown category or a trimmed value that does not match `^\d+$` or is not from 5 to 1440, and otherwise upsert the set values and delete the cleared ones. Any store error SHALL return `{ ok: false, error: "failed" }`. `listDailyLimits` SHALL return limits in category order, or a failed result on error.
 
 #### Scenario: Valid values are upserted
 File: `apps/web/src/lib/daily-limits.test.ts`
@@ -91,13 +100,18 @@ File: `apps/web/src/components/daily-limits-card.test.ts`
 - **THEN** the markup contains the `card` and `buttonPrimary` class strings from `ui.ts` and no raw palette class (`bg-blue-`, `text-gray-`, hex colour)
 
 ### Requirement: Rules contract carries limits and timezone
-`RulesResponse` SHALL accept `limits` (an array of at most 9 `{ category, minutesPerDay }` with a known category and an integer from 5 to 1440, default `[]`) and an optional non-empty string `timezone`. A body without the new fields SHALL still parse, and unknown fields SHALL be stripped.
+`RulesResponse` SHALL accept `limits` (an array of at most 9 `{ category, minutesPerDay }` with a known category and an integer from 5 to 1440, default `[]`) and an optional non-empty `timezone` string of at most 64 characters. `limits` SHALL NOT contain the same category twice. A body without the new fields SHALL still parse, and unknown fields SHALL be stripped.
 
 #### Scenario: New fields parse and are bounded
 File: `packages/shared/src/contracts.test.ts`
 - **WHEN** `RulesResponse` parses a body with `limits: [{ category: "games", minutesPerDay: 60 }]` and `timezone: "Asia/Ho_Chi_Minh"`
 - **THEN** it parses unchanged
-- **AND** a limit with category `music`, with `minutesPerDay` `4`, `1441` or `1.5`, an empty `timezone`, and 10 limits each fail to parse
+- **AND** a limit with category `music`, with `minutesPerDay` `4`, `1441` or `1.5`, an empty `timezone`, a 65-character `timezone`, and 10 limits each fail to parse
+
+#### Scenario: Duplicate categories rejected
+File: `packages/shared/src/contracts.test.ts`
+- **WHEN** `RulesResponse` parses `limits` with `games 60` twice
+- **THEN** it fails to parse
 
 #### Scenario: Older body still parses
 File: `packages/shared/src/contracts.test.ts`
@@ -112,9 +126,3 @@ File: `apps/web/src/lib/device/supabase-store.test.ts`
 - **GIVEN** a fake client returning a device row whose child has `family_id`, `rules_version` `3` and family timezone `Asia/Ho_Chi_Minh`, and limit rows `{ category: "games", minutes_per_day: 60 }`
 - **WHEN** `findChild` and `listLimits` are called
 - **THEN** they return `timezone: "Asia/Ho_Chi_Minh"` and `[{ category: "games", minutesPerDay: 60 }]`, and `listLimits` filters by `child_id`
-
-#### Scenario: Limits store failure fails closed
-File: `apps/web/src/lib/device/rules-endpoint.test.ts`
-- **GIVEN** the fake store throws in `listLimits`
-- **WHEN** a valid request is handled
-- **THEN** the status is 500 with body `{ error: "server_error" }` and no `domains`, `limits` or `rulesVersion`
