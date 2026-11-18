@@ -25,7 +25,21 @@ jobs:
         if: github.event_name == 'pull_request'
         run: bash .github/scripts/check-migrations.sh
       - uses: ./.github/actions/setup
-      - run: npm run check
+      # Same gates as `npm run check`, run side by side; each log is printed in full afterwards.
+      - name: Typecheck, lint and test
+        run: |
+          npm run typecheck > typecheck.log 2>&1 & typecheck=$!
+          npm run lint > lint.log 2>&1 & lint=$!
+          npm run test > test.log 2>&1 & tests=$!
+          status=0
+          for step in typecheck lint tests; do
+            pid=${!step}
+            if wait "$pid"; then result=passed; else result=failed; status=1; fi
+            log=$([ "$step" = tests ] && echo test.log || echo "$step.log")
+            echo "::group::$step ($result)"; cat "$log"; echo "::endgroup::"
+            [ "$result" = failed ] && echo "::error::$step failed"
+          done
+          exit $status
 
   # Runs next to `check` to cut wall time; both are required on main. The name avoids clashing with the
   # factory's matrix job `build (<issue>)`.
@@ -35,6 +49,11 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup
+      - uses: actions/cache@v4
+        with:
+          path: apps/web/.next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('apps/web/src/**', 'packages/shared/src/**') }}
+          restore-keys: next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
       - run: npm run build
 
   secrets-scan:
