@@ -10,7 +10,10 @@
 - Language names in the switcher are written in their own language: English, Tiếng Việt, 简体中文.
 
 ## Components (`apps/web/src/components/site/`)
-`home.tsx` (hero, how it works, features, privacy section), `site-header.tsx`, `site-footer.tsx`, `language-switcher.tsx`. The switcher is a client component using `usePathname` (like `dashboard-nav.tsx`) with an optional `currentPath` override for tests; it replaces the first path segment and keeps the rest, so it works for the help and FAQ pages added later. Links are plain `<a>`/`Link`: no cookie, no storage.
+`home.tsx` (hero, how it works, features, privacy section), `site-header.tsx`, `site-footer.tsx`, `language-switcher.tsx`. The switcher is a client component using `usePathname` (like `dashboard-nav.tsx`) that receives `locale` and falls back to `/<locale>` when `usePathname()` is null (tests mock `next/navigation`); it replaces the first path segment and keeps the rest, so it works for the help and FAQ pages added later. Links are plain `<a>`/`Link`: no cookie, no storage.
+
+## Install link
+The install-on-Windows step of "How it works" links to `/install` (kept English), so `home.tsx` contains `href="/install"`; the windows-installer home-link scenario points there.
 
 ## Design
 Only `ui.ts` constants (`container`, `card`, `buttonPrimary`, `buttonSecondary`, `navLink`, `pill*`) and token utilities; `ui.ts` itself does not change. Illustrations are the `/icon.svg` image and CSS shapes (cards, pills, numbered circles). Text uses `text-ink` / `text-ink-2` only (the `web-ui` contrast rule). Inter is loaded by `next/font/google` (downloaded at build, served from our own domain, so no third-party request at runtime); `subsets` gains `"vietnamese"`. Chinese falls back to the system font stack. Layout is a single column with `flex-wrap`/`grid-cols-1` base and wider columns from `sm:`; no fixed widths.

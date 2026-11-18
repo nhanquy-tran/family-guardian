@@ -12,4 +12,4 @@
 
 ## 4. Finish
 - [ ] 4.1 `npm run check` and `npm run build` pass
-- [ ] 4.2 NOTES.md lists docs to update (`docs/architecture.md` public site section, `apps/web/CLAUDE.md` i18n note)
+- [ ] 4.2 NOTES.md lists docs to update (`docs/architecture.md` public site section, `apps/web/CLAUDE.md` i18n note); follow-up: `<html lang="en">` is served on `/vi` and `/zh` (only an inner `lang` element is set)

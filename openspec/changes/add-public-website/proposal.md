@@ -1,5 +1,5 @@
 Depends on: none
-Touches: public-site, parent-auth, apps/web/src/app/layout.tsx
+Touches: public-site, windows-installer, apps/web/src/app/layout.tsx
 
 # Public website: home page in English, Vietnamese and Chinese (#98)
 
