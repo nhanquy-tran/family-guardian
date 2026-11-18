@@ -1,7 +1,7 @@
 # limit-enforcement Specification
 
 ## Purpose
-TBD - created by archiving change enforce-daily-category-limits. Update Purpose after archive.
+The extension counts each category's active time per day in the family timezone and blocks a category's domains with DNR rules once its daily limit is used up, until the next local midnight, keeping limit blocks across rule syncs and restarts.
 
 ## Requirements
 
