@@ -98,7 +98,8 @@ export function limitBlockDomains(
     const category = categorize(domain, overrides);
     if (wanted.has(category)) found[domain] = category;
   }
-  for (const [domain, category] of Object.entries(seenToday)) {
+  for (const domain of Object.keys(seenToday)) {
+    const category = categorize(domain, overrides);
     if (wanted.has(category)) found[domain] = category;
   }
   const result: Record<string, Category> = {};

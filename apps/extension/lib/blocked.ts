@@ -29,6 +29,14 @@ export function describeBlock(search: string): string {
   return "This site is blocked";
 }
 
+export function describeBlockDetail(search: string): string {
+  const category = new URLSearchParams(search).get("c");
+  if (category !== null && (CATEGORIES as readonly string[]).includes(category)) {
+    return "The daily limit for this kind of site is reached. It opens again tomorrow.";
+  }
+  return "Your parent has blocked this site. Ask them if you need it for school.";
+}
+
 export function parseBlockedMessage(raw: unknown): { domain: string } | null {
   if (typeof raw !== "object" || raw === null) return null;
   const m = raw as { type?: unknown; domain?: unknown };

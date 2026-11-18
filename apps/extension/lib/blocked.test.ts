@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { addBlocked, describeBlock, parseBlockedMessage, parseBlockedQueue } from "./blocked";
+import { addBlocked, describeBlock, describeBlockDetail, parseBlockedMessage, parseBlockedQueue } from "./blocked";
 import { NOW } from "./test-fakes";
+
+describe("describeBlockDetail", () => {
+  it("Limit page subtext says the limit is reached", () => {
+    expect(describeBlockDetail("?d=roblox.com&c=games")).toContain("daily limit");
+    expect(describeBlockDetail("?d=roblox.com&c=games")).not.toContain("Your parent has blocked");
+    expect(describeBlockDetail("?d=roblox.com")).toContain("Your parent has blocked this site");
+    expect(describeBlockDetail("?d=roblox.com&c=music")).toContain("Your parent has blocked this site");
+  });
+});
 
 describe("describeBlock", () => {
   it("Limit and generic text", () => {

@@ -40,10 +40,14 @@ export async function handleRules({ authorization, store }: RulesInput): Promise
       ...rows.filter((r) => r.familyId !== null).map((r) => r.domain),
       ...rows.filter((r) => r.familyId === null).map((r) => r.domain),
     ];
+    let count = 0;
     for (const key of new Set(mergedKeys)) {
-      if (Object.keys(capped).length >= MAX_RULE_DOMAINS) break;
+      if (count >= MAX_RULE_DOMAINS) break;
       const category = overrides[key];
-      if (category !== undefined) capped[key] = category;
+      if (category !== undefined) {
+        capped[key] = category;
+        count++;
+      }
     }
 
     const explicit = [...new Set(rules.filter((r) => r.kind === "domain").map((r) => r.value))].sort();

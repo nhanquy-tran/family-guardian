@@ -47,10 +47,17 @@ describe("limits", () => {
     expect(overLimitCategories([], { games: 300 })).toEqual([]);
   });
 
+  it("Recategorised site seen today is not blocked under its old category", () => {
+    const set = limitBlockDomains(["games"], { "x.example.com": "education" }, { "x.example.com": "games" }, []);
+    expect(set).not.toHaveProperty("x.example.com");
+    const still = limitBlockDomains(["games"], {}, { "x.example.com": "games" }, []);
+    expect(still).not.toHaveProperty("x.example.com");
+  });
+
   it("Domain set and rules", () => {
     const set = limitBlockDomains(
       ["games"],
-      { "youtube.com": "games", "chess.com": "education" },
+      { "youtube.com": "games", "chess.com": "education", "newgame.example.com": "games" },
       { "newgame.example.com": "games" },
       ["roblox.com"],
     );

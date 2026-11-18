@@ -131,7 +131,7 @@ export function createController(deps: ControllerDeps): Controller {
     if (result.kind === "ok" && deps.get !== undefined && deps.dnr !== undefined) {
       const stored = await store.get("rulesVersion");
       if (stored !== result.rulesVersion) {
-        await syncRules({ baseUrl: deps.baseUrl, token, store, get: deps.get, dnr: deps.dnr });
+        await syncRules({ baseUrl: deps.baseUrl, token, store, get: deps.get, dnr: deps.dnr, now });
       }
     }
     if (result.kind !== "unauthorized" && deps.dnr !== undefined) await evaluateLimits(deps.dnr, now);

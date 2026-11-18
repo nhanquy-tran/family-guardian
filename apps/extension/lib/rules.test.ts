@@ -129,11 +129,13 @@ describe("syncRules and limits", () => {
       // 120 seconds is below 5 * 60 = 300, so no games rule is applied
       expect(paths(first.updates[0]?.addRules ?? [])).toEqual([]);
       expect(a.data.get("rulesLimits")).toEqual(raised.limits);
+      expect(a.data.get("limitBlocked")).toEqual({});
 
       const second = createDnr([1, 2]);
       const b = sync(limitState, always2(body({ limits: [] })).get, second.dnr);
       await b.result;
       expect(b.data.get("rulesLimits")).toEqual([]);
+      expect(b.data.get("limitBlocked")).toEqual({});
       expect(paths(second.updates[0]?.addRules ?? [])).toEqual([]);
     });
   });

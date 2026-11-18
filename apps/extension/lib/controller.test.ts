@@ -465,7 +465,7 @@ describe("controller limit enforcement", () => {
     await alarms(controller, 1, 6);
     const all = paths(rules());
     expect(all).toContain("/blocked.html?d=roblox.com&c=games");
-    expect(all.some((p) => p.includes("youtube.com"))).toBe(false);
+    expect(all.some((p) => new URLSearchParams(p.split("?")[1]).get("d") === "youtube.com")).toBe(false);
     expect(data.get("limitBlocked")).toMatchObject({ "roblox.com": "games" });
   });
 

@@ -20,6 +20,7 @@ export interface SyncDeps {
   store: KeyValueStore;
   get: Get;
   dnr: Dnr;
+  now?: number;
 }
 
 export type SyncResult = { kind: "ok"; rulesVersion: number } | { kind: "failed" };
@@ -67,7 +68,7 @@ export async function syncRules(deps: SyncDeps): Promise<SyncResult> {
       usage: await deps.store.get("limitUsage"),
       overrides: categoryOverrides,
       manualDomains: domains,
-      now: Date.now(),
+      now: deps.now ?? Date.now(),
       timezone,
     });
     await applyRules(deps.dnr, domains, limitBlocked);
