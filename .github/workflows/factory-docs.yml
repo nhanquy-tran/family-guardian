@@ -71,7 +71,7 @@ jobs:
           claude_args: |
             --model ${{ vars.FACTORY_REVIEW_MODEL || 'claude-sonnet-5-5' }}
             --permission-mode default
-            --allowedTools "Read,Glob,Grep,Edit(docs/**),Write(docs/**),Write(/tmp/docs-report.md),Bash(cd:*),Bash(git log:*),Bash(git show:*)"
+            --allowedTools "Read,Glob,Grep,Edit(docs/**),Write(docs/**),Write(//tmp/docs-report.md),Bash(cd:*),Bash(git log:*),Bash(git show:*)"
             --disallowedTools "Edit(docs/decisions/**),Write(docs/decisions/**),Edit(docs/docs-notes-applied.txt),Write(docs/docs-notes-applied.txt)"
       - name: Open docs PR
         id: pr
@@ -82,8 +82,9 @@ jobs:
           if git diff --cached --quiet && [ "${{ steps.agent.outcome }}" != "success" ]; then
             echo "::error::The docs agent did not finish and changed nothing"; exit 1
           fi
-          # Changes whose items were all already true are recorded too, so they are not offered again.
-          cat /tmp/docs-changes.txt >> docs/docs-notes-applied.txt
+          # Only a finished run marks its changes as handled (including items that were already true);
+          # after an early stop the same changes come back next run and finished items read as already true.
+          if [ "${{ steps.agent.outcome }}" = "success" ]; then cat /tmp/docs-changes.txt >> docs/docs-notes-applied.txt; fi
           git add docs
           BRANCH="docs/nightly-$(date -u +%Y%m%d-%H%M)"
           git config user.name "family-guardian-factory"
