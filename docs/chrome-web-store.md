@@ -49,6 +49,7 @@ WXT_API_BASE_URL=https://family-guardian.co npm run zip -w extension
   - `storage`: keep the device token, block rules and unsent usage while offline
   - `alarms`: send a usage report once a minute
   - `declarativeNetRequest` (since 0.3.0): block the websites and categories the parent chose, apply daily time limits and allowed hours by redirecting blocked pages to the extension's own "blocked" page. Rules are applied in the browser; no page content is read.
+  - `action` manifest key (toolbar icon with a title; no new permission): shows the minutes-left badge when a daily limit is about to run out
   - Host permission `https://family-guardian.co/*`: send usage reports to the parent's dashboard and fetch the parent's rules (our own API only)
   - Host permission `<all_urls>` (since 0.3.0): required by `declarativeNetRequest` redirect rules so a blocked site on any domain can be redirected to the blocked page. Pages are never read or modified otherwise.
 - Remote code: No

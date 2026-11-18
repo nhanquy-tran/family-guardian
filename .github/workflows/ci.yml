@@ -37,6 +37,11 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup
+      - uses: actions/cache@v4
+        with:
+          path: apps/web/.next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('apps/web/src/**', 'packages/shared/src/**') }}
+          restore-keys: next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
       - run: npm run build
 
   secrets-scan:
