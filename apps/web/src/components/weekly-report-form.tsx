@@ -13,8 +13,8 @@ export function WeeklyReportForm({ enabled, action }: WeeklyReportFormProps) {
         Weekly report
       </label>
       <p className="text-sm text-ink-2">
-        All parents of the family receive the report on Monday at the digest hour. Turning it on midweek sends the report for the
-        previous week on the next Monday.
+        All parents of the family receive the report. The latest completed week may arrive within about 15 minutes; after that, every
+        Monday at your digest hour.
       </p>
       <button type="submit" className={buttonPrimary}>
         Save

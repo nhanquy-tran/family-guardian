@@ -100,10 +100,15 @@ type AlertRow = { device_id: string; incident_last_seen_at: string; resolved_at:
 type UsageRow = { minute_utc: string; domain: string; seconds: number };
 
 export function createDigestSource(client: SupabaseClient): DigestSource {
+  const deviceIdCache = new Map<string, string[]>();
   async function deviceIds(childId: string): Promise<string[]> {
+    const cached = deviceIdCache.get(childId);
+    if (cached) return cached;
     const { data, error } = await client.from("devices").select("id").eq("child_id", childId);
     if (error || !data) fail("list devices");
-    return (data as { id: string }[]).map((d) => d.id);
+    const ids = (data as { id: string }[]).map((d) => d.id);
+    deviceIdCache.set(childId, ids);
+    return ids;
   }
 
   return {

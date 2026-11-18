@@ -47,7 +47,16 @@ describe("digest send route module", () => {
     expect(await res.json()).toEqual(counts);
     expect(handlers.digest).toHaveBeenCalledTimes(1);
     expect(handlers.report).toHaveBeenCalledTimes(1);
-    expect(handlers.report.mock.calls[0]?.[0]).toMatchObject({ authorization: "Bearer s3cret" });
+    const reportArgs = handlers.report.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(reportArgs).toMatchObject({ authorization: "Bearer s3cret" });
+    expect(reportArgs).toHaveProperty("secret");
+    expect(reportArgs).toHaveProperty("mailConfigured");
+    expect(reportArgs).toHaveProperty("appUrl");
+    expect(typeof reportArgs.build).toBe("function");
+    const digestArgs = handlers.digest.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(reportArgs.secret).toBe(digestArgs.secret);
+    expect(reportArgs.mailConfigured).toBe(digestArgs.mailConfigured);
+    expect(reportArgs.appUrl).toBe(digestArgs.appUrl);
 
     // a failing report never changes the digest response
     handlers.report.mockResolvedValue({ status: 500, body: { error: "server_error" } });
