@@ -1,6 +1,6 @@
 import { PGlite } from "@electric-sql/pglite";
-import { randomUUID } from "node:crypto";
-import { readdirSync, readFileSync } from "node:fs";
+import { createHash, randomUUID } from "node:crypto";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 export const MIGRATIONS_DIR = join(__dirname, "..", "migrations");
@@ -29,12 +29,60 @@ export function migrationFiles(): string[] {
   return readdirSync(MIGRATIONS_DIR).sort();
 }
 
-export async function createDb(): Promise<PGlite> {
+/** Replays the stand-in and every migration on a fresh database. */
+export async function createDbFromMigrations(): Promise<PGlite> {
   const db = new PGlite();
   await db.exec(STAND_IN);
   for (const file of migrationFiles()) {
     await db.exec(readFileSync(join(MIGRATIONS_DIR, file), "utf8"));
   }
+  return db;
+}
+
+const SNAPSHOT_DIR = join(__dirname, "..", "..", "node_modules", ".cache", "fg-pglite");
+
+function snapshotKey(): string {
+  const hash = createHash("sha256");
+  const pkg = join(__dirname, "..", "..", "node_modules", "@electric-sql", "pglite", "package.json");
+  hash.update(existsSync(pkg) ? readFileSync(pkg) : "");
+  hash.update(STAND_IN);
+  for (const file of migrationFiles()) hash.update(file).update(readFileSync(join(MIGRATIONS_DIR, file)));
+  return hash.digest("hex").slice(0, 16);
+}
+
+/**
+ * Replaying every migration costs about 1.8 s per database and grows with each migration, so the
+ * migrated database is dumped once per migration set and later databases load that dump (~0.3 s).
+ * The key covers the migrations, the stand-in and the PGlite version; a bad migration still fails
+ * while the snapshot is built.
+ */
+export async function ensureSnapshot(): Promise<string> {
+  const path = join(SNAPSHOT_DIR, `${snapshotKey()}.tar`);
+  if (existsSync(path)) return path;
+  const db = await createDbFromMigrations();
+  const dump = await db.dumpDataDir("none");
+  await db.close();
+  mkdirSync(SNAPSHOT_DIR, { recursive: true });
+  const tmp = `${path}.${process.pid}.${randomUUID()}`;
+  writeFileSync(tmp, Buffer.from(await dump.arrayBuffer()));
+  try {
+    renameSync(tmp, path);
+  } catch {
+    // Another worker published the same snapshot first.
+    rmSync(tmp, { force: true });
+  }
+  for (const old of readdirSync(SNAPSHOT_DIR)) {
+    if (old.endsWith(".tar") && join(SNAPSHOT_DIR, old) !== path) rmSync(join(SNAPSHOT_DIR, old), { force: true });
+  }
+  return path;
+}
+
+let snapshot: Promise<Blob> | null = null;
+
+export async function createDb(): Promise<PGlite> {
+  snapshot ??= ensureSnapshot().then((path) => new Blob([readFileSync(path)]));
+  const db = new PGlite({ loadDataDir: await snapshot });
+  await db.waitReady;
   return db;
 }
 
