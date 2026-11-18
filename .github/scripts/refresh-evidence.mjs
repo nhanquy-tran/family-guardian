@@ -28,6 +28,19 @@ const testFiles = testsSha
   ? sh("git", ["show", "--name-only", "--format=", testsSha]).split("\n").filter((f) => /\.test\.tsx?$/.test(f) && !f.startsWith("acceptance/"))
   : [];
 
+// Tests named in the change's own scenarios ("File: `path`") also count, e.g. existing tests a MODIFIED requirement keeps.
+if (changeDir && existsSync(`${changeDir}/specs`)) {
+  for (const cap of readdirSync(`${changeDir}/specs`)) {
+    const spec = `${changeDir}/specs/${cap}/spec.md`;
+    if (!existsSync(spec)) continue;
+    for (const m of readFileSync(spec, "utf8").matchAll(/File:\s*`([^`]+\.test\.tsx?)`/g)) {
+      const f = m[1].startsWith("apps/") || m[1].startsWith("packages/") || m[1].startsWith("supabase/") ? m[1] : `apps/web/src/${m[1]}`;
+      if (existsSync(f) && !testFiles.includes(f)) testFiles.push(f);
+    }
+  }
+}
+const light = /\| Factory mode \| light \|/.test(body);
+
 const rows = [];
 const add = (gate, result) => rows.push(`| ${gate} | ${result} |`);
 
@@ -54,10 +67,10 @@ if (existsSync(`acceptance/${change}`)) {
   const count = /Tests\s+(\d+) passed/.exec(hidden.stdout.replace(/\x1b\[[0-9;]*m/g, ""))?.[1];
   add("Hidden acceptance tests pass", hidden.status === 0 ? `pass (${count ?? "all"})` : "fail (see the workflow log)");
   if (hidden.status !== 0) console.log(hidden.stdout.slice(-3000));
-} else add("Hidden acceptance tests pass", "not in the tree");
+} else add("Hidden acceptance tests pass", light ? "skipped (light mode)" : "not in the tree");
 
 const verify = changeDir && existsSync(`${changeDir}/VERIFY.md`) ? readFileSync(`${changeDir}/VERIFY.md`, "utf8").split("\n")[0].trim() : "";
-add("OpenSpec verify (report from the build, not re-run)", verify || "no report");
+add("OpenSpec verify (report from the build, not re-run)", verify || (light ? "skipped (light mode)" : "no report"));
 add("Archive: delta specs merged into openspec/specs", archived ? `done (\`${archived}\`)` : "not archived");
 add("npm run check + build", "see the required CI `check` on this commit");
 
