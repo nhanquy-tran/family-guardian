@@ -24,5 +24,10 @@ runs:
     - if: steps.modules.outputs.cache-hit != 'true'
       shell: bash
       run: npm ci --no-audit --no-fund ${{ inputs.ignore-scripts == 'true' && '--ignore-scripts' || '' }}
+    # A cache hit skips npm ci and with it the extension's postinstall (`wxt prepare`), which generates
+    # apps/extension/.wxt/tsconfig.json; without it vitest cannot load the extension tests.
+    - if: steps.modules.outputs.cache-hit == 'true' && inputs.ignore-scripts != 'true'
+      shell: bash
+      run: npm run postinstall --workspace extension --if-present
     - shell: bash
       run: echo "$PWD/node_modules/.bin" >> "$GITHUB_PATH"
