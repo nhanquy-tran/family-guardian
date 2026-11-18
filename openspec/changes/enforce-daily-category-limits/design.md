@@ -7,6 +7,9 @@
 - **Domain set of a category** (`limitBlockDomains`): seed domains (`SEED_CATEGORIES`) and override keys kept only when `categorize(domain, overrides)` equals the category, plus domains seen today in that category (`limitUsage.domains`, domain names only, reset daily). Domains in `rulesDomains` are excluded (manual rule wins); total rules stay within `MAX_RULE_DOMAINS`, manual first.
 - **Rules**: manual rules keep ids `1..n` from `buildRules`; limit rules take the following ids (`buildLimitRules`, redirect to `/blocked.html?d=<domain>&c=<category>`). `applyRules` gets an optional third argument (default none) so existing callers and tests are unchanged.
 - **Block page**: pure `describeBlock(search)` in `lib/blocked.ts`; `c` is shown only if it is one of `CATEGORIES`, otherwise the generic text. No URL is read.
-- **Rules API**: family override rows come from a new `RulesStore` method that pages with `.range()` (PostgREST returns at most 1000 rows per request), throws on error (endpoint answers 500) and caps at `MAX_RULE_DOMAINS`. The existing merged global+family map for `expandBlockRules` stays. Fakes of `RulesStore` in existing tests need the new method.
+- **Rules API**: `categoryOverrides` is the merged global+family map already built for `expandBlockRules` (family wins), via the existing `listCategoryOverrides`; capped at `MAX_RULE_DOMAINS` with family rows first. No new store method. Keys are `z.string().max(253)`.
+- **Sync keeps limit blocks**: `applyRules` removes every dynamic rule, so `syncRules` also computes the limit rules and stores `limitBlocked` from the same update. The first limit rule id is the count of valid manual rules plus 1. A missing stored `limitBlocked` counts as `{}`.
+- **Lag**: enforcement lags up to 2 minutes (the current minute is not counted); accepted.
+- **Rejected device (401)**: no evaluation runs, so limit blocks do not reset at midnight until the device recovers.
 - **Re-pairing** also removes the new limit keys.
 - No ADR: nothing new is sent or stored on the server.

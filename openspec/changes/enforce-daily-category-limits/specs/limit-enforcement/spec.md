@@ -9,6 +9,7 @@ File: `apps/extension/lib/limits.test.ts`
 - **WHEN** `addUsage` runs
 - **THEN** the seconds are `games 60` and `education 30`
 - **AND** `dayKey` returns `2026-11-17` for `2026-11-17T16:59:59Z` and `2026-11-18` for `2026-11-17T17:00:00Z`, and the `UTC` date for timezone `Not/AZone`
+- **AND** with `America/New_York`, `2026-11-02T04:59:59Z` is `2026-11-01` and `2026-11-02T05:00:00Z` is `2026-11-02`
 - **AND** a stored day of `2026-11-17` with `games 500` yields usage `{}` when today is `2026-11-18`
 
 ### Requirement: A category is over its limit at the limit
@@ -28,11 +29,11 @@ File: `apps/extension/lib/limits.test.ts`
 - **GIVEN** `games` over its limit, overrides `{ "youtube.com": "games", "chess.com": "education" }`, seen today `newgame.example.com` as `games`, and manual domains `["roblox.com"]`
 - **WHEN** `limitBlockDomains` and `buildLimitRules` run
 - **THEN** the set contains `minecraft.net`, `youtube.com` and `newgame.example.com`, and not `roblox.com` or `chess.com`
-- **AND** the rule for `minecraft.net` redirects to `/blocked.html?d=minecraft.net&c=games` and the first limit rule id is the manual rule count plus 1
+- **AND** the rule for `minecraft.net` redirects to `/blocked.html?d=minecraft.net&c=games` and the first limit rule id is the count of valid manual rules (from `buildRules`) plus 1
 - **AND** with 4999 manual domains at most one limit rule is produced
 
 ### Requirement: The controller enforces limits on every alarm
-On each normal alarm the controller SHALL count completed usage, compute the limit-blocked domains from the stored limits, timezone, overrides and usage, and when they differ from the stored `limitBlocked` apply the DNR rules (manual and limit rules together) and store `limitBlocked`. If the DNR update fails it SHALL store nothing and retry at the next alarm.
+On each normal alarm the controller SHALL count completed usage, compute the limit-blocked domains from the stored limits, timezone, overrides and usage, and when they differ from the stored `limitBlocked` apply the DNR rules (manual and limit rules together) and store `limitBlocked`. A missing stored `limitBlocked` SHALL count as `{}`. If the DNR update fails it SHALL store nothing and retry at the next alarm.
 
 #### Scenario: Limit reached blocks the category
 File: `apps/extension/lib/controller.test.ts`
@@ -65,7 +66,7 @@ File: `apps/extension/lib/controller.test.ts`
 - **THEN** after the first run `limitBlocked` is not stored, and after the second the rules are applied and stored
 
 ### Requirement: A rules sync updates limits and keeps the last ones on failure
-`syncRules` SHALL store `rulesLimits`, `rulesTimezone` and `rulesOverrides` together with the rules, and apply limit rules for the already over-limit categories in the same DNR update. A failed sync SHALL change none of them. A removed limit, or one raised above today's usage, SHALL unblock the category after the next successful sync.
+`syncRules` SHALL store `rulesLimits`, `rulesTimezone` and `rulesOverrides` together with the rules, and apply limit rules for the already over-limit categories in the same DNR update, and SHALL store `limitBlocked` from that same update, so a manual-rule sync never lifts limit blocks. A failed sync SHALL change none of them. A removed limit, or one raised above today's usage, SHALL unblock the category after the next successful sync.
 
 #### Scenario: Sync stores inputs and unblocks
 File: `apps/extension/lib/rules.test.ts`
@@ -78,6 +79,21 @@ File: `apps/extension/lib/rules.test.ts`
 - **GIVEN** stored limits `games 5` and the rules request fails with 500, a network error, or a body with `categoryOverrides: "x"`
 - **WHEN** `syncRules` runs
 - **THEN** `rulesLimits`, `rulesTimezone` and `rulesOverrides` are unchanged and no DNR update happens
+
+#### Scenario: Manual-rule sync keeps limit blocks
+File: `apps/extension/lib/rules.test.ts`
+- **GIVEN** `games` over its limit with its `c=games` rules applied
+- **WHEN** `syncRules` runs with a sync answering `domains: ["tiktok.com"]`
+- **THEN** the DNR rules keep the `c=games` rules and add `tiktok.com`, and `limitBlocked` is stored from that update
+
+### Requirement: Limit-blocked attempts are recorded
+The controller SHALL record `{ at, domain }` when the blocked page reports a domain that is a key of stored `limitBlocked`, only while a token exists, like attempts on manual rules.
+
+#### Scenario: Limit-blocked domain recorded
+File: `apps/extension/lib/controller.test.ts`
+- **GIVEN** a token, `rulesDomains` `[]` and `limitBlocked` `{ "roblox.com": "games" }`
+- **WHEN** `recordBlocked("roblox.com", now)` runs
+- **THEN** `blockedQueue` is `[{ at: "2026-11-17T10:05:30.000Z", domain: "roblox.com" }]`
 
 ### Requirement: The block page names the category
 `describeBlock(search)` SHALL return the text `Daily limit for <category> reached` when `c` is one of the 9 categories, and the generic blocked text otherwise. It SHALL read only `d` and `c`.
