@@ -46,7 +46,7 @@ export function createRulesStore(client: SupabaseClient): RulesStore {
       if (!data) return null;
       const child = data.children as unknown as { family_id: string; rules_version: number } | null;
       if (!child) return null;
-      return { childId: data.child_id as string, familyId: child.family_id, rulesVersion: child.rules_version };
+      return { childId: data.child_id as string, familyId: child.family_id, rulesVersion: child.rules_version, timezone: "UTC" };
     },
     async listRules(childId) {
       const { data, error } = await client
@@ -56,6 +56,9 @@ export function createRulesStore(client: SupabaseClient): RulesStore {
         .limit(MAX_RULE_DOMAINS);
       if (error) throw error;
       return (data ?? []) as { kind: "domain" | "category"; value: string }[];
+    },
+    async listLimits(_childId) {
+      throw new Error("not implemented");
     },
     async listCategoryOverrides(familyId) {
       const { data, error } = await client
