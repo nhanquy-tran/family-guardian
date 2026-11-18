@@ -50,6 +50,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           HEAD=$(gh pr view "$PR" --json headRefName -q .headRefName)
+          # The PR title ends with (#<issue>); a `full-mode` label on that issue overrides light mode.
+          ISSUE=$(gh pr view "$PR" --json title -q .title | grep -oE '\(#[0-9]+\)$' | tr -dc '0-9' || true)
+          if [ -n "$ISSUE" ] && gh issue view "$ISSUE" --json labels -q '.labels[].name' | grep -qx full-mode; then
+            MODE=full; echo "MODE=full" >> "$GITHUB_ENV"
+          fi
+          echo "Factory mode: $MODE" >> "$GITHUB_STEP_SUMMARY"
           if [ "$MODE" = "light" ] && [[ "$HEAD" == spec/* ]]; then echo "skip=true" >> "$GITHUB_OUTPUT"; echo "Light mode: no AI review on spec PRs" >> "$GITHUB_STEP_SUMMARY"; else echo "skip=false" >> "$GITHUB_OUTPUT"; fi
       - name: "Stage 1: spec compliance"
         id: spec

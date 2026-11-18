@@ -98,7 +98,7 @@ jobs:
             echo "| Gate | Result |"
             echo "|---|---|"
             echo "| Spec eval: structure, GIVEN/WHEN/THEN, test files named, \`openspec validate --strict\` | ${SPEC_EVAL:-not run} |"
-            echo "| AI review | posted as a comment, verdict also in the \`factory/review\` status |"
+            if [ "$MODE" = "light" ]; then echo "| AI review | none in light mode: Claude's spec gate reviews (ADR 0018) |"; else echo "| AI review | posted as a comment, verdict also in the \`factory/review\` status |"; fi
             echo
             cat /tmp/spec-eval.md 2>/dev/null || true
             if git diff --name-only HEAD~1 | grep -q QUESTIONS.md; then
