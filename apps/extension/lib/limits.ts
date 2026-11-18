@@ -79,6 +79,14 @@ export function addUsage(
   return usage;
 }
 
+export function minutesLeft(
+  _limits: CategoryLimit[],
+  _seconds: Partial<Record<Category, number>>,
+  _category: Category | null,
+): number | null {
+  throw new Error("not implemented");
+}
+
 export function overLimitCategories(limits: CategoryLimit[], seconds: Partial<Record<Category, number>>): Category[] {
   return limits.filter((l) => (seconds[l.category] ?? 0) >= l.minutesPerDay * 60).map((l) => l.category);
 }

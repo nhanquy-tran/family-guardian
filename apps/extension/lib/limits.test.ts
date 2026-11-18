@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addUsage, buildLimitRules, dayKey, limitBlockDomains, overLimitCategories } from "./limits";
+import { addUsage, buildLimitRules, dayKey, limitBlockDomains, minutesLeft, overLimitCategories } from "./limits";
 import { buildRules } from "./rules";
 
 const ms = (iso: string) => Date.parse(iso);
@@ -52,6 +52,23 @@ describe("limits", () => {
     expect(set).not.toHaveProperty("x.example.com");
     const still = limitBlockDomains(["games"], {}, { "x.example.com": "games" }, []);
     expect(still).not.toHaveProperty("x.example.com");
+  });
+
+  it("Rounded up within five minutes", () => {
+    const limits = [{ category: "games" as const, minutesPerDay: 10 }];
+    // left = 600 - used: 300, 240, 60, 1 seconds -> ceil(/60) = 5, 4, 1, 1
+    const results = [300, 360, 540, 599].map((used) => minutesLeft(limits, { games: used }, "games"));
+    expect(results).toEqual([5, 4, 1, 1]);
+  });
+
+  it("Nothing outside the window", () => {
+    const limits = [{ category: "games" as const, minutesPerDay: 10 }];
+    // 299 used = 301 left (> 300); 600 and 700 are at or over the limit
+    expect(minutesLeft(limits, { games: 299 }, "games")).toBeNull();
+    expect(minutesLeft(limits, { games: 600 }, "games")).toBeNull();
+    expect(minutesLeft(limits, { games: 700 }, "games")).toBeNull();
+    expect(minutesLeft(limits, { news: 590 }, "news")).toBeNull();
+    expect(minutesLeft(limits, { games: 540 }, null)).toBeNull();
   });
 
   it("Domain set and rules", () => {

@@ -19,6 +19,10 @@ export interface ControllerDeps {
   post: Post;
   get?: Get;
   dnr?: Dnr;
+  badge?: {
+    setBadgeText(details: { text: string }): Promise<unknown>;
+    setBadgeBackgroundColor(details: { color: string }): Promise<unknown>;
+  };
   baseUrl: string;
   extensionVersion: string;
   os: string;
