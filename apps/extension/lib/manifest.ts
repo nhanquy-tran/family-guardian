@@ -3,6 +3,7 @@ export interface ManifestParts {
   host_permissions: string[];
   web_accessible_resources: { resources: string[]; matches: string[] }[];
   incognito: "not_allowed";
+  action: { default_title: string };
 }
 
 export function buildManifest(apiOrigin: string): ManifestParts {
@@ -11,5 +12,6 @@ export function buildManifest(apiOrigin: string): ManifestParts {
     host_permissions: [`${apiOrigin}/*`, "<all_urls>"],
     web_accessible_resources: [{ resources: ["blocked.html"], matches: ["<all_urls>"] }],
     incognito: "not_allowed",
+    action: { default_title: "Family Guardian" },
   };
 }
