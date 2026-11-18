@@ -1,4 +1,6 @@
-# 0018. Weekly usage report e-mail
+# 0020. Weekly usage report e-mail
+
+Numbered 0018 in its change (`add-weekly-usage-report`); renumbered because 0018 was already the factory light mode.
 
 Date: 2026-11-18. Status: proposed (needs owner approval). Issue #90.
 
