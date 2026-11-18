@@ -668,7 +668,7 @@ describe("controller allowed hours", () => {
   });
 
   it("Limit evaluation keeps the hours rule", async () => {
-    const { dnr, rules } = createDnr([2000000]);
+    const { dnr, rules, updates } = createDnr([2000000]);
     const { alarms } = fakeAlarms();
     const { controller } = build(
       {
@@ -684,6 +684,9 @@ describe("controller allowed hours", () => {
     await controller.onAlarm(Date.parse("2026-11-17T22:00:00Z"));
     expect(hasHours(rules())).toBe(true);
     expect(rules().length).toBeGreaterThan(1);
+    // The rule must survive the limit update itself, not only be re-added by reconcileHours afterwards.
+    expect(updates.length).toBeGreaterThan(0);
+    expect(updates.every((u) => !u.removeRuleIds.includes(2000000))).toBe(true);
   });
 
   it("Successful re-pair", async () => {
