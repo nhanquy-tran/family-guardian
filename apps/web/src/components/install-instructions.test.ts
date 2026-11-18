@@ -55,7 +55,7 @@ describe("InstallInstructions", () => {
   it("Page and home link exist", () => {
     const page = readFileSync(resolve(webSrc, "app/install/page.tsx"), "utf8");
     expect(page).toContain("InstallInstructions");
-    const home = readFileSync(resolve(webSrc, "app/page.tsx"), "utf8");
+    const home = readFileSync(resolve(webSrc, "components/site/home.tsx"), "utf8");
     expect(home).toContain('href="/install"');
   });
 });

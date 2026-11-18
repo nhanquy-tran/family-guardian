@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { type ChildDevices, deviceErrorMessage } from "../lib/devices/devices";
 import { browserLabel, deviceLabel, deviceStatus, formatLastSeen } from "../lib/devices/status";
 import { alertError, buttonDanger, buttonSecondary, card, cardTitle, input, pillGreen, pillGrey } from "./ui";
@@ -28,9 +29,9 @@ export function DeviceList({ groups, now, error, confirmRemoveId, renameAction, 
           {child.devices.length === 0 && (
             <p className="text-ink-2">
               No devices yet.{" "}
-              <a href="/dashboard/children" className={LINK}>
+              <Link href="/dashboard/children" className={LINK}>
                 Go to children
-              </a>
+              </Link>
             </p>
           )}
           {child.devices.map((device) => {
@@ -65,9 +66,9 @@ export function DeviceList({ groups, now, error, confirmRemoveId, renameAction, 
                       <input type="hidden" name="deviceId" value={device.id} />
                       <button type="submit" className={buttonDanger}>Yes, remove</button>
                     </form>{" "}
-                    <a href="/dashboard/devices" className={LINK}>
+                    <Link href="/dashboard/devices" className={LINK}>
                       Cancel
-                    </a>
+                    </Link>
                   </div>
                 )}
               </div>

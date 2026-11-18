@@ -1,0 +1,106 @@
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({ acceptLanguage: null as string | null }));
+
+vi.mock("next/headers", () => ({
+  headers: async () => {
+    const h = new Headers();
+    if (mocks.acceptLanguage !== null) h.set("accept-language", mocks.acceptLanguage);
+    return h;
+  },
+}));
+vi.mock("next/navigation", () => ({
+  redirect: (to: string): never => {
+    throw new Error(`REDIRECT:${to}`);
+  },
+  usePathname: () => null,
+}));
+
+import { authRedirect } from "../lib/auth/redirects";
+import { getMessages } from "../lib/i18n/messages";
+import { config } from "../proxy";
+import RootPage from "./page";
+import { dynamicParams, generateStaticParams } from "./[locale]/page";
+import { generateMetadata } from "./[locale]/layout";
+import robots from "./robots";
+import sitemap from "./sitemap";
+
+const here = __dirname;
+const ORIGIN = "https://family-guardian.co";
+const text = (v: unknown) => (typeof v === "string" ? v : "");
+
+beforeEach(() => {
+  mocks.acceptLanguage = null;
+});
+
+describe("public site routing and SEO", () => {
+  it("Root redirects by language", async () => {
+    mocks.acceptLanguage = "vi";
+    await expect(Promise.resolve().then(() => RootPage())).rejects.toThrow("REDIRECT:/vi");
+    mocks.acceptLanguage = null;
+    await expect(Promise.resolve().then(() => RootPage())).rejects.toThrow("REDIRECT:/en");
+  });
+
+  it("Unknown locale is 404", async () => {
+    expect(dynamicParams).toBe(false);
+    const params = await generateStaticParams();
+    expect(params.map((p) => p.locale).sort()).toEqual(["en", "vi", "zh"]);
+  });
+
+  it("Auth and app routes are untouched", () => {
+    expect(config.matcher).toEqual(["/dashboard/:path*", "/login"]);
+    const proxySrc = readFileSync(resolve(here, "../proxy.ts"), "utf8");
+    expect(proxySrc).not.toContain("locale");
+    expect(proxySrc).not.toContain("Accept-Language");
+    expect(authRedirect("/en", false)).toBeNull();
+    expect(authRedirect("/vi", true)).toBeNull();
+    for (const f of ["login", "dashboard", "install", "privacy"]) {
+      expect(existsSync(resolve(here, f, "page.tsx")), f).toBe(true);
+    }
+  });
+
+  it("Metadata per locale", async () => {
+    const titles = new Set<string>();
+    for (const locale of ["en", "vi", "zh"]) {
+      const meta = await generateMetadata({ params: Promise.resolve({ locale }) });
+      const m = getMessages(locale as "en") as { meta: { title: string; description: string } };
+      expect(meta.title).toBe(m.meta.title);
+      expect(meta.description).toBe(m.meta.description);
+      titles.add(text(meta.title));
+    }
+    expect(titles.size).toBe(3);
+
+    const vi_ = await generateMetadata({ params: Promise.resolve({ locale: "vi" }) });
+    expect(vi_.alternates?.canonical).toBe(`${ORIGIN}/vi`);
+    expect(vi_.alternates?.languages).toEqual({
+      en: `${ORIGIN}/en`,
+      vi: `${ORIGIN}/vi`,
+      zh: `${ORIGIN}/zh`,
+      "x-default": `${ORIGIN}/en`,
+    });
+    expect(vi_.openGraph).toMatchObject({
+      title: vi_.title,
+      description: vi_.description,
+      url: `${ORIGIN}/vi`,
+      type: "website",
+      siteName: "Family Guardian",
+      locale: "vi_VN",
+    });
+  });
+
+  it("Sitemap and robots", () => {
+    const urls = sitemap().map((e) => e.url);
+    expect([...urls].sort()).toEqual([`${ORIGIN}/en`, `${ORIGIN}/privacy`, `${ORIGIN}/vi`, `${ORIGIN}/zh`]);
+    for (const u of urls) expect(u).not.toMatch(/dashboard|login|install|api|auth/);
+
+    const r = robots();
+    const rules = Array.isArray(r.rules) ? r.rules : [r.rules];
+    const allow = rules.flatMap((x) => (x.allow === undefined ? [] : [x.allow].flat()));
+    const disallow = rules.flatMap((x) => (x.disallow === undefined ? [] : [x.disallow].flat()));
+    expect(allow).toContain("/");
+    for (const p of ["/dashboard", "/api", "/auth", "/login", "/install"]) expect(disallow, p).toContain(p);
+    expect(r.sitemap).toBe(`${ORIGIN}/sitemap.xml`);
+  });
+});

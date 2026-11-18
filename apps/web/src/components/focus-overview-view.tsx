@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ReactElement } from "react";
 import type { ChildFocus, TrendDay } from "../lib/focus-overview";
 import { alertError, card, cardTitle } from "./ui";
@@ -83,7 +84,7 @@ export function FocusOverviewView({ items }: FocusOverviewViewProps): ReactEleme
   if (items.length === 0) {
     return (
       <p className="text-sm">
-        No children yet. <a href="/dashboard/children" className={LINK}>Add a child</a>
+        No children yet. <Link href="/dashboard/children" className={LINK}>Add a child</Link>
       </p>
     );
   }
