@@ -2,7 +2,7 @@ import { expandBlockRules, MAX_RULE_DOMAINS, RulesResponse, type Category } from
 import { hashDeviceToken } from "./token";
 
 export interface RulesStore {
-  findChild(tokenHash: string): Promise<{ childId: string; familyId: string; rulesVersion: number; timezone: string } | null>;
+  findChild(tokenHash: string): Promise<{ childId: string; familyId: string; rulesVersion: number; timezone: string; allowedHours: { start: string; end: string } | null } | null>;
   listLimits(childId: string): Promise<{ category: Category; minutesPerDay: number }[]>;
   listRules(childId: string): Promise<{ kind: "domain" | "category"; value: string }[]>;
   /** Global rows (familyId null) and the family's rows; the handler lets family rows win. */
@@ -61,6 +61,7 @@ export async function handleRules({ authorization, store }: RulesInput): Promise
       limits,
       timezone: child.timezone,
       categoryOverrides: capped,
+      allowedHours: child.allowedHours,
     });
     return { status: 200, body, headers: HEADERS };
   } catch {

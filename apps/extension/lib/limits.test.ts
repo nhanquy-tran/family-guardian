@@ -85,7 +85,7 @@ describe("limits", () => {
 
     const firstId = buildRules(["roblox.com"]).length + 1;
     const rules = buildLimitRules(set, firstId);
-    const mc = rules.find((r) => r.condition.requestDomains[0] === "minecraft.net");
+    const mc = rules.find((r) => r.condition.requestDomains?.[0] === "minecraft.net");
     expect(mc?.action.redirect.extensionPath).toBe("/blocked.html?d=minecraft.net&c=games");
     expect(mc?.condition.resourceTypes).toEqual(["main_frame"]);
     expect(Math.min(...rules.map((r) => r.id))).toBe(2);

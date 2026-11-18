@@ -11,6 +11,15 @@ describe("describeBlockDetail", () => {
   });
 });
 
+describe("describeBlock paused", () => {
+  it("Paused text", () => {
+    expect(describeBlock("?h=07:00")).toBe("Browsing is paused until 07:00");
+    for (const q of ["?h=<script>", "?h=7:0", ""]) {
+      expect(describeBlock(q)).toBe("This site is blocked");
+    }
+  });
+});
+
 describe("describeBlock", () => {
   it("Limit and generic text", () => {
     const limit = describeBlock("?d=roblox.com&c=games");

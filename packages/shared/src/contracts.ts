@@ -36,6 +36,8 @@ export const HeartbeatResponse = z.object({
   rulesVersion: z.number().int().nonnegative(),
 });
 
+const HHMM = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
+
 export const RulesResponse = z.object({
   rulesVersion: z.number().int().nonnegative(),
   domains: z.array(z.string()).max(MAX_RULE_DOMAINS),
@@ -50,6 +52,11 @@ export const RulesResponse = z.object({
     .record(z.string().max(253), z.enum(CATEGORIES))
     .refine((m) => Object.keys(m).length <= MAX_RULE_DOMAINS)
     .default({}),
+  allowedHours: z
+    .object({ start: z.string().regex(HHMM), end: z.string().regex(HHMM) })
+    .refine((h) => h.start !== h.end)
+    .nullable()
+    .default(null),
 });
 
 export type RulesResponse = z.infer<typeof RulesResponse>;

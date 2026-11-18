@@ -14,7 +14,7 @@ type Step = "findChild" | "listRules" | "listCategoryOverrides" | "listLimits";
 const CHILD = { childId: "child-1", familyId: "fam-1", rulesVersion: 3, timezone: "Asia/Ho_Chi_Minh" };
 
 function fakeStore(
-  opts: { rules?: Rule[]; overrides?: Override[]; limits?: Limit[]; known?: boolean; throwIn?: Step } = {},
+  opts: { rules?: Rule[]; overrides?: Override[]; limits?: Limit[]; known?: boolean; throwIn?: Step; hours?: { start: string; end: string } | null } = {},
 ) {
   const order: string[] = [];
   const boom = (name: Step) => {
@@ -23,7 +23,7 @@ function fakeStore(
   };
   const findChild = vi.fn(async (hash: string) => {
     boom("findChild");
-    return (opts.known ?? true) && hash === hashDeviceToken("tok-1") ? CHILD : null;
+    return (opts.known ?? true) && hash === hashDeviceToken("tok-1") ? { ...CHILD, allowedHours: opts.hours ?? null } : null;
   });
   const listRules = vi.fn(async (_childId: string) => {
     boom("listRules");
@@ -104,6 +104,16 @@ describe("rules API for devices", () => {
     expect(f.listRules).toHaveBeenCalledWith("child-1");
     expect(f.listCategoryOverrides).toHaveBeenCalledWith("fam-1");
     expect(f.listLimits).toHaveBeenCalledWith("child-1");
+  });
+
+  it("Hours returned and null when unset", async () => {
+    const hours = { start: "07:00", end: "21:00" };
+    const set = await call(fakeStore({ hours }));
+    expect((set.body as unknown as { allowedHours: unknown }).allowedHours).toEqual(hours);
+    expect(RulesResponse.safeParse(set.body).success).toBe(true);
+    const unset = await call(fakeStore());
+    expect((unset.body as unknown as { allowedHours: unknown }).allowedHours).toBeNull();
+    expect(RulesResponse.safeParse(unset.body).success).toBe(true);
   });
 
   it("Limits and timezone are returned", async () => {

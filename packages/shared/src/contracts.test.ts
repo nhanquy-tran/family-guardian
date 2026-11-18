@@ -12,6 +12,25 @@ import {
 const entry = { minuteUtc: "2026-11-17T10:03:00Z", domain: "youtube.com", seconds: 40 };
 const base = { currentDomain: null, browser: "edge", extensionVersion: "0.2.0" };
 
+describe("rules contract allowed hours", () => {
+  const rules = { rulesVersion: 1, domains: [], truncated: false };
+  it("Contract bounds", () => {
+    const parse = (allowedHours: unknown) => RulesResponse.safeParse({ ...rules, allowedHours });
+    const crossing = { start: "07:00", end: "01:00" };
+    expect(parse(crossing)).toMatchObject({ success: true, data: { allowedHours: crossing } });
+    expect(parse(null)).toMatchObject({ success: true, data: { allowedHours: null } });
+    for (const bad of [
+      { start: "7:00", end: "21:00" },
+      { start: "24:00", end: "01:00" },
+      { start: "07:00", end: "07:00" },
+      { start: "07:00" },
+    ]) {
+      expect(parse(bad).success, JSON.stringify(bad)).toBe(false);
+    }
+    expect((RulesResponse.parse(rules) as { allowedHours?: unknown }).allowedHours).toBeNull();
+  });
+});
+
 describe("heartbeat contracts", () => {
   it("Envelope schema in shared package", () => {
     const body = { ...base, entries: [{ ...entry, seconds: 61 }] };
@@ -75,7 +94,7 @@ describe("RulesResponse limits and timezone", () => {
 
   it("New fields parse and are bounded", () => {
     const ok = { ...base, limits: [games], timezone: "Asia/Ho_Chi_Minh" };
-    expect(RulesResponse.parse(ok)).toEqual({ ...ok, categoryOverrides: {} });
+    expect(RulesResponse.parse(ok)).toEqual({ ...ok, categoryOverrides: {}, allowedHours: null });
     const bad: Record<string, unknown>[] = [
       { limits: [{ category: "music", minutesPerDay: 60 }] },
       { limits: [{ category: "games", minutesPerDay: 4 }] },
@@ -101,7 +120,7 @@ describe("RulesResponse limits and timezone", () => {
 
   it("Category overrides are bounded", () => {
     const ok = { ...base, categoryOverrides: { "youtube.com": "education" } };
-    expect(RulesResponse.parse(ok)).toEqual({ ...ok, limits: [] });
+    expect(RulesResponse.parse(ok)).toEqual({ ...ok, limits: [], allowedHours: null });
     const many = Object.fromEntries(Array.from({ length: 5001 }, (_, i) => [`d${i}.com`, "games"]));
     const bad: Record<string, unknown>[] = [
       { categoryOverrides: { "youtube.com": "music" } },

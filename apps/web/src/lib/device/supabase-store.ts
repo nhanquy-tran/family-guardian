@@ -39,7 +39,7 @@ export function createRulesStore(client: SupabaseClient): RulesStore {
     async findChild(tokenHash) {
       const { data, error } = await client
         .from("devices")
-        .select("child_id, children(family_id, rules_version, families(timezone))")
+        .select("child_id, children(family_id, rules_version, allowed_start, allowed_end, families(timezone))")
         .eq("token_hash", tokenHash)
         .maybeSingle();
       if (error) throw error;
@@ -47,6 +47,8 @@ export function createRulesStore(client: SupabaseClient): RulesStore {
       const child = data.children as unknown as {
         family_id: string;
         rules_version: number;
+        allowed_start: string | null;
+        allowed_end: string | null;
         families: { timezone: string } | null;
       } | null;
       if (!child) return null;
@@ -55,6 +57,10 @@ export function createRulesStore(client: SupabaseClient): RulesStore {
         familyId: child.family_id,
         rulesVersion: child.rules_version,
         timezone: child.families?.timezone || "UTC",
+        allowedHours:
+          child.allowed_start !== null && child.allowed_end !== null
+            ? { start: child.allowed_start, end: child.allowed_end }
+            : null,
       };
     },
     async listRules(childId) {

@@ -32,6 +32,25 @@ describe("createHeartbeatStore", () => {
   });
 });
 
+describe("createRulesStore hours", () => {
+  const hoursRow = (start: string | null, end: string | null) => ({
+    data: {
+      child_id: "child-1",
+      children: { family_id: "fam-1", rules_version: 3, allowed_start: start, allowed_end: end, families: { timezone: "UTC" } },
+    },
+    error: null,
+  });
+
+  it("Store maps the columns", async () => {
+    const set = await createRulesStore(fakeClient(hoursRow("07:00", "21:00")).client).findChild("h");
+    expect(set).toMatchObject({ allowedHours: { start: "07:00", end: "21:00" } });
+    const unset = await createRulesStore(fakeClient(hoursRow(null, null)).client).findChild("h");
+    expect(unset).toMatchObject({ allowedHours: null });
+    const broken = fakeClient({ data: null, error: { message: "boom" } });
+    await expect(createRulesStore(broken.client).findChild("h")).rejects.toBeDefined();
+  });
+});
+
 describe("createRulesStore", () => {
   it("Store maps rows", async () => {
     const device = {

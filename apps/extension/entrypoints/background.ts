@@ -23,6 +23,7 @@ export default defineBackground(() => {
             post: fetchPost,
             get: fetchGet,
             dnr: browser.declarativeNetRequest,
+            alarms: browser.alarms,
             badge: browser.action,
             baseUrl: baseUrl as string,
             extensionVersion: browser.runtime.getManifest().version,
@@ -67,7 +68,7 @@ export default defineBackground(() => {
     void withController((c) => c.handleEvent({ type: "idle", at: Date.now(), state }));
   });
   browser.alarms.onAlarm.addListener((alarm) => {
-    if (alarm.name === "heartbeat") void withController((c) => c.onAlarm(Date.now()));
+    if (alarm.name === "heartbeat" || alarm.name === "hours-edge") void withController((c) => c.onAlarm(Date.now()));
   });
 
   browser.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
