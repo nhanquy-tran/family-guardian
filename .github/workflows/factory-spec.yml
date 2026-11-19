@@ -95,8 +95,8 @@ jobs:
             ADDS_ADR=$ADDS_ADR GITHUB_OUTPUT=/tmp/spec-eval.out node .github/scripts/factory-eval.mjs spec "$CHANGE" > /tmp/spec-eval.md 2>/dev/null || true
             SPEC_EVAL=$(sed -n 's/^result=//p' /tmp/spec-eval.out)
           fi
-          RISK=$(sed -n 's/^risk=//p' /tmp/spec-eval.out 2>/dev/null)
-          RISK_WHY=$(sed -n 's/^- risk: high (\(.*\)): design template.*/\1/p' /tmp/spec-eval.md 2>/dev/null)
+          RISK=$(sed -n 's/^risk=//p' /tmp/spec-eval.out 2>/dev/null || true)
+          RISK_WHY=$(sed -n 's/^- risk: high (\(.*\)): design template.*/\1/p' /tmp/spec-eval.md 2>/dev/null || true)
           LABELS="spec"
           case "$SPEC_EVAL" in pass*) ;; *) LABELS="spec,needs-human" ;; esac
           if [ "$RISK" = "high" ]; then
