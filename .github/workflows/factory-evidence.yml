@@ -35,3 +35,57 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: node .github/scripts/refresh-evidence.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+
+  # Spec PRs: the spec eval ran only when the spec writer opened the PR, so fix rounds were never re-checked
+  # (#147 grew past the light-mode scenario limit and lost a Touches entry). Re-run it on every push.
+  spec-eval:
+    if: startsWith(github.head_ref, 'spec/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+        with:
+          ignore-scripts: "true"
+      - name: Spec eval (latest push)
+        id: eval
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          BRANCH: ${{ github.head_ref }}
+          MODE: ${{ vars.FACTORY_MODE || 'full' }}
+        run: |
+          ISSUE="${BRANCH#spec/}"
+          CHANGE=$(git diff --name-only "$BASE"...HEAD -- openspec/changes | sed -n 's#^openspec/changes/\([^/]*\)/.*#\1#p' | grep -v '^archive$' | sort | uniq -c | sort -rn | head -1 | awk '{print $2}' || true)
+          if [ -z "$CHANGE" ]; then echo "No change folder in this PR."; exit 0; fi
+          ISSUE_LABELS=$(gh issue view "$ISSUE" --repo "$GITHUB_REPOSITORY" --json labels -q '[.labels[].name]|join(",")' 2>/dev/null || true)
+          case ",$ISSUE_LABELS," in *,full-mode,*) MODE=full ;; esac
+          ADDS_ADR=0
+          git diff --name-only --diff-filter=A "$BASE"...HEAD -- docs/decisions | grep -q '/[0-9]\{4\}-' && ADDS_ADR=1
+          ISSUE_LABELS="$ISSUE_LABELS" ADDS_ADR=$ADDS_ADR MODE=$MODE GITHUB_OUTPUT=/tmp/eval.out node .github/scripts/factory-eval.mjs spec "$CHANGE" > /tmp/eval.md 2>/dev/null || true
+          RESULT=$(sed -n 's/^result=//p' /tmp/eval.out 2>/dev/null || true)
+          RISK=$(sed -n 's/^risk=//p' /tmp/eval.out 2>/dev/null || true)
+          LABELLED=$(gh pr view "$PR" --json labels -q '[.labels[].name]|index("risk-high")' 2>/dev/null || true)
+          {
+            echo "<!-- factory-spec-eval -->"
+            echo "**Spec eval (latest push, ${MODE} mode):** ${RESULT:-not run}"
+            if [ "$RISK" = "high" ] && { [ "$LABELLED" = "null" ] || [ -z "$LABELLED" ]; }; then
+              echo
+              echo "Risk is now **high** but this PR had no architect review (ADR 0022). The spec gate reviews the design itself or asks for a review."
+            fi
+            echo
+            cat /tmp/eval.md 2>/dev/null || true
+          } > /tmp/comment.md
+          ID=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments?per_page=100" --jq '[.[] | select(.body | startswith("<!-- factory-spec-eval -->"))] | last | .id // empty')
+          if [ -n "$ID" ]; then gh api -X PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${ID}" -F body=@/tmp/comment.md >/dev/null
+          else gh pr comment "$PR" --body-file /tmp/comment.md >/dev/null; fi
+          cat /tmp/comment.md >> "$GITHUB_STEP_SUMMARY"
+          case "$RESULT" in pass*) ;; *) echo "::error::Spec eval: ${RESULT:-not run}"; exit 1 ;; esac
