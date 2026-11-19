@@ -1,4 +1,4 @@
-import { RulesResponse, SEED_CATEGORIES, type Category } from "@fg/shared";
+import { categoryDomains, RulesResponse, SEED_CATEGORIES, type Category } from "@fg/shared";
 import { describe, expect, it, vi } from "vitest";
 import { handleRules, type RulesStore } from "./rules-endpoint";
 import { hashDeviceToken } from "./token";
@@ -207,6 +207,27 @@ describe("rules API fails closed and is capped", () => {
     const exact = await call(build(MAX_RULE_DOMAINS));
     expect(domainsOf(exact.body)).toHaveLength(MAX_RULE_DOMAINS);
     expect((exact.body as { truncated: boolean }).truncated).toBe(false);
+  });
+
+  it("Category domains are cut alphabetically", async () => {
+    const explicit = Array.from({ length: 10 }, (_, i) => `zz${i}.example.com`);
+    const hosts = Array.from({ length: 5100 }, (_, i) => `g${String(i).padStart(4, "0")}.bulkgames.com`);
+    const overrides: Override[] = [...hosts]
+      .reverse()
+      .map((domain) => ({ familyId: "fam-1", domain, category: "games" as const }));
+    const rules: Rule[] = [{ kind: "category", value: "games" }, ...explicit.map((value) => ({ kind: "domain" as const, value }))];
+    const res = await call(fakeStore({ rules, overrides }));
+    const body = res.body as unknown as { domains: string[]; categoryOverrides: Record<string, Category> };
+    // 5000 total - 10 explicit = 4990 category domains, taken from the alphabetical list
+    const expected = categoryDomains({
+      categories: ["games"],
+      overrides: body.categoryOverrides,
+      exclude: explicit,
+      limit: MAX_RULE_DOMAINS - explicit.length,
+    }).domains;
+    expect(expected).toHaveLength(4990);
+    expect(body.domains).toEqual([...explicit, ...expected]);
+    expect(body.domains.slice(10)).toEqual([...body.domains.slice(10)].sort());
   });
 });
 

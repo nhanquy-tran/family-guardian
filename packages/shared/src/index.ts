@@ -1,5 +1,6 @@
 export * from "./block-rules";
 export * from "./categories";
+export * from "./category-domains";
 export * from "./contracts";
 export * from "./domain";
 export * from "./focus";
