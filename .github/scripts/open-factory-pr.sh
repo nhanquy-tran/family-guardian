@@ -45,7 +45,7 @@ NOTES_FILE="openspec/changes/${CHANGE}/NOTES.md"
   echo "| Eval: tests fail before implementation | ${RED:-not run} |"
   echo "| Eval: every scenario has a test with its title | ${COVERAGE:-not run} |"
   echo "| Eval: same tests pass after implementation | ${GREEN:-not run} |"
-  echo "| npm run check + build | ${GATE:-not run} |"
+  echo "| npm run check:ci (coverage minimums) + build | ${GATE:-not run} |"
   echo "| Hidden acceptance tests fail before, unseen by the developer | ${HIDDEN_RED:-not run} |"
   echo "| Hidden acceptance tests pass after implementation | ${HIDDEN:-not run} |"
   echo "| Hidden test verdict (debugger proposal, see NOTES) | ${HIDDEN_VERDICT:-not needed} |"
@@ -56,6 +56,7 @@ NOTES_FILE="openspec/changes/${CHANGE}/NOTES.md"
   echo "| Run | ${RUN_URL} |"
   echo
   cat /tmp/evals.md 2>/dev/null || true
+  if [ -f /tmp/coverage.md ]; then echo; echo "### Coverage by area"; echo; cat /tmp/coverage.md; echo; fi
   echo
   if [ -f /tmp/verify.md ]; then echo "<details><summary>Verify report</summary>"; echo; cat /tmp/verify.md; echo; echo "</details>"; echo; fi
   echo "## Developer notes"

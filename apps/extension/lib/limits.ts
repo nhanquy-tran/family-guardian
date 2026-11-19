@@ -1,9 +1,9 @@
 import {
   categorize,
+  categoryDomains,
   CATEGORIES,
   MAX_RULE_DOMAINS,
   OtherUsage as OtherUsageSchema,
-  SEED_CATEGORIES,
   type Category,
   type OtherUsage,
   type UsageEntry,
@@ -20,8 +20,6 @@ export interface CategoryLimit {
   category: Category;
   minutesPerDay: number;
 }
-
-const DOMAIN_PATTERN = /^[a-z0-9-]+(\.[a-z0-9-]+)+$/;
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -130,26 +128,15 @@ export function limitBlockDomains(
   manualDomains: string[],
 ): Record<string, Category> {
   const manual = new Set(manualDomains);
-  const room = MAX_RULE_DOMAINS - manual.size;
-  const wanted = new Set(categories);
-  const found: Record<string, Category> = {};
-  const candidates = new Set([...Object.keys(SEED_CATEGORIES), ...Object.keys(overrides)]);
-  for (const domain of candidates) {
-    const category = categorize(domain, overrides);
-    if (wanted.has(category)) found[domain] = category;
-  }
-  for (const domain of Object.keys(seenToday)) {
-    const category = categorize(domain, overrides);
-    if (wanted.has(category)) found[domain] = category;
-  }
+  const { domains } = categoryDomains({
+    categories,
+    overrides,
+    extraHosts: Object.keys(seenToday),
+    exclude: manual,
+    limit: Math.max(0, MAX_RULE_DOMAINS - manual.size),
+  });
   const result: Record<string, Category> = {};
-  for (const domain of Object.keys(found).sort()) {
-    if (Object.keys(result).length >= room) break;
-    const category = found[domain];
-    if (category !== undefined && !manual.has(domain) && domain.length <= 253 && DOMAIN_PATTERN.test(domain)) {
-      result[domain] = category;
-    }
-  }
+  for (const domain of domains) result[domain] = categorize(domain, overrides);
   return result;
 }
 

@@ -191,7 +191,7 @@ File: `apps/web/src/lib/device/rules-endpoint.test.ts`
 - **THEN** the status is 200 and `limits` is `[]`
 
 ### Requirement: Rules API fails closed and is capped
-`GET /api/device/rules` SHALL return `500 { error: "server_error" }` without `rulesVersion`, `domains` or `limits` when any store call fails, and SHALL return at most `MAX_RULE_DOMAINS` (5000) domains, keeping explicit domain rules first and setting `truncated` to `true` when anything was cut.
+`GET /api/device/rules` SHALL return `500 { error: "server_error" }` without `rulesVersion`, `domains` or `limits` when any store call fails, and SHALL return at most `MAX_RULE_DOMAINS` (5000) domains, keeping explicit domain rules first (sorted) and then the category-expanded domains from `categoryDomains`, computed with the same capped override map the response carries as `categoryOverrides`. It SHALL set `truncated` to `true` when anything was cut.
 
 #### Scenario: Store failure fails closed
 File: `apps/web/src/lib/device/rules-endpoint.test.ts`
@@ -205,6 +205,12 @@ File: `apps/web/src/lib/device/rules-endpoint.test.ts`
 - **WHEN** the rules are requested
 - **THEN** `domains` has exactly 5000 entries, includes all 10 explicit domains, and `truncated` is `true`
 - **AND** with 5000 or fewer domains, `truncated` is `false`
+
+#### Scenario: Category domains are cut alphabetically
+File: `apps/web/src/lib/device/rules-endpoint.test.ts`
+- **GIVEN** a category rule for `games`, 5100 family overrides in `games` inserted in reverse alphabetical order, and 10 explicit domains
+- **WHEN** the rules are requested
+- **THEN** `domains` is the 10 sorted explicit domains followed by the first 4990 entries of `categoryDomains` for the same input (alphabetical, without the explicit ones)
 
 #### Scenario: Contract limits
 File: `packages/shared/src/contracts.test.ts`

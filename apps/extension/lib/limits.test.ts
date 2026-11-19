@@ -1,3 +1,4 @@
+import { categoryDomains, type Category } from "@fg/shared";
 import { describe, expect, it } from "vitest";
 import { addUsage, buildLimitRules, dayKey, limitBlockDomains, minutesLeft, overLimitCategories } from "./limits";
 import { buildRules } from "./rules";
@@ -95,5 +96,20 @@ describe("limits", () => {
     const capped = limitBlockDomains(["games"], {}, {}, many);
     expect(Object.keys(capped).length).toBeLessThanOrEqual(1);
     expect(buildLimitRules(capped, 5000).length).toBeLessThanOrEqual(1);
+  });
+
+  it("Same list as the server above the cap", () => {
+    const overrides: Record<string, Category> = {};
+    for (let i = 0; i < 5100; i++) overrides[`g${String(i).padStart(4, "0")}.bulkgames.com`] = "games";
+    const set = limitBlockDomains(["games"], overrides, {}, []);
+    expect(Object.keys(set)).toEqual(categoryDomains({ categories: ["games"], overrides, limit: 5000 }).domains);
+  });
+
+  it("Invalid seen domains do not use up room", () => {
+    const many = Array.from({ length: 4999 }, (_, i) => `m${i}.com`);
+    const set = limitBlockDomains(["games"], {}, { bad_host: "games" }, many);
+    const valid = categoryDomains({ categories: ["games"], limit: 5000 }).domains;
+    expect(set).not.toHaveProperty("bad_host");
+    expect(Object.keys(set)).toEqual([valid[0]]);
   });
 });
