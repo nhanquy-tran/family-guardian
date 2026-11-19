@@ -6,19 +6,30 @@ const key = (name) => name.trim().toLowerCase();
 const dirs = (path) => (existsSync(path) ? readdirSync(path, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name) : []);
 
 // Requirement names per delta section (ADDED, MODIFIED, REMOVED, RENAMED) plus scenario count and Purpose.
+// openspec validate --strict rejects longer requirement text in the main specs, so the build would fail at archive time.
+export const MAX_REQUIREMENT_TEXT = 500;
+
 export function parseDelta(md) {
   const sections = { ADDED: [], MODIFIED: [], REMOVED: [], RENAMED: [] };
+  const texts = [];
   let section = null;
   let scenarios = 0;
+  let current = null;
   for (const line of md.split("\n")) {
     const s = /^##\s+(ADDED|MODIFIED|REMOVED|RENAMED)\s+Requirements/i.exec(line);
-    if (s) { section = s[1].toUpperCase(); continue; }
-    if (/^##\s/.test(line)) { section = null; continue; }
+    if (s) { section = s[1].toUpperCase(); current = null; continue; }
+    if (/^##\s/.test(line)) { section = null; current = null; continue; }
     const r = /^###\s+Requirement:\s*(.+)$/.exec(line);
-    if (r && section) sections[section].push(r[1].trim());
-    if (/^####\s+Scenario:/.test(line)) scenarios++;
+    if (r && section) {
+      sections[section].push(r[1].trim());
+      current = section === "REMOVED" ? null : { name: r[1].trim(), text: "" };
+      if (current) texts.push(current);
+      continue;
+    }
+    if (/^####\s+Scenario:/.test(line)) { scenarios++; current = null; continue; }
+    if (current && line.trim()) current.text += (current.text ? " " : "") + line.trim();
   }
-  return { sections, scenarios, hasPurpose: /^##\s+Purpose\b/m.test(md) };
+  return { sections, scenarios, texts, hasPurpose: /^##\s+Purpose\b/m.test(md) };
 }
 
 function mainRequirements(root, capability) {
@@ -59,6 +70,9 @@ export function lintChange({ root = ".", change, light = false, risky = false })
   for (const cap of capabilities) {
     const delta = parseDelta(readFileSync(join(dir, "specs", cap, "spec.md"), "utf8"));
     scenarios += delta.scenarios;
+    for (const { name, text } of delta.texts) {
+      if (text.length > MAX_REQUIREMENT_TEXT) problems.push(`${cap}: "${name}" text is ${text.length} characters; keep it at ${MAX_REQUIREMENT_TEXT} or less (move detail into scenarios or split it)`);
+    }
     const main = mainRequirements(root, cap);
     if (!main) {
       if (!delta.hasPurpose) problems.push(`${cap}: new capability needs a \`## Purpose\` section`);
