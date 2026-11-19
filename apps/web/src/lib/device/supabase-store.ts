@@ -21,18 +21,22 @@ async function loadOtherUsage(client: SupabaseClient, deviceId: string): Promise
   const familyId = (dev?.children as unknown as { family_id: string } | null)?.family_id;
   if (!familyId) return null;
 
-  const overrides: Record<string, Category> = {};
+  const overrideRows: { family_id: string | null; domain: string; category: Category }[] = [];
   for (let from = 0; ; from += PAGE) {
     const { data, error: ovError } = await client
       .from("domain_categories")
-      .select("domain, category")
-      .eq("family_id", familyId)
+      .select("family_id, domain, category")
+      .or(`family_id.is.null,family_id.eq.${familyId}`)
       .order("domain")
+      .order("family_id", { nullsFirst: true })
       .range(from, from + PAGE - 1);
     if (ovError) throw ovError;
-    for (const row of data ?? []) overrides[row.domain as string] = row.category as Category;
+    overrideRows.push(...((data ?? []) as typeof overrideRows));
     if ((data ?? []).length < PAGE) break;
   }
+  const overrides: Record<string, Category> = {};
+  for (const row of overrideRows) if (row.family_id === null) overrides[row.domain] = row.category;
+  for (const row of overrideRows) if (row.family_id !== null) overrides[row.domain] = row.category;
 
   const seconds: Partial<Record<Category, number>> = {};
   for (const row of usage) {

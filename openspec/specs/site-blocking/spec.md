@@ -302,10 +302,10 @@ File: `packages/shared/src/contracts.test.ts`
 - **AND** `HeartbeatResponse` and `RulesResponse` still parse their base bodies when `otherUsage` is absent or invalid
 
 ### Requirement: The store maps domains to categories
-The store method `otherUsage(deviceId)` SHALL map the domains of `device_other_usage` to categories with `categorize` and only the family's override rows (paged with `.range()`; the seeds are in `categorize`, and the 5000 limit of `listCategoryOverrides` SHALL NOT be relied on), and SHALL throw on an RPC error.
+The store method `otherUsage(deviceId)` SHALL map the domains of `device_other_usage` to categories with `categorize` and global and family override rows (family wins), as for the rules (paged with `.range()`; the seeds are in `categorize`, and the 5000 limit of `listCategoryOverrides` SHALL NOT be relied on), and SHALL throw on an RPC error.
 
 #### Scenario: Store maps domains to categories
 File: `apps/web/src/lib/device/supabase-store.test.ts`
 - **GIVEN** a fake client whose RPC `device_other_usage` returns `roblox.com 300` and `youtube.com 60`, with a family override `roblox.com` as `education` and an override of another family, and `day` `2026-11-17`
 - **WHEN** `otherUsage(deviceId)` runs
-- **THEN** the result is `{ day: "2026-11-17", seconds: { education: 300, entertainment: 60 } }` (by `categorize`) with no domain keys, a null-domain row adds nothing, only the family's override rows were read, and an RPC error makes it throw
+- **THEN** the result is `{ day: "2026-11-17", seconds: { education: 300, entertainment: 60 } }` (by `categorize`) with no domain keys, a null-domain row adds nothing, global and family override rows (family wins), as for the rules were read, and an RPC error makes it throw

@@ -81,7 +81,8 @@ describe("createRulesStore", () => {
 
 describe("otherUsage store method", () => {
   type Seen = { table: string; calls: unknown[][] };
-  const OVERRIDES = [
+  type Override = { family_id: string | null; domain: string; category: string };
+  const OVERRIDES: Override[] = [
     { family_id: "fam-1", domain: "roblox.com", category: "education" },
     { family_id: "fam-2", domain: "youtube.com", category: "games" },
   ];
@@ -91,7 +92,7 @@ describe("otherUsage store method", () => {
     { day: "2026-11-17", domain: null, seconds: 0 },
   ];
 
-  function client(opts: { rpcError?: boolean; rows?: unknown[] } = {}) {
+  function client(opts: { rpcError?: boolean; rows?: unknown[]; overrides?: Override[] } = {}) {
     const seen: Seen[] = [];
     const rpc = vi.fn(async (name: string, _args: unknown) => {
       if (name !== "device_other_usage" || opts.rpcError) return { data: null, error: { message: "boom" } };
@@ -118,7 +119,9 @@ describe("otherUsage store method", () => {
       // Only rows of a family named in a filter come back, like the real query would.
       const page = (rangeFrom: number) => {
         const mentioned = JSON.stringify(entry.calls);
-        const rows = OVERRIDES.filter((r) => mentioned.includes(r.family_id));
+        const rows = (opts.overrides ?? OVERRIDES).filter((r) =>
+          r.family_id === null ? mentioned.includes("is.null") : mentioned.includes(r.family_id),
+        );
         return { data: rangeFrom === 0 ? rows : [], error: null };
       };
       builder["range"] = async (rangeFrom: number, to: number) => {
@@ -145,10 +148,35 @@ describe("otherUsage store method", () => {
         const text = JSON.stringify(s.calls);
         expect(text).toContain("fam-1");
         expect(text).not.toContain("fam-2");
-        expect(text).not.toContain("is.null");
+        expect(text).toContain("family_id.is.null");
+        expect(s.calls.some((c) => c[0] === "order")).toBe(true);
         expect(s.calls.some((c) => c[0] === "range")).toBe(true);
       }
     }
+  });
+
+  it("Store applies global overrides and the family wins", async () => {
+    const usage = [{ day: "2026-11-17", domain: "kidsite.example", seconds: 120 }];
+    const globalOnly = client({
+      rows: usage,
+      overrides: [{ family_id: null, domain: "kidsite.example", category: "games" }],
+    });
+    expect(await createHeartbeatStore(globalOnly.client).otherUsage("dev-1")).toEqual({
+      day: "2026-11-17",
+      seconds: { games: 120 },
+    });
+
+    const both = client({
+      rows: usage,
+      overrides: [
+        { family_id: "fam-1", domain: "kidsite.example", category: "education" },
+        { family_id: null, domain: "kidsite.example", category: "games" },
+      ],
+    });
+    expect(await createRulesStore(both.client).otherUsage("dev-1")).toEqual({
+      day: "2026-11-17",
+      seconds: { education: 120 },
+    });
   });
 
   it("Store keeps the day when nothing was used", async () => {
