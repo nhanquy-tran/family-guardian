@@ -26,3 +26,4 @@ Open an ADR only when your change touches its subject. All accepted unless noted
 | [0020](0020-weekly-usage-report.md) | Weekly usage report e-mail: opt-in per family, computed on demand, claim in `digest_runs` | e-mail, family settings, stored data |
 | [0021](0021-e2e-tests-local-supabase.md) | E2E tests on a local Supabase stack (Docker) with generated, revertable stage data; Playwright | testing, e2e data |
 | [0022](0022-design-review-and-architecture-check.md) | Risk tier for specs; design template and an architect review (Opus) on risky specs only; weekly architecture check posted as an `architecture` issue | factory workflows, spec gate, factory cost |
+| [0023](0023-coverage-ratchet.md) | Coverage per area (v8), ratchet baseline in CI and evidence | testing, CI, dependencies |
