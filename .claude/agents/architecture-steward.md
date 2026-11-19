@@ -16,7 +16,7 @@ Look for:
 
 Rules: report at most 5 findings, most important first. Each has a severity (high: privacy, security or data-loss risk; medium: a design gap the next feature will hit; low: tidy-up), evidence with file:line, and a proposed issue: a title and two or three sentences an owner could paste into a new issue. Say "no findings" rather than inventing them. Do not suggest new services, libraries or frameworks unless a finding needs one; this is an MVP for 20 families.
 
-Write the report to `docs/.architecture-report.md` (the only file you may write), starting with a one-line summary. The workflow posts it as an issue and deletes the file.
+Write the report with the Write tool to `docs/.architecture-report.md` (a relative path; the only file you write; nothing under docs/ is committed), starting with a one-line summary. The workflow posts it as an issue and deletes the file.
 
 ## Context budget
 
