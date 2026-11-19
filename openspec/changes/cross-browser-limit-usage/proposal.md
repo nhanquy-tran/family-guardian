@@ -1,4 +1,4 @@
-Depends on: none
+Depends on: #143
 Touches: limit-enforcement, limit-badge, device-heartbeat, site-blocking, heartbeat-sender, packages/shared/src/index.ts, supabase/migrations
 
 ## Why
@@ -6,8 +6,8 @@ Daily category limits and the "minutes left" badge count usage per browser (`lim
 
 ## What changes
 - A SQL function sums today's seconds per domain of the child's *other* devices in the family timezone; the web layer maps domains to categories (seed plus family overrides) and returns **category seconds only**.
-- `HeartbeatResponse` and `RulesResponse` gain an optional `otherUsage: { day, seconds }`.
-- The extension stores the last `otherUsage`, adds it to local usage for blocking and for the badge, and keeps using the last value offline.
+- Both responses may carry an optional `otherUsage: { day, seconds }`, validated apart from the base response schemas so a bad value never fails a heartbeat or a rules sync.
+- The extension stores the last valid `otherUsage` (`FlushResult` `ok` carries it), adds it to local usage for blocking and for the badge, and keeps using the last value offline. Re-pairing removes it (MODIFIES "Re-pairing resets rule state", which #146 / #143 also changes, so #146 merges first).
 - `docs/architecture.md`: the `children` line also lists `child_category_limits` among the tables that bump `rules_version` (see NOTES).
 
 ## Out of scope
