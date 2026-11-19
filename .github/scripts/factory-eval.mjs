@@ -88,8 +88,7 @@ function evalSpec() {
   if (existsSync(join(dir, "QUESTIONS.md"))) details.push("- note: QUESTIONS.md present");
 
   // ISSUE_LABELS and ADDS_ADR come from the spec workflow; without them only the change folder decides.
-  const labels = (process.env.ISSUE_LABELS || "").split(/[,
-]/).map((l) => l.trim()).filter(Boolean);
+  const labels = (process.env.ISSUE_LABELS || "").split(/[,\n]/).map((l) => l.trim()).filter(Boolean);
   const risk = riskOf({ change, labels, addsAdr: process.env.ADDS_ADR === "1" });
   details.push(risk.risky ? `- risk: high (${risk.reasons.join("; ")}): design template and architect review required` : "- risk: normal");
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `risk=${risk.risky ? "high" : "normal"}\n`);

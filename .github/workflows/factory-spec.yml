@@ -93,7 +93,7 @@ jobs:
             ADDS_ADR=0
             git diff --name-only --diff-filter=A HEAD~1 -- docs/decisions | grep -q '/[0-9]\{4\}-' && ADDS_ADR=1
             ADDS_ADR=$ADDS_ADR GITHUB_OUTPUT=/tmp/spec-eval.out node .github/scripts/factory-eval.mjs spec "$CHANGE" > /tmp/spec-eval.md 2>/dev/null || true
-            SPEC_EVAL=$(sed -n 's/^result=//p' /tmp/spec-eval.out)
+            SPEC_EVAL=$(sed -n 's/^result=//p' /tmp/spec-eval.out 2>/dev/null || true)
           fi
           RISK=$(sed -n 's/^risk=//p' /tmp/spec-eval.out 2>/dev/null || true)
           RISK_WHY=$(sed -n 's/^- risk: high (\(.*\)): design template.*/\1/p' /tmp/spec-eval.md 2>/dev/null || true)
