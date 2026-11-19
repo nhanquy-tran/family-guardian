@@ -19,7 +19,9 @@ function byLocalDay(rows: UsageRow[]): Map<string, UsageRow[]> {
   const days = new Map<string, UsageRow[]>();
   for (const r of rows) {
     const key = dateKey(localDate(Date.parse(r.minute_utc), TIMEZONE));
-    days.set(key, [...(days.get(key) ?? []), r]);
+    const day = days.get(key);
+    if (day) day.push(r);
+    else days.set(key, [r]);
   }
   return days;
 }
