@@ -16,6 +16,7 @@ Owner writes issue (Depends on: #a, #b) ──label autopilot──▶ Factory 6
                                                               ▼
                      Factory 0 router ──▶ Factory 1: spec-writer (reads openspec/specs/, writes ADDED/MODIFIED/REMOVED)
                                                                │ eval: spec structure + openspec validate --strict
+                                                               │ risk tier high (ADR 0022)? design template + architect agent
                      Factory 4 review, stage 1 (spec) ──▶ GATE 1 (Claude, ADR 0013): merge spec PR
                                 │
                      Factory 2 labels issue `ready` ──▶ scheduler: dependencies merged? no Touches overlap? ──▶ build-now
@@ -40,6 +41,7 @@ Owner writes issue (Depends on: #a, #b) ──label autopilot──▶ Factory 6
    Factory 7 docs (nightly): applies "Docs to update" notes, 5 changes per run, queue in
         docs/docs-notes-applied.txt ──▶ docs PR
    Dependabot triage: patch/minor auto-merge on green checks; majors get needs-human (ADR 0019)
+   Factory 9 architecture check (weekly): facts + architecture-steward agent ──▶ one `architecture` issue (ADR 0022)
 ```
 
 ### Light and full mode (ADR 0018)
@@ -50,6 +52,7 @@ The repo variable `FACTORY_MODE` picks the pipeline; `light` is used during the 
 |---|---|---|
 | Spec writer | as above | ≤ 20 scenarios, short design and tasks (30 turns, as full) |
 | AI review of spec PRs | stage 1 | none (Claude's spec gate) |
+| Architect review (risk tier high only, ADR 0022) | run | run |
 | Test writer | visible + 3–6 hidden tests | visible tests only, 30 turns |
 | Developer | 70 turns | 50 turns |
 | Verifier, hidden-test gate | run | skipped (`skipped (light mode)` in the evidence) |
@@ -72,6 +75,9 @@ A `full-mode` label on an issue builds that issue in full mode. Use it for priva
 | `needs-human` | A gate failed or the agent has questions | Factory |
 | `spec`, `factory` | PR types | Factory |
 | `review-changes-needed` | The AI reviewer's latest verdict on the PR is "changes needed" (also the red `factory/review` status) | Factory 4 |
+| `risk-high` | The spec's risk tier is high: design template and architect review (ADR 0022) | Factory 1 |
+| `architect-changes-needed` | The architect asked for design changes; the spec gate has them fixed before merging | Factory 1 |
+| `architecture` | The weekly architecture check report (one open at a time) | Factory 9 |
 | `test-arbitrated` | The debugger changed a test; the gate checks it | Factory 3 |
 | `re-review` | Run the AI review again on the latest push | Owner or Claude |
 | `factory-state` | The single issue the scheduler rewrites with the current state | Factory 6 |
@@ -117,7 +123,7 @@ The metrics comment of each agent step also lists the tool calls the agent was d
 
 Repo secrets: `CLAUDE_API_KEY` (required), `FACTORY_TOKEN` (recommended: fine-grained PAT on this repo with Contents, Issues, Pull requests read/write. Without it, PRs opened by the factory do not trigger CI and AI review; the build job still runs its own gates).
 
-Repo variables (optional): `FACTORY_SPEC_MODEL`, `FACTORY_BUILD_MODEL` and `FACTORY_REVIEW_MODEL` (default `claude-sonnet-5-5`), `FACTORY_MAX_PER_NIGHT` (default 3), `FACTORY_MAX_PARALLEL` (scheduler, default 3), `FACTORY_MODE` (`light` or `full`, default `full`), `FACTORY_DEV_MAX_TURNS` (default 70, 50 in light mode).
+Repo variables (optional): `FACTORY_SPEC_MODEL`, `FACTORY_BUILD_MODEL`, `FACTORY_REVIEW_MODEL` and `FACTORY_STEWARD_MODEL` (default `claude-sonnet-5-5`), `FACTORY_ARCHITECT_MODEL` (default `claude-opus-5-5`), `FACTORY_MAX_PER_NIGHT` (default 3), `FACTORY_MAX_PARALLEL` (scheduler, default 3), `FACTORY_MODE` (`light` or `full`, default `full`), `FACTORY_DEV_MAX_TURNS` (default 70, 50 in light mode).
 
 Agents never get `FACTORY_TOKEN` in their shell: the workflow does the pushes, PRs and labels. Only the owner-triggered `@claude` job keeps it, with a tool allowlist.
 
@@ -157,7 +163,7 @@ The reviewer can always find something. A PR is ready for the human gate when it
 
 ## Schedules
 
-GitHub's `schedule` event is best effort: runs can be delayed or dropped, most often at :00 and :30 (none fired at all in the factory's first day). So the crons sit off those minutes (scheduler :11/:41, watchdog :26/:56, nightly build 15:13 UTC, docs 02:47 UTC), and both the scheduler and the watchdog run `.github/scripts/revive-schedules.mjs`. It reads each workflow's cron line and starts any time-based workflow that missed its last slot by more than 30 minutes. The scheduler also runs on every issue and PR event, so any activity revives the watchdog, the nightly build and the docs job.
+GitHub's `schedule` event is best effort: runs can be delayed or dropped, most often at :00 and :30 (none fired at all in the factory's first day). So the crons sit off those minutes (scheduler :11/:41, watchdog :26/:56, nightly build 15:13 UTC, docs 02:47 UTC, architecture check Monday 03:17 UTC), and both the scheduler and the watchdog run `.github/scripts/revive-schedules.mjs`. It reads each workflow's cron line and starts any time-based workflow that missed its last slot by more than 30 minutes. The scheduler also runs on every issue and PR event, so any activity revives the watchdog, the nightly build and the docs job.
 
 ## Watchdog
 

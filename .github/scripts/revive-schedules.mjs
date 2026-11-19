@@ -17,29 +17,33 @@ const JOBS = [
   { file: "factory-watchdog.yml" },
   { file: "factory-build.yml", title: /queue$/ },
   { file: "factory-docs.yml" },
+  { file: "factory-architecture.yml" },
 ];
 
 const gh = (...args) => execFileSync("gh", args, { encoding: "utf8" }).trim();
 
-// Supports the two shapes we use: "M1,M2 * * * *" (every hour at those minutes) and "M H * * *" (daily).
+// Supports the shapes we use: "M1,M2 * * * *" (every hour at those minutes), "M H * * *" (daily) and "M H * * D" (weekly).
 export function parseCron(yaml) {
   const m = /cron:\s*"([^"]+)"/.exec(yaml);
   if (!m) return null;
   const [min, hour, dom, mon, dow] = m[1].trim().split(/\s+/);
-  if (dom !== "*" || mon !== "*" || dow !== "*") return null;
+  if (dom !== "*" || mon !== "*") return null;
+  const day = dow === "*" ? null : Number(dow);
+  if (day !== null && !(Number.isInteger(day) && day >= 0 && day <= 6)) return null;
   const minutes = min.split(",").map(Number);
   if (minutes.some((x) => !Number.isInteger(x))) return null;
-  if (hour === "*") return { minutes, hours: null };
+  if (hour === "*") return day === null ? { minutes, hours: null } : null;
   const h = Number(hour);
-  return Number.isInteger(h) ? { minutes, hours: [h] } : null;
+  if (!Number.isInteger(h)) return null;
+  return day === null ? { minutes, hours: [h] } : { minutes, hours: [h], days: [day] };
 }
 
 // The most recent slot that should have started by now, allowing GitHub some delay.
 export function lastSlot(cron, now) {
   const limit = now - GRACE_MIN * 60000;
-  for (let back = 0; back < 48 * 60; back++) {
+  for (let back = 0; back < 8 * 24 * 60; back++) {
     const t = new Date(limit - back * 60000);
-    if (cron.minutes.includes(t.getUTCMinutes()) && (!cron.hours || cron.hours.includes(t.getUTCHours()))) {
+    if (cron.minutes.includes(t.getUTCMinutes()) && (!cron.hours || cron.hours.includes(t.getUTCHours())) && (!cron.days || cron.days.includes(t.getUTCDay()))) {
       t.setUTCSeconds(0, 0);
       return t.getTime();
     }

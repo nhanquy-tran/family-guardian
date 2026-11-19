@@ -431,7 +431,7 @@ const STEPS = [
 ];
 const AGENT_STEPS = STEPS.filter((s) => s.kind !== "wait");
 // Reviewers (reviewer, spec-reviewer, quality-reviewer) and fix rounds (fixer, debugger) are placed by their target.
-const AGENT_STEP = { "spec-writer": "spec", "test-writer": "tests", developer: "dev", verifier: "verify" };
+const AGENT_STEP = { "spec-writer": "spec", architect: "spec-review", "test-writer": "tests", developer: "dev", verifier: "verify" };
 const stepLabel = (key) => {
   const s = STEPS.find((x) => x.key === key);
   return s.kind === "wait" ? s.label : `${s.label} (${s.phase})`;
@@ -835,6 +835,11 @@ const FLOW = [
       what: "Reviews the spec against the issue, the ADRs and the learnings.",
       pass: "Verdict \"looks good\": green `factory/review` status.",
       fail: "\"Changes needed\": red status and `review-changes-needed` label." },
+    { id: "architect", kind: "agent", title: "Architect review", who: "architect agent (Opus, risky specs only, ADR 0022)",
+      what: "Runs when the risk tier is high (migration or new data, new or sensitive capability, 3+ capabilities, new dependency, new ADR, privacy/security label). Reviews the design against the architecture, ADRs, open changes and existing code.",
+      pass: "\"Architect verdict: looks good\" comment.",
+      fail: "\"Changes needed\": `architect-changes-needed` label; the spec gate has it fixed before merging.",
+      labels: ["risk-high"] },
     { id: "gate1", kind: "gate", title: "Gate 1: approve spec", who: "Claude, on the owner's behalf (ADR 0013)",
       what: "Critical review: issue fit, testable scenarios, failure paths, privacy, security, dependencies.",
       pass: "No high or medium findings: Claude merges the spec PR, Factory 2 labels the issue `ready`.",
@@ -888,9 +893,12 @@ const FLOW = [
       loop: "max 2 build attempts. Always escalates privacy or security ADRs, destructive migrations, new services or secrets, and items over about $10",
       labels: ["in-review"] },
   ] },
-  { phase: "Run", file: "factory-docs.yml, factory-watchdog.yml", nodes: [
+  { phase: "Run", file: "factory-docs.yml, factory-watchdog.yml, factory-architecture.yml", nodes: [
     { id: "docs", kind: "agent", title: "Docs update", who: "docs-writer agent (Factory 7, nightly)",
       what: "Applies the \"Docs to update\" notes of merged changes to `docs/` in a docs PR." },
+    { id: "steward", kind: "agent", title: "Architecture check", who: "architecture-steward agent (Factory 9, weekly)",
+      what: "Looks at the whole system once a week: drift from the architecture and ADRs, cross-feature gaps, duplication, hot spots. Posts one `architecture` issue with at most 5 findings.",
+      labels: ["architecture"] },
     { id: "watchdog", kind: "auto", title: "Watchdog", who: "Factory 5, every 30 min",
       what: "Restarts stalled agent runs and unblocks factory and spec PRs that conflict with main.",
       loop: "max 2 restarts, then `needs-human`" },
@@ -980,6 +988,7 @@ const LIVE_STEP = {
   "Developer agent": ["dev", "developer"],
   "Debugger agent": ["build-fix", "debugger"],
   "Verifier agent": ["verify", "verifier"],
+  "Architect agent": ["review", "architect"],
   "Stage 1: spec compliance": ["review", "spec-reviewer"],
   "Stage 2: code quality": ["review", "quality-reviewer"],
 };

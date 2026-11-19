@@ -1,0 +1,19 @@
+# 0022. Design review for risky specs and a weekly architecture check
+
+Date: 2026-11-19. Status: accepted (owner asked for both after the critical review of the factory workflow).
+
+## Context
+The spec writer writes `design.md` and Claude's spec gate reviews it, but nobody reviews the design independently before the build, and nothing looks at the system across features. Light mode (ADR 0018) cut the design to a few bullets. The learnings log shows design-level misses: spec #9 stored a plain hash of the caller IP without an ADR, could fail open and left old pairing codes valid; usage is counted per browser, not per child; the block page shows a stale start time while paused; two parallel changes both took ADR number 0018; migration timestamps clashed. About half are interactions between features, which a per-feature review cannot see.
+
+Mature teams scale design review by risk (design docs and RFCs for new storage, APIs and cross-team work; plain code review otherwise) and give someone ownership of the whole system over time. A separate architect stage on every item would add about a third to the cost per item, add review rounds and repeat what the gate already checks.
+
+## Decision
+1. **Risk tier.** `.github/scripts/risk-tier.mjs` marks a spec change high when it has a migration or new stored data, a new capability, a sensitive capability (auth, pairing, device management, activity tracking, retention, privacy policy, schema), 3 or more capabilities, a new dependency or a new ADR, or the issue has a `full-mode`, `privacy` or `security` label. It is deterministic, so the spec writer cannot argue a change out of review. The spec eval prints the tier; the workflow labels the spec PR `risk-high` and adds a row to its evidence.
+2. **Design template.** For a high-risk change `design.md` must have `## Data model`, `## Contracts`, `## Failure modes`, `## Alternatives` and `## ADR impact`, in both modes (`None.` is an answer). The spec lint enforces it.
+3. **Architect review.** On a high-risk spec PR, the `architect` agent (`.claude/agents/architect.md`, read-only) reviews the design against `docs/architecture.md`, the ADRs, the open changes and open spec PRs, and the existing code. It runs on Opus (`FACTORY_ARCHITECT_MODEL`), a different model from the Sonnet spec writer, so its errors are less correlated. It posts `Architect verdict: looks good | changes needed` and the workflow adds `architect-changes-needed`. It is advisory: the spec gate treats an open high or medium architect finding as its own finding. Build mode stays the gate's choice (ADR 0018).
+4. **Weekly architecture check.** `factory-architecture.yml` (Monday 03:17 UTC, revived like the other schedules) collects facts with `arch-facts.mjs` (merged PRs, most changed product files, large files, open changes, ADR numbering and index) and the `architecture-steward` agent (Sonnet, `FACTORY_STEWARD_MODEL`) writes at most 5 findings: drift from the architecture and ADRs, cross-feature gaps, duplication, hot spots, stale docs. The report is posted as one `architecture` issue; the previous one is closed. Nothing is built from it automatically.
+
+## Consequences
+- Measured on the 29 archived changes, 18 (62 %) would have been high risk, almost all for a migration or a sensitive capability: the MVP phase was schema-heavy. Expected cost: about $0.4–0.6 per architect review, so about +$0.3 per item at that rate, plus about $0.5–1 a week for the steward.
+- The spec gate gets an independent design opinion on the changes most likely to cause data, privacy or contract problems, and the owner gets a weekly view of the system as a whole.
+- Review after 10 high-risk specs: if the architect's findings rarely change a design, or design-caused rework stays below about 10 % of rework, narrow the tier (for example, only migrations that change existing data) or move the architect to Sonnet.

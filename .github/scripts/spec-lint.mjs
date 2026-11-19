@@ -39,7 +39,10 @@ function changedRequirements(root, change) {
   return out;
 }
 
-export function lintChange({ root = ".", change, light = false }) {
+// Sections a risky change's design.md must have (ADR 0022); "None." is a valid answer.
+export const DESIGN_SECTIONS = ["Data model", "Contracts", "Failure modes", "Alternatives", "ADR impact"];
+
+export function lintChange({ root = ".", change, light = false, risky = false }) {
   const problems = [];
   const warnings = [];
   const dir = join(root, "openspec", "changes", change);
@@ -72,6 +75,13 @@ export function lintChange({ root = ".", change, light = false }) {
   for (const t of touches) {
     if (/^[a-z0-9-]+$/.test(t) && !existing.has(t) && !capabilities.includes(t)) {
       problems.push(`Touches names "${t}", which is not a capability in openspec/specs or this change`);
+    }
+  }
+
+  if (risky) {
+    const design = existsSync(join(dir, "design.md")) ? readFileSync(join(dir, "design.md"), "utf8") : "";
+    for (const section of DESIGN_SECTIONS) {
+      if (!new RegExp(`^##\\s+${section}\\b`, "im").test(design)) problems.push(`design.md lacks \`## ${section}\` (required for risky changes)`);
     }
   }
 
