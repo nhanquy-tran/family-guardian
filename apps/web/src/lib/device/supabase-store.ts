@@ -1,7 +1,47 @@
-import { MAX_RULE_DOMAINS, type Category } from "@fg/shared";
+import { categorize, MAX_RULE_DOMAINS, type Category, type OtherUsage } from "@fg/shared";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { HeartbeatStore } from "./heartbeat";
 import type { RulesStore } from "./rules-endpoint";
+
+const PAGE = 1000;
+
+async function loadOtherUsage(client: SupabaseClient, deviceId: string): Promise<OtherUsage | null> {
+  const { data: rows, error } = await client.rpc("device_other_usage", { p_device_id: deviceId });
+  if (error) throw error;
+  const usage = (rows ?? []) as { day: string; domain: string | null; seconds: number | string }[];
+  const first = usage[0];
+  if (!first) return null;
+
+  const { data: dev, error: devError } = await client
+    .from("devices")
+    .select("children(family_id)")
+    .eq("id", deviceId)
+    .maybeSingle();
+  if (devError) throw devError;
+  const familyId = (dev?.children as unknown as { family_id: string } | null)?.family_id;
+  if (!familyId) return null;
+
+  const overrides: Record<string, Category> = {};
+  for (let from = 0; ; from += PAGE) {
+    const { data, error: ovError } = await client
+      .from("domain_categories")
+      .select("domain, category")
+      .eq("family_id", familyId)
+      .order("domain")
+      .range(from, from + PAGE - 1);
+    if (ovError) throw ovError;
+    for (const row of data ?? []) overrides[row.domain as string] = row.category as Category;
+    if ((data ?? []).length < PAGE) break;
+  }
+
+  const seconds: Partial<Record<Category, number>> = {};
+  for (const row of usage) {
+    if (row.domain === null) continue;
+    const category = categorize(row.domain, overrides);
+    seconds[category] = (seconds[category] ?? 0) + Number(row.seconds);
+  }
+  return { day: first.day, seconds };
+}
 
 export function createHeartbeatStore(client: SupabaseClient): HeartbeatStore {
   return {
@@ -31,9 +71,7 @@ export function createHeartbeatStore(client: SupabaseClient): HeartbeatStore {
       const { error } = await client.from("devices").update(patch).eq("id", deviceId);
       if (error) throw error;
     },
-    async otherUsage() {
-      throw new Error("not implemented");
-    },
+    otherUsage: (deviceId) => loadOtherUsage(client, deviceId),
   };
 }
 
@@ -42,7 +80,7 @@ export function createRulesStore(client: SupabaseClient): RulesStore {
     async findChild(tokenHash) {
       const { data, error } = await client
         .from("devices")
-        .select("child_id, children(family_id, rules_version, allowed_start, allowed_end, families(timezone))")
+        .select("id, child_id, children(family_id, rules_version, allowed_start, allowed_end, families(timezone))")
         .eq("token_hash", tokenHash)
         .maybeSingle();
       if (error) throw error;
@@ -56,6 +94,7 @@ export function createRulesStore(client: SupabaseClient): RulesStore {
       } | null;
       if (!child) return null;
       return {
+        deviceId: data.id as string,
         childId: data.child_id as string,
         familyId: child.family_id,
         rulesVersion: child.rules_version,
@@ -99,8 +138,6 @@ export function createRulesStore(client: SupabaseClient): RulesStore {
         category: row.category as Category,
       }));
     },
-    async otherUsage() {
-      throw new Error("not implemented");
-    },
+    otherUsage: (deviceId) => loadOtherUsage(client, deviceId),
   };
 }

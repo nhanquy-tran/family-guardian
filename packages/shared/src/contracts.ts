@@ -67,9 +67,11 @@ export const RulesResponse = z.object({
     .default(null),
 });
 
-// Stub for the test writer: the developer replaces it with { day: YYYY-MM-DD, seconds: partial category -> int >= 0 }.
-export const OtherUsage = z.never();
-export type OtherUsage = { day: string; seconds: Partial<Record<(typeof CATEGORIES)[number], number>> };
+export const OtherUsage = z.object({
+  day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  seconds: z.partialRecord(z.enum(CATEGORIES), z.number().int().min(0)),
+});
+export type OtherUsage = z.infer<typeof OtherUsage>;
 
 export type RulesResponse = z.infer<typeof RulesResponse>;
 export type BlockedAttempt = z.infer<typeof BlockedAttempt>;

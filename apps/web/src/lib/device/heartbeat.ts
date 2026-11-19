@@ -1,6 +1,7 @@
 import {
   BlockedAttempt,
   HeartbeatEnvelope,
+  OtherUsage as OtherUsageSchema,
   MAX_BLOCKED_ATTEMPTS,
   MAX_HEARTBEAT_ENTRIES,
   UsageEntry,
@@ -27,7 +28,7 @@ export type HeartbeatInput = {
 
 export type HeartbeatResult = {
   status: 200 | 400 | 401 | 413 | 500;
-  body: HeartbeatResponse | { error: string };
+  body: (HeartbeatResponse & { otherUsage?: OtherUsage }) | { error: string };
 };
 
 type UsageRow = { device_id: string; minute_utc: string; domain: string; seconds: number };
@@ -127,5 +128,11 @@ export async function handleHeartbeat(input: HeartbeatInput): Promise<HeartbeatR
   }
 
   input.log({ accepted: rows.size, skipped });
+  try {
+    const parsed = OtherUsageSchema.safeParse(await store.otherUsage(device.deviceId));
+    if (parsed.success) return { status: 200, body: { rulesVersion: device.rulesVersion, otherUsage: parsed.data } };
+  } catch {
+    // optional field: the heartbeat still succeeds without it
+  }
   return { status: 200, body: { rulesVersion: device.rulesVersion } };
 }
