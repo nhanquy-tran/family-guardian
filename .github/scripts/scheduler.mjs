@@ -4,6 +4,7 @@
 // Env: GH_TOKEN (owner PAT so label events trigger the router), GITHUB_REPOSITORY, MAX_PARALLEL, DRY_RUN.
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
+import { dependsOn, parseRefs, stateOf } from "./scheduler-rules.mjs";
 
 const repo = process.env.GITHUB_REPOSITORY;
 const maxParallel = Number(process.env.MAX_PARALLEL || 3);
@@ -12,14 +13,6 @@ const dryRun = process.env.DRY_RUN === "1";
 const gh = (...args) => execFileSync("gh", args, { encoding: "utf8" }).trim();
 const ghJson = (...args) => JSON.parse(gh(...args) || "null");
 const git = (...args) => execFileSync("git", args, { encoding: "utf8" }).trim();
-
-const STATE_LABELS = ["needs-spec", "spec-in-progress", "spec-review", "ready", "build-now", "in-progress", "in-review", "needs-human", "on-hold"];
-
-function parseRefs(text, key) {
-  const line = (text || "").split("\n").find((l) => l.toLowerCase().startsWith(`${key.toLowerCase()}:`));
-  if (!line) return [];
-  return line.slice(key.length + 1).split(/[,\s]+/).map((s) => s.trim()).filter((s) => s && s.toLowerCase() !== "none");
-}
 
 function changeFolderFor(issue) {
   try {
@@ -35,12 +28,13 @@ function changeFolderFor(issue) {
   }
 }
 
-function touchesFor(issue) {
+function proposalFor(issue) {
   const change = changeFolderFor(issue);
   const proposal = change && `openspec/changes/${change}/proposal.md`;
-  if (!proposal || !existsSync(proposal)) return [];
-  return parseRefs(readFileSync(proposal, "utf8"), "Touches");
+  return proposal && existsSync(proposal) ? readFileSync(proposal, "utf8") : null;
 }
+
+const touchesFor = (issue) => parseRefs(proposalFor(issue), "Touches");
 
 function activeAgentRuns() {
   let n = 0;
@@ -73,8 +67,8 @@ const actions = [];
 const rows = [];
 
 for (const issue of autopilot.sort((a, b) => a.number - b.number)) {
-  const deps = parseRefs(issue.body, "Depends on").map((d) => Number(d.replace("#", ""))).filter(Boolean);
-  const state = STATE_LABELS.find((l) => issue.labelNames.includes(l)) || "new";
+  const deps = dependsOn(issue.body, proposalFor(issue.number));
+  const state = stateOf(issue.labelNames);
   let note = "";
 
   if (state === "new") {
@@ -97,6 +91,7 @@ for (const issue of autopilot.sort((a, b) => a.number - b.number)) {
     }
   } else if (state === "spec-review" || state === "in-review") note = "waiting for the gate (Claude or owner)";
   else if (state === "needs-human") note = "needs the owner";
+  else if (state === "on-hold") note = "on hold: nothing is started";
   rows.push(`| #${issue.number} | ${issue.title.replace(/\|/g, "/").slice(0, 70)} | ${state} | ${deps.map((d) => `#${d}${isDone(d) ? " ✓" : ""}`).join(", ") || "none"} | ${note} |`);
 }
 

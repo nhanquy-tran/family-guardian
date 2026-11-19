@@ -104,8 +104,10 @@ function evalSpec() {
 
 function evalCoverage(testFiles) {
   const scenarios = specFiles().flatMap((f) => parseSpec(readFileSync(f, "utf8")).flatMap((r) => r.scenarios.map((s) => s.title)));
+  // Unchanged scenarios of a MODIFIED requirement keep their test in the file the spec names, which the build may not touch.
+  const named = specFiles().flatMap((f) => [...readFileSync(f, "utf8").matchAll(/File:\s*`([^`]+\.test\.tsx?)`/g)].map((m) => m[1]));
   const names = [];
-  for (const f of testFiles.filter((t) => existsSync(t))) {
+  for (const f of [...new Set([...testFiles, ...named])].filter((t) => existsSync(t))) {
     // Also matches chained modifiers with arguments: it.skipIf(cond)("title"), test.each(rows)("title").
     const title = /\b(?:it|test)(?:\.\w+(?:\((?:[^()]|\([^()]*\))*\))?)*\(\s*(["'`])(.+?)\1/g;
     for (const m of readFileSync(f, "utf8").matchAll(title)) names.push(normalize(m[2]));
