@@ -67,6 +67,10 @@ export const RulesResponse = z.object({
     .default(null),
 });
 
+// Stub: replaced by the real schema (day + category seconds) in the implementation.
+export const OtherUsage = z.never();
+export type OtherUsage = { day: string; seconds: Partial<Record<(typeof CATEGORIES)[number], number>> };
+
 export type RulesResponse = z.infer<typeof RulesResponse>;
 export type BlockedAttempt = z.infer<typeof BlockedAttempt>;
 export type UsageEntry = z.infer<typeof UsageEntry>;

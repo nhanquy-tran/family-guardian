@@ -2,11 +2,13 @@ import { expandBlockRules, MAX_RULE_DOMAINS, RulesResponse, type Category } from
 import { hashDeviceToken } from "./token";
 
 export interface RulesStore {
-  findChild(tokenHash: string): Promise<{ childId: string; familyId: string; rulesVersion: number; timezone: string; allowedHours: { start: string; end: string } | null } | null>;
+  findChild(tokenHash: string): Promise<{ deviceId?: string; childId: string; familyId: string; rulesVersion: number; timezone: string; allowedHours: { start: string; end: string } | null } | null>;
   listLimits(childId: string): Promise<{ category: Category; minutesPerDay: number }[]>;
   listRules(childId: string): Promise<{ kind: "domain" | "category"; value: string }[]>;
   /** Global rows (familyId null) and the family's rows; the handler lets family rows win. */
   listCategoryOverrides(familyId: string): Promise<{ familyId: string | null; domain: string; category: Category }[]>;
+  /** Stub for the cross-browser change: the developer makes it required and implements it. */
+  otherUsage?(deviceId: string): Promise<unknown>;
 }
 
 export type RulesInput = { authorization: string | null; store: RulesStore };

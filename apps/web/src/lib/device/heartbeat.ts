@@ -13,6 +13,8 @@ export interface HeartbeatStore {
   upsertUsage(rows: { device_id: string; minute_utc: string; domain: string; seconds: number }[]): Promise<void>;
   insertBlocked(rows: { device_id: string; at: string; domain: string }[]): Promise<void>;
   updateDevice(deviceId: string, patch: { last_seen_at: string; browser: string; extension_version: string }): Promise<void>;
+  /** Stub for the cross-browser change: the developer makes it required and implements it. */
+  otherUsage?(deviceId: string): Promise<unknown>;
 }
 
 export type HeartbeatInput = {

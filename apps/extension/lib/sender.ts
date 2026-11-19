@@ -22,7 +22,7 @@ export interface FlushDeps {
 }
 
 export type FlushResult =
-  | { kind: "ok"; rulesVersion: number }
+  | { kind: "ok"; rulesVersion: number; otherUsage?: unknown }
   | { kind: "failed" }
   | { kind: "unauthorized" };
 
