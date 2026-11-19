@@ -13,3 +13,6 @@
 2026-11-18-allowed-hours
 2026-11-18-enforce-daily-category-limits
 2026-11-18-restyle-web-app
+2026-11-19-clear-rules-on-repair
+2026-11-19-report-unchanged-writes
+2026-11-19-share-allowed-hours-validation
