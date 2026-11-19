@@ -78,6 +78,29 @@ describe("digest emails migration", () => {
     }
   });
 
+  it("unfiltered settings updates touch only the caller's family", async () => {
+    const before = await db.query("select digest_frequency, digest_hour, timezone, timezone_known, weekly_report_enabled from families where id = $1", [
+      b.familyId,
+    ]);
+    const statements = [
+      "update families set timezone = 'Asia/Tokyo', timezone_known = true where timezone_known = false returning id",
+      "update families set digest_frequency = 'weekly', digest_hour = 7, timezone = 'Europe/Zurich', timezone_known = true returning id",
+      "update families set weekly_report_enabled = true returning id",
+    ];
+    for (const sql of statements) {
+      const r = await attempt(db, { parent: a.userId }, sql);
+      expect(r.ok && r.rows, sql).toEqual([{ id: a.familyId }]);
+    }
+    const after = await db.query("select digest_frequency, digest_hour, timezone, timezone_known, weekly_report_enabled from families where id = $1", [
+      b.familyId,
+    ]);
+    expect(after.rows).toEqual(before.rows);
+    await db.query(
+      "update families set digest_frequency = 'daily', digest_hour = 8, timezone = 'UTC', timezone_known = false, weekly_report_enabled = false where id = $1",
+      [a.familyId],
+    );
+  });
+
   it("Parents edit only their own family", async () => {
     const own = await attempt(db, { parent: a.userId }, "update families set digest_hour = 6 where id = $1", [a.familyId]);
     expect(own.ok && own.affected).toBe(1);
