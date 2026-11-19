@@ -60,7 +60,7 @@ jobs:
           claude_args: |
             --model ${{ vars.FACTORY_STEWARD_MODEL || 'claude-sonnet-5-5' }}
             --permission-mode default
-            --allowedTools "Read,Glob,Grep,Write(docs/.architecture-report.md),Bash(cd:*),Bash(git log:*),Bash(git show:*),Bash(git diff:*),Bash(ls:*)"
+            --allowedTools "Read,Glob,Grep,Edit(docs/**),Write(docs/**),Bash(cd:*),Bash(git log:*),Bash(git show:*),Bash(git diff:*),Bash(ls:*)"
       - name: Post report
         id: report
         if: always()

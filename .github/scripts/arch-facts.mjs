@@ -46,7 +46,7 @@ function main() {
   const sources = git("ls-files", "apps", "packages", "supabase/functions").split("\n").filter(Boolean);
   const sizes = sources.filter(existsSync).map((path) => ({ path, lines: readFileSync(path, "utf8").split("\n").length }));
   const open = existsSync("openspec/changes") ? readdirSync("openspec/changes").filter((c) => c !== "archive" && existsSync(join("openspec/changes", c, "proposal.md"))) : [];
-  const merged = git("log", `--since=${days}.days`, "--first-parent", "--format=- %s", "origin/main").trim();
+  const merged = git("log", `--since=${days}.days`, "--first-parent", "-n", "40", "--format=- %s", "origin/main").trim();
 
   const out = [`## Facts (last ${days} days)`, "", "### Merged to main", merged || "- none", "", "### Most changed product files"];
   out.push(...hotFiles(git("log", `--since=${days}.days`, "--name-only", "--format=", "origin/main", "--", "apps", "packages", "supabase", "openspec/specs"), 15).map((f) => `- ${f.path}: ${f.commits} commits`));
