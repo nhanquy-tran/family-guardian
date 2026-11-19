@@ -248,12 +248,13 @@ jobs:
         id: gate
         if: always() && steps.tests.outcome == 'success'
         run: |
-          if npm run check > /tmp/check.log 2>&1 && npm run build > /tmp/build.log 2>&1; then
+          if npm run check:ci > /tmp/check.log 2>&1 && npm run build > /tmp/build.log 2>&1; then
             echo "result=pass" >> "$GITHUB_OUTPUT"
           else
             echo "result=fail" >> "$GITHUB_OUTPUT"
           fi
           tail -n 40 /tmp/check.log /tmp/build.log > /tmp/gate-tail.txt 2>/dev/null || true
+          node .github/scripts/coverage-table.mjs > /tmp/coverage.md 2>/dev/null || rm -f /tmp/coverage.md
 
       - name: "Eval: same tests pass after implementation"
         id: green
@@ -320,8 +321,9 @@ jobs:
           done < /tmp/test-files.txt
           FILES=$(tr '\n' ' ' < /tmp/test-files.txt)
           if npx vitest run $FILES > /tmp/green.log 2>&1; then G="pass"; else G="fail (after debugging)"; tail -n 40 /tmp/green.log; fi
-          if npm run check > /tmp/check.log 2>&1 && npm run build > /tmp/build.log 2>&1; then C="pass"; else C="fail (after debugging)"; fi
+          if npm run check:ci > /tmp/check.log 2>&1 && npm run build > /tmp/build.log 2>&1; then C="pass"; else C="fail (after debugging)"; fi
           tail -n 40 /tmp/check.log /tmp/build.log > /tmp/gate-tail.txt 2>/dev/null || true
+          node .github/scripts/coverage-table.mjs > /tmp/coverage.md 2>/dev/null || rm -f /tmp/coverage.md
           if [ -n "$CHANGED" ]; then echo "guard=arbitrated (debugger changed:$CHANGED)" >> "$GITHUB_OUTPUT"; else echo "guard=pass" >> "$GITHUB_OUTPUT"; fi
           echo "green=$G" >> "$GITHUB_OUTPUT"
           echo "gate=$C" >> "$GITHUB_OUTPUT"
