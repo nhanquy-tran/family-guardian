@@ -31,6 +31,9 @@ export function createHeartbeatStore(client: SupabaseClient): HeartbeatStore {
       const { error } = await client.from("devices").update(patch).eq("id", deviceId);
       if (error) throw error;
     },
+    async otherUsage() {
+      throw new Error("not implemented");
+    },
   };
 }
 
@@ -95,6 +98,9 @@ export function createRulesStore(client: SupabaseClient): RulesStore {
         domain: row.domain as string,
         category: row.category as Category,
       }));
+    },
+    async otherUsage() {
+      throw new Error("not implemented");
     },
   };
 }

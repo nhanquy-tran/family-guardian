@@ -5,6 +5,7 @@ import {
   MAX_HEARTBEAT_ENTRIES,
   UsageEntry,
   type HeartbeatResponse,
+  type OtherUsage,
 } from "@fg/shared";
 import { hashDeviceToken } from "./token";
 
@@ -13,6 +14,7 @@ export interface HeartbeatStore {
   upsertUsage(rows: { device_id: string; minute_utc: string; domain: string; seconds: number }[]): Promise<void>;
   insertBlocked(rows: { device_id: string; at: string; domain: string }[]): Promise<void>;
   updateDevice(deviceId: string, patch: { last_seen_at: string; browser: string; extension_version: string }): Promise<void>;
+  otherUsage(deviceId: string): Promise<OtherUsage | null>;
 }
 
 export type HeartbeatInput = {

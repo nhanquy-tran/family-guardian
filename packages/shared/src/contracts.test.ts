@@ -4,7 +4,9 @@ import {
   HeartbeatRequest,
   MAX_BLOCKED_ATTEMPTS,
   MAX_HEARTBEAT_ENTRIES,
+  HeartbeatResponse,
   MAX_RULE_DOMAINS,
+  OtherUsage,
   parseAllowedHours,
   RulesResponse,
   UsageEntry,
@@ -153,5 +155,26 @@ describe("parseAllowedHours", () => {
       ["07:00", 7],
     ];
     for (const [start, end] of pairs) expect(parseAllowedHours(start, end)).toBeNull();
+  });
+});
+
+describe("other usage contract", () => {
+  it("Contract", () => {
+    const good = { day: "2026-11-17", seconds: { games: 60 } };
+    expect(OtherUsage.safeParse(good)).toMatchObject({ success: true, data: good });
+    for (const bad of [
+      { day: "x", seconds: {} },
+      { day: "2026-11-17", seconds: { music: 60 } },
+      { day: "2026-11-17", seconds: { games: -1 } },
+      { day: "2026-11-17", seconds: { games: 1.5 } },
+      { day: "2026-11-17", seconds: { "roblox.com": 60 } },
+    ]) {
+      expect(OtherUsage.safeParse(bad).success, JSON.stringify(bad)).toBe(false);
+    }
+    const rules = { rulesVersion: 1, domains: [], truncated: false };
+    for (const otherUsage of [undefined, { day: "x", seconds: { games: -1 } }, good]) {
+      expect(HeartbeatResponse.safeParse({ rulesVersion: 3, otherUsage }).success).toBe(true);
+      expect(RulesResponse.safeParse({ ...rules, otherUsage }).success).toBe(true);
+    }
   });
 });

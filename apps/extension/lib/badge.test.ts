@@ -149,3 +149,21 @@ describe("badge", () => {
     expect(json).not.toContain("secret");
   });
 });
+
+describe("badge other usage", () => {
+  const otherUsage = (day: string) => ({ day, seconds: { games: 240 } });
+
+  it("Minutes left include the other browser", async () => {
+    const t = setup({ ...base, rulesLimits: games(10), limitUsage: usage(240), otherUsage: otherUsage("2026-11-17") });
+    await t.controller.handleEvent(tab("10:00:00", "https://www.roblox.com/home"));
+    // left = 600 - (240 + 240) = 120 s = 2 min
+    expect(last(t.texts)).toBe("2");
+  });
+
+  it("Stale other usage is ignored", async () => {
+    const t = setup({ ...base, rulesLimits: games(10), limitUsage: usage(240), otherUsage: otherUsage("2026-11-16") });
+    await t.controller.handleEvent(tab("10:00:00", "https://www.roblox.com/home"));
+    // left = 600 - 240 = 360 s > 300, so nothing is shown
+    expect(last(t.texts)).toBe("");
+  });
+});

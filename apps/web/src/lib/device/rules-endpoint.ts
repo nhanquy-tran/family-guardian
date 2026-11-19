@@ -1,4 +1,4 @@
-import { expandBlockRules, MAX_RULE_DOMAINS, RulesResponse, type Category } from "@fg/shared";
+import { expandBlockRules, MAX_RULE_DOMAINS, RulesResponse, type Category, type OtherUsage } from "@fg/shared";
 import { hashDeviceToken } from "./token";
 
 export interface RulesStore {
@@ -7,6 +7,7 @@ export interface RulesStore {
   listRules(childId: string): Promise<{ kind: "domain" | "category"; value: string }[]>;
   /** Global rows (familyId null) and the family's rows; the handler lets family rows win. */
   listCategoryOverrides(familyId: string): Promise<{ familyId: string | null; domain: string; category: Category }[]>;
+  otherUsage(deviceId: string): Promise<OtherUsage | null>;
 }
 
 export type RulesInput = { authorization: string | null; store: RulesStore };
