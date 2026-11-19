@@ -36,16 +36,14 @@ export const HeartbeatResponse = z.object({
   rulesVersion: z.number().int().nonnegative(),
 });
 
-const HHMM = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
+export const HHMM_PATTERN = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
 
 export type AllowedHours = { start: string; end: string };
 
-export const HHMM_PATTERN = HHMM;
-
 export function parseAllowedHours(start: unknown, end: unknown): AllowedHours | null {
-  void start;
-  void end;
-  throw new Error("not implemented");
+  if (typeof start !== "string" || typeof end !== "string") return null;
+  if (!HHMM_PATTERN.test(start) || !HHMM_PATTERN.test(end) || start === end) return null;
+  return { start, end };
 }
 
 export const RulesResponse = z.object({
@@ -63,7 +61,7 @@ export const RulesResponse = z.object({
     .refine((m) => Object.keys(m).length <= MAX_RULE_DOMAINS)
     .default({}),
   allowedHours: z
-    .object({ start: z.string().regex(HHMM), end: z.string().regex(HHMM) })
+    .object({ start: z.string().regex(HHMM_PATTERN), end: z.string().regex(HHMM_PATTERN) })
     .refine((h) => h.start !== h.end)
     .nullable()
     .default(null),

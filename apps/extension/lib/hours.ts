@@ -1,23 +1,16 @@
+import { parseAllowedHours, type AllowedHours } from "@fg/shared";
 import type { Dnr, Rule } from "./rules";
 import type { KeyValueStore } from "./storage";
 
-export interface AllowedHours {
-  start: string;
-  end: string;
-}
-
 export const ALLOWED_HOURS_RULE_ID = 2000000;
 
-const HHMM = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
 const MINUTE_MS = 60_000;
 const MAX_SEARCH_MINUTES = 26 * 60;
 
 function parseHours(raw: unknown): AllowedHours | null {
   if (typeof raw !== "object" || raw === null) return null;
   const { start, end } = raw as { start?: unknown; end?: unknown };
-  if (typeof start !== "string" || typeof end !== "string") return null;
-  if (!HHMM.test(start) || !HHMM.test(end) || start === end) return null;
-  return { start, end };
+  return parseAllowedHours(start, end);
 }
 
 const toMinutes = (hhmm: string): number => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
