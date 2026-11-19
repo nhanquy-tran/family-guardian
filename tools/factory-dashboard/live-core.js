@@ -76,7 +76,20 @@
     return runs.length ? runs.reduce((s, m) => s + m.denied.length, 0) / runs.length : null;
   }
 
-  const api = { LIVE_MS, liveInterval, visibleRuns, runningText, waitingText, keepPolling, reworkCost, deniedPerRun };
+  // An issue is done when its build PR merged, or when it was closed without one (architecture reports,
+  // issues closed by hand); otherwise the health table showed them as running forever.
+  function issueEnd(issue, factoryPr) {
+    if (factoryPr?.merged_at) return Date.parse(factoryPr.merged_at);
+    if (issue?.state === "closed" && issue.closed_at) return Date.parse(issue.closed_at);
+    return null;
+  }
+
+  const NOT_FACTORY_WORK = ["architecture", "factory-state"];
+  function isFactoryWork(issue) {
+    return !(issue?.labels || []).some((l) => NOT_FACTORY_WORK.includes(l.name));
+  }
+
+  const api = { LIVE_MS, liveInterval, visibleRuns, runningText, waitingText, keepPolling, reworkCost, deniedPerRun, issueEnd, isFactoryWork };
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.LiveCore = api;
 })(typeof window !== "undefined" ? window : globalThis);

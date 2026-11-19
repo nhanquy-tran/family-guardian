@@ -294,6 +294,50 @@ describe("row level security", () => {
     }
   });
 
+  it("anonymous cannot change or delete rows", async () => {
+    await db.query("insert into child_category_limits (child_id, category, minutes_per_day) values ($1, 'games', 60)", [a.childId]);
+    const statements: [string, unknown[]][] = [
+      ["update families set digest_hour = 5, weekly_report_enabled = true", []],
+      ["update families set timezone = 'Asia/Tokyo', timezone_known = true where timezone_known = false", []],
+      ["update children set name = 'Anon' where id = $1", [a.childId]],
+      ["update children set allowed_start = '08:00', allowed_end = '20:00', homework_domains = '{anon.example.org}' where id = $1", [a.childId]],
+      ["delete from children where id = $1", [a.childId2]],
+      ["delete from block_rules where id = $1", [a.ruleId]],
+      ["delete from pairing_codes where child_id = $1", [a.childId]],
+      ["update domain_categories set category = 'news' where id = $1", [a.categoryId]],
+      ["delete from domain_categories where id = $1", [a.categoryId]],
+      ["update devices set name = 'Anon' where id = $1", [a.deviceId]],
+      ["delete from devices where id = $1", [a.deviceId]],
+      ["update child_category_limits set minutes_per_day = 5 where child_id = $1", [a.childId]],
+      ["delete from child_category_limits where child_id = $1", [a.childId]],
+    ];
+    for (const [sql, params] of statements) {
+      const r = await attempt(db, "anon", sql, params);
+      expect(r.ok ? r.affected : 0, sql).toBe(0);
+    }
+    const state = await asService(db, async () => ({
+      family: (await db.query("select digest_hour, timezone, weekly_report_enabled from families where id = $1", [a.familyId])).rows[0],
+      child: (await db.query("select name, allowed_start, homework_domains from children where id = $1", [a.childId])).rows[0],
+      child2: (await db.query("select 1 from children where id = $1", [a.childId2])).rows.length,
+      rule: (await db.query("select 1 from block_rules where id = $1", [a.ruleId])).rows.length,
+      code: (await db.query("select 1 from pairing_codes where child_id = $1", [a.childId])).rows.length,
+      category: (await db.query("select category from domain_categories where id = $1", [a.categoryId])).rows[0],
+      device: (await db.query("select name from devices where id = $1", [a.deviceId])).rows[0],
+      limit: (await db.query("select minutes_per_day from child_category_limits where child_id = $1", [a.childId])).rows[0],
+    }));
+    expect(state).toEqual({
+      family: { digest_hour: 8, timezone: "UTC", weekly_report_enabled: false },
+      child: { name: "Kid A", allowed_start: null, homework_domains: [] },
+      child2: 1,
+      rule: 1,
+      code: 1,
+      category: { category: "games" },
+      device: { name: null },
+      limit: { minutes_per_day: 60 },
+    });
+    await db.query("delete from child_category_limits where child_id = $1", [a.childId]);
+  });
+
   it("parent A reads only family A", async () => {
     const owner: Record<string, (id: string) => string> = {
       families: () => "select id from families",

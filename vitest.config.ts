@@ -7,5 +7,23 @@ export default defineConfig({
     globalSetup: ["supabase/tests/global-setup.ts"],
     testTimeout: 30_000,
     hookTimeout: 60_000,
+    // `npm run coverage` (CI and the factory gate) fails when an area drops below its threshold, and raises
+    // a threshold to the new whole percentage when coverage grows, so commit the updated numbers (ADR 0023).
+    coverage: {
+      provider: "v8",
+      include: ["packages/shared/src/**/*.{ts,tsx}", "apps/web/src/**/*.{ts,tsx}", "apps/extension/{lib,entrypoints}/**/*.ts"],
+      exclude: ["**/*.test.*", "**/*.d.ts"],
+      reporter: ["text-summary", "json-summary"],
+      thresholds: {
+        autoUpdate: (value: number) => Math.floor(value),
+        lines: 88,
+        branches: 82,
+        "packages/shared/src/**": { lines: 99, branches: 90 },
+        "apps/web/src/lib/**": { lines: 90, branches: 81 },
+        "apps/web/src/components/**": { lines: 95, branches: 92 },
+        "apps/web/src/app/**": { lines: 82, branches: 84 },
+        "apps/extension/**": { lines: 83, branches: 80 },
+      },
+    },
   },
 });
