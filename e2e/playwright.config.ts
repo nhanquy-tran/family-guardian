@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { E2E_PAIR_SECRET } from "./fixtures/pairing.ts";
 import { localSupabase } from "./local-supabase.ts";
 
 const PORT = 3100;
@@ -35,6 +36,7 @@ export default defineConfig({
       NEXT_PUBLIC_SUPABASE_ANON_KEY: supabase.anonKey,
       SUPABASE_SERVICE_ROLE_KEY: supabase.serviceRoleKey,
       APP_URL: `http://localhost:${PORT}`,
+      PAIR_RATE_LIMIT_SECRET: E2E_PAIR_SECRET,
     },
   },
 });

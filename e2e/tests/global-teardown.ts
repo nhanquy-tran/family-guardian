@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
+import { removePairAttempts } from "../fixtures/pairing.ts";
 import { teardown } from "../fixtures/store.ts";
 import { supabaseStore } from "../fixtures/supabase-store.ts";
 import { localSupabase } from "../local-supabase.ts";
@@ -43,5 +44,7 @@ img{width:100%;height:320px;object-fit:cover;object-position:top;border-radius:4
 export default async function globalTeardown(): Promise<void> {
   writeIndex();
   if (process.env.E2E_KEEP === "1") return;
-  await teardown(supabaseStore(localSupabase()));
+  const env = localSupabase();
+  await teardown(supabaseStore(env));
+  await removePairAttempts(env);
 }
