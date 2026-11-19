@@ -38,6 +38,24 @@ describe("lintChange", () => {
     expect(r.problems).toContain("proposal.md has no `Touches:` line");
   });
 
+  it("flags requirement text over 500 characters, which openspec --strict rejects in the main spec", () => {
+    const long = "The system SHALL " + "do it carefully ".repeat(32) + ".";
+    put("openspec/changes/a/proposal.md", proposal("daily-limits"));
+    put("openspec/changes/a/specs/daily-limits/spec.md", `## MODIFIED Requirements
+
+### Requirement: Limits are stored per child
+${long}
+
+${scenario("x")}`);
+    expect(lintChange({ root, change: "a" }).problems).toContain(
+      `daily-limits: "Limits are stored per child" text is ${long.length} characters; keep it at 500 or less (move detail into scenarios or split it)`,
+    );
+    put("openspec/changes/a/specs/daily-limits/spec.md", `## MODIFIED Requirements
+
+${requirement("Limits are stored per child")}`);
+    expect(lintChange({ root, change: "a" }).problems).toEqual([]);
+  });
+
   it("flags ADDED for a requirement that already exists", () => {
     put("openspec/changes/a/proposal.md", proposal("daily-limits"));
     put("openspec/changes/a/specs/daily-limits/spec.md", `## ADDED Requirements\n\n${requirement("limits are stored per child")}`);
