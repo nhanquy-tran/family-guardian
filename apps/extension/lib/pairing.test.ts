@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { connectionStatus, PAIR_MESSAGES, pairWithCode, STATUS_TEXT } from "./pairing";
-import { always, createPost, createStore, entries, sequence } from "./test-fakes";
+import type { Dnr } from "./rules";
+import { always, createDnr, createPost, createStore, entries, sequence } from "./test-fakes";
 
 const ok = { status: 200, body: { deviceToken: "tok-1" } } as const;
 const limitState = {
@@ -12,9 +13,22 @@ const limitState = {
   rulesAllowedHours: { start: "07:00", end: "21:00" },
 };
 
-function deps(store: ReturnType<typeof createStore>["store"], post: ReturnType<typeof createPost>["post"]) {
-  return { baseUrl: "https://fg.example", browser: "edge" as const, os: "Windows", store, post };
+function deps(
+  store: ReturnType<typeof createStore>["store"],
+  post: ReturnType<typeof createPost>["post"],
+  dnr?: Dnr,
+) {
+  return { baseUrl: "https://fg.example", browser: "edge" as const, os: "Windows", store, post, ...(dnr ? { dnr } : {}) };
 }
+
+const oldRules = [1, 2, 2000000];
+const oldState = {
+  deviceToken: "old",
+  rulesVersion: 4,
+  rulesDomains: ["a.example"],
+  blockedQueue: [{ at: "2026-11-17T10:00:00.000Z", domain: "tiktok.com" }],
+  ...limitState,
+};
 
 describe("pairWithCode", () => {
   it("request shape", async () => {
@@ -118,27 +132,71 @@ describe("pairWithCode", () => {
   });
 
   it("Successful re-pair", async () => {
-    const { store, data } = createStore({
-      deviceToken: "old",
-      rulesVersion: 4,
-      blockedQueue: [{ at: "2026-11-17T10:00:00.000Z", domain: "tiktok.com" }],
-      ...limitState,
-    });
+    const { store, data, ops } = createStore(oldState);
+    const fake = createDnr(oldRules);
+    const removeCalls: string[][] = [];
+    const spied = {
+      ...store,
+      remove: async (keys: string[]) => {
+        removeCalls.push([...keys]);
+        return store.remove(keys);
+      },
+    };
+    const dnr: Dnr = {
+      getDynamicRules: () => fake.dnr.getDynamicRules(),
+      updateDynamicRules: async (options) => {
+        ops.push("dnr:update");
+        return fake.dnr.updateDynamicRules(options);
+      },
+    };
     const { post } = always({ status: 200, body: { deviceToken: "tok-2" } });
-    expect(await pairWithCode(deps(store, post), "AB2CD3")).toEqual({ ok: true });
-    expect(data.has("rulesVersion")).toBe(false);
-    expect(data.has("blockedQueue")).toBe(false);
-    for (const key of Object.keys(limitState)) expect(data.has(key), key).toBe(false);
+    expect(await pairWithCode(deps(spied, post, dnr), "AB2CD3")).toEqual({ ok: true });
+    expect(fake.rules()).toEqual([]);
+    expect(fake.updates[0]?.addRules).toEqual([]);
+    for (const key of ["rulesVersion", "rulesDomains", "blockedQueue", ...Object.keys(limitState)]) {
+      expect(data.has(key), key).toBe(false);
+    }
+    expect(data.get("deviceToken")).toBe("tok-2");
+    expect(removeCalls[0]).toEqual(["rulesVersion"]);
+    const update = ops.indexOf("dnr:update");
+    expect(update).toBeGreaterThan(-1);
+    expect(ops.indexOf("remove:rulesVersion")).toBeLessThan(update);
+    expect(update).toBeLessThan(ops.indexOf("set:deviceToken"));
+  });
+
+  it("Removing the rules fails", async () => {
+    const failing: Dnr[] = [
+      {
+        getDynamicRules: async () => {
+          throw new Error("get rules failed");
+        },
+        updateDynamicRules: async () => undefined,
+      },
+      createDnr(oldRules, { failUpdate: true }).dnr,
+    ];
+    for (const dnr of failing) {
+      const { store, data } = createStore(oldState);
+      const { post } = always({ status: 200, body: { deviceToken: "tok-2" } });
+      await expect(pairWithCode(deps(store, post, dnr), "AB2CD3")).resolves.toEqual({ ok: false, reason: "failed" });
+      expect(data.get("deviceToken")).toBe("old");
+      for (const [key, value] of Object.entries(oldState)) {
+        if (key !== "rulesVersion") expect(data.get(key), key).toEqual(value);
+      }
+    }
+    const kept = createDnr(oldRules, { failUpdate: true });
+    const { store } = createStore(oldState);
+    await pairWithCode(deps(store, always({ status: 200, body: { deviceToken: "tok-2" } }).post, kept.dnr), "AB2CD3");
+    expect(kept.rules().map((r) => r.id)).toEqual(oldRules);
   });
 
   it("Failed pair", async () => {
-    const blockedQueue = [{ at: "2026-11-17T10:00:00.000Z", domain: "tiktok.com" }];
-    const { store, data } = createStore({ deviceToken: "old", rulesVersion: 4, blockedQueue, ...limitState });
+    const { store, data } = createStore(oldState);
+    const fake = createDnr(oldRules);
     const { post } = always({ status: 400, body: { error: "invalid_code" } });
-    expect(await pairWithCode(deps(store, post), "ZZZZZZ")).toEqual({ ok: false, reason: "invalid_code" });
-    expect(data.get("rulesVersion")).toBe(4);
-    expect(data.get("blockedQueue")).toEqual(blockedQueue);
-    for (const [key, value] of Object.entries(limitState)) expect(data.get(key), key).toEqual(value);
+    expect(await pairWithCode(deps(store, post, fake.dnr), "ZZZZZZ")).toEqual({ ok: false, reason: "invalid_code" });
+    for (const [key, value] of Object.entries(oldState)) expect(data.get(key), key).toEqual(value);
+    expect(fake.updates).toHaveLength(0);
+    expect(fake.rules().map((r) => r.id)).toEqual(oldRules);
   });
 
   it("messages", () => {

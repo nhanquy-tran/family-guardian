@@ -340,6 +340,70 @@ describe("controller rules sync", () => {
   });
 });
 
+describe("controller re-pairing resets rules", () => {
+  const oldState = {
+    deviceToken: "old",
+    rulesVersion: 4,
+    rulesDomains: ["a.example"],
+    limitBlocked: { "roblox.com": "games" },
+    rulesAllowedHours: { start: "07:00", end: "21:00" },
+  };
+  const pairOk: Reply = { status: 200, body: { deviceToken: "tok-2" } };
+  const router = (heartbeat: Reply) =>
+    createPost((call) => (call.url.endsWith("/api/device/pair") ? pairOk : heartbeat)).post;
+  const rulesFor = (version: number, domains: string[]): Reply => ({
+    status: 200,
+    body: { rulesVersion: version, domains, truncated: false },
+  });
+
+  it("New child's rules apply after the first sync", async () => {
+    const { dnr, rules } = createDnr([1, 2, 2000000]);
+    const { get } = createGet(() => rulesFor(4, ["b.example"]));
+    const { controller } = setup(oldState, router({ status: 200, body: { rulesVersion: 4 } }), { get, dnr });
+    expect(await controller.pair("AB2CD3", "edge")).toEqual({ ok: true });
+    expect(rules()).toEqual([]);
+    await controller.onAlarm(at("10:04:05"));
+    expect(rules()).toEqual(buildRules(["b.example"]));
+  });
+
+  it("Stale domains are not evaluated after re-pair", async () => {
+    const { dnr, rules } = createDnr([1, 2000000]);
+    const { get } = createGet(() => ({ status: 500 }));
+    const { controller } = setup(oldState, router({ status: 200, body: { rulesVersion: 4 } }), { get, dnr });
+    await controller.pair("AB2CD3", "edge");
+    await controller.onAlarm(at("10:04:05"));
+    expect(rules()).toEqual([]);
+  });
+
+  it("Store write fails after the rules were cleared", async () => {
+    const fake = createStore(oldState);
+    const store = {
+      ...fake.store,
+      set: async (key: string, value: unknown) => {
+        if (key === "browser") throw new Error("set failed");
+        return fake.store.set(key, value);
+      },
+    };
+    const { dnr, rules } = createDnr([1]);
+    const { get } = createGet(() => rulesFor(4, ["a.example"]));
+    const controller = createController({
+      store,
+      post: router({ status: 200, body: { rulesVersion: 4 } }),
+      get,
+      dnr,
+      baseUrl: "https://fg.example",
+      extensionVersion: "0.2.0",
+      os: "Windows",
+      log: vi.fn(),
+    });
+    expect(await controller.pair("AB2CD3", "edge")).toEqual({ ok: false, reason: "failed" });
+    expect(fake.data.get("deviceToken")).toBe("old");
+    expect(rules()).toEqual([]);
+    await controller.onAlarm(at("10:04:05"));
+    expect(rules()).toEqual(buildRules(["a.example"]));
+  });
+});
+
 describe("controller recordBlocked", () => {
   const now = at("10:05:30");
 

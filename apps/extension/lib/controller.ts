@@ -227,7 +227,7 @@ export function createController(deps: ControllerDeps): Controller {
     },
     pair(code, browser) {
       return serialize(
-        () => pairWithCode({ baseUrl: deps.baseUrl, browser, os: deps.os, store, post: deps.post }, code),
+        () => pairWithCode({ baseUrl: deps.baseUrl, browser, os: deps.os, store, post: deps.post, dnr: deps.dnr }, code),
         { ok: false, reason: "failed" } satisfies PairResult,
       );
     },

@@ -1,5 +1,5 @@
 Depends on: #143
-Touches: limit-enforcement, limit-badge, device-heartbeat, site-blocking, heartbeat-sender, packages/shared/src/index.ts, supabase/migrations
+Touches: limit-enforcement, limit-badge, device-heartbeat, site-blocking, heartbeat-sender, block-enforcement, packages/shared/src/index.ts, supabase/migrations
 
 ## Why
 Daily category limits and the "minutes left" badge count usage per browser (`limitUsage`). A child paired in Chrome and Edge gets each limit once per browser. The server already stores usage per device. Owner decision (#140, option a): the server returns the other devices' usage and the extension adds it to its own.
