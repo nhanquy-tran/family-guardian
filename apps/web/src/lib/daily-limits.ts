@@ -2,7 +2,7 @@ import { CATEGORIES, type Category } from "@fg/shared";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type DailyLimit = { category: Category; minutesPerDay: number };
-export type DailyLimitError = "invalid_category" | "invalid_minutes" | "failed";
+export type DailyLimitError = "invalid_category" | "invalid_minutes" | "not_found" | "failed";
 export type SaveLimitsResult = { ok: true } | { ok: false; error: DailyLimitError };
 export type ListLimitsResult = { ok: true; limits: DailyLimit[] } | { ok: false; error: "failed" };
 
@@ -43,6 +43,12 @@ export async function saveDailyLimits(
     set.push({ child_id: childId, category, minutes_per_day: minutes });
   }
   try {
+    // A delete matching no limit is normal, so a clear-only save checks that RLS lets the parent see the child.
+    if (set.length === 0) {
+      const { data, error } = await client.from("children").select("id").eq("id", childId);
+      if (error || !data) return { ok: false, error: "failed" };
+      if (data.length === 0) return { ok: false, error: "not_found" };
+    }
     if (set.length > 0) {
       const { error } = await client.from(TABLE).upsert(set, { onConflict: "child_id,category" });
       if (error) return { ok: false, error: "failed" };

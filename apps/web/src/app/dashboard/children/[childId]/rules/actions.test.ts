@@ -153,20 +153,31 @@ describe("saveLimitsAction", () => {
       `${PATH}?limitsError=failed`,
     );
   });
+
+  it("clearing the limits of a child that RLS hides is reported", async () => {
+    state.fake = fakeSupabase(anonymous, null);
+    expect(await redirectOf(() => saveLimitsAction(form({ childId: "child-1" })))).toBe(`${PATH}?limitsError=not_found`);
+    expect(state.fake.writes()).toHaveLength(0);
+  });
 });
 
 describe("saveAllowedHoursAction", () => {
   it("updates the hours of the given child", async () => {
+    state.fake = fakeSupabase(byTable({ children: { data: [{ id: "child-1" }], error: null } }));
     expect(
       await redirectOf(() => saveAllowedHoursAction(form({ childId: "child-1", allowed_start: "07:00", allowed_end: "21:00" }))),
     ).toBe(PATH);
     expect(state.fake.writes()).toEqual([
-      { table: "children", ops: [["update", [{ allowed_start: "07:00", allowed_end: "21:00" }]], ["eq", ["id", "child-1"]]] },
+      {
+        table: "children",
+        ops: [["update", [{ allowed_start: "07:00", allowed_end: "21:00" }]], ["eq", ["id", "child-1"]], ["select", ["id"]]],
+      },
     ]);
     expect(state.revalidatePath).toHaveBeenCalledWith(PATH);
   });
 
   it("clears the hours when both fields are empty", async () => {
+    state.fake = fakeSupabase(byTable({ children: { data: [{ id: "child-1" }], error: null } }));
     expect(await redirectOf(() => saveAllowedHoursAction(form({ childId: "child-1" })))).toBe(PATH);
     expect(state.fake.writes()[0]?.ops[0]).toEqual(["update", [{ allowed_start: null, allowed_end: null }]]);
   });
@@ -185,5 +196,13 @@ describe("saveAllowedHoursAction", () => {
     expect(
       await redirectOf(() => saveAllowedHoursAction(form({ childId: "child-1", allowed_start: "07:00", allowed_end: "21:00" }))),
     ).toBe(`${PATH}?hoursError=failed`);
+  });
+
+  it("reports a child that RLS hides instead of saving", async () => {
+    state.fake = fakeSupabase(anonymous, null);
+    expect(
+      await redirectOf(() => saveAllowedHoursAction(form({ childId: "child-1", allowed_start: "07:00", allowed_end: "21:00" }))),
+    ).toBe(`${PATH}?hoursError=not_found`);
+    expect(state.revalidatePath).not.toHaveBeenCalled();
   });
 });

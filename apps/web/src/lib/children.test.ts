@@ -71,7 +71,7 @@ describe("addChild", () => {
 
 describe("renameChild", () => {
   it("Rename updates only the name", async () => {
-    const f = fakeClient({ children: { error: null } });
+    const f = fakeClient({ children: { data: [{ id: "child-1" }], error: null } });
     expect(await renameChild(f.client, "child-1", " An ")).toEqual({ ok: true });
     expect(f.writes()).toHaveLength(1);
     expect(f.writes()[0]).toEqual({
@@ -79,6 +79,7 @@ describe("renameChild", () => {
       ops: [
         ["update", [{ name: "An" }]],
         ["eq", ["id", "child-1"]],
+        ["select", ["id"]],
       ],
     });
   });
@@ -93,11 +94,16 @@ describe("renameChild", () => {
     const f = fakeClient({ children: { error: { message: DB_MESSAGE } } });
     expectGenericError(await renameChild(f.client, "child-1", "An"));
   });
+
+  it("Rename of a child the parent cannot see", async () => {
+    const f = fakeClient({ children: { data: [], error: null } });
+    expect(await renameChild(f.client, "child-9", "An")).toEqual({ ok: false, error: "Child not found" });
+  });
 });
 
 describe("deleteChild", () => {
   it("Delete by id", async () => {
-    const f = fakeClient({ children: { error: null } });
+    const f = fakeClient({ children: { data: [{ id: "child-1" }], error: null } });
     expect(await deleteChild(f.client, "child-1")).toEqual({ ok: true });
     expect(f.calls).toEqual([
       {
@@ -105,6 +111,7 @@ describe("deleteChild", () => {
         ops: [
           ["delete", []],
           ["eq", ["id", "child-1"]],
+          ["select", ["id"]],
         ],
       },
     ]);
@@ -115,14 +122,20 @@ describe("deleteChild", () => {
     expectGenericError(await deleteChild(f.client, "child-1"));
   });
 
+  it("Delete of a child the parent cannot see", async () => {
+    const f = fakeClient({ children: { data: [], error: null } });
+    expect(await deleteChild(f.client, "child-9")).toEqual({ ok: false, error: "Child not found" });
+  });
+
   it("Confirm deletes", async () => {
-    const f = fakeClient({ children: { error: null } });
+    const f = fakeClient({ children: { data: [{ id: "c1" }], error: null } });
     expect(await deleteChild(f.client, "c1")).toEqual({ ok: true });
     expect(f.calls[0]).toEqual({
       table: "children",
       ops: [
         ["delete", []],
         ["eq", ["id", "c1"]],
+        ["select", ["id"]],
       ],
     });
   });

@@ -6,7 +6,7 @@ type Call = { table: string; ops: [string, unknown[]][] };
 
 const CHILD = "child-1";
 
-function fakeClient(mode: "ok" | "error" | "throws" = "ok") {
+function fakeClient(mode: "ok" | "none" | "error" | "throws" = "ok") {
   const calls: Call[] = [];
   const from = vi.fn((table: string) => {
     if (mode === "throws") throw new Error("network down");
@@ -14,7 +14,11 @@ function fakeClient(mode: "ok" | "error" | "throws" = "ok") {
     calls.push(call);
     const chain: Record<string, unknown> = {
       then: (resolve: (value: unknown) => unknown, reject?: (e: unknown) => unknown) =>
-        Promise.resolve({ data: null, error: mode === "error" ? { message: "secret" } : null }).then(resolve, reject),
+        Promise.resolve(
+          mode === "error"
+            ? { data: null, error: { message: "secret" } }
+            : { data: mode === "none" ? [] : [{ id: CHILD }], error: null },
+        ).then(resolve, reject),
     };
     for (const method of ["update", "eq", "select"]) {
       chain[method] = (...args: unknown[]) => {
@@ -69,5 +73,14 @@ describe("saveAllowedHours", () => {
         error: "failed",
       });
     }
+  });
+
+  it("Hours for a child the parent cannot see", async () => {
+    const f = fakeClient("none");
+    expect(await saveAllowedHours(f.client, CHILD, { start: "07:00", end: "21:00" })).toEqual({
+      ok: false,
+      error: "not_found",
+    });
+    expect(f.calls[0]?.ops).toContainEqual(["select", ["id"]]);
   });
 });

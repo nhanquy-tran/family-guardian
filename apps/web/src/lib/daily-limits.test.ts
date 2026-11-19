@@ -78,13 +78,21 @@ describe("saveDailyLimits", () => {
   });
 
   it("All empty clears the limits", async () => {
-    const f = fakeClient();
+    const f = fakeClient({ select: { data: [{ id: CHILD }], error: null } });
     expect(await saveDailyLimits(f.client, CHILD, allEmpty())).toEqual({ ok: true });
     expect(f.writes("upsert")).toHaveLength(0);
     const deletes = f.writes("delete");
     expect(deletes).toHaveLength(1);
     const inOp = deletes[0].ops.find(([m]) => m === "in")!;
     expect([...(inOp[1][1] as string[])].sort()).toEqual([...CATEGORIES].sort());
+  });
+
+  it("Clearing limits of a child the parent cannot see", async () => {
+    const f = fakeClient({ select: { data: [], error: null } });
+    expect(await saveDailyLimits(f.client, CHILD, allEmpty())).toEqual({ ok: false, error: "not_found" });
+    expect(f.writes("delete")).toHaveLength(0);
+    expect(f.calls[0]?.table).toBe("children");
+    expect(f.calls[0]?.ops).toContainEqual(["eq", ["id", CHILD]]);
   });
 
   it("Store failure returns an error code", async () => {
