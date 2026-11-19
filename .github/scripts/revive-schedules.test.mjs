@@ -13,9 +13,13 @@ describe("parseCron", () => {
     expect(parseCron('cron: "13 15 * * *"')).toEqual({ minutes: [13], hours: [15] });
   });
 
+  it("reads a weekly cron", () => {
+    expect(parseCron('cron: "17 3 * * 1"')).toEqual({ minutes: [17], hours: [3], days: [1] });
+  });
+
   it("returns null for shapes it does not support", () => {
     expect(parseCron('cron: "*/30 * * * *"')).toBeNull();
-    expect(parseCron('cron: "17 3 * * 1"')).toBeNull();
+    expect(parseCron('cron: "17 3 1 * *"')).toBeNull();
     expect(parseCron("on: push")).toBeNull();
   });
 });
@@ -42,6 +46,12 @@ describe("lastSlot", () => {
 
   it("rolls back over midnight", () => {
     expect(iso(lastSlot({ minutes: [47], hours: [2] }, at("2026-11-18T01:00:00Z")))).toBe("2026-11-17T02:47:00.000Z");
+  });
+
+  it("uses last week's weekly slot until this week's slot plus grace", () => {
+    const weekly = { minutes: [17], hours: [3], days: [1] };
+    expect(iso(lastSlot(weekly, at("2026-11-16T03:30:00Z")))).toBe("2026-11-09T03:17:00.000Z");
+    expect(iso(lastSlot(weekly, at("2026-11-19T12:00:00Z")))).toBe("2026-11-16T03:17:00.000Z");
   });
 
   it("treats a workflow with no runs as having missed the slot", () => {

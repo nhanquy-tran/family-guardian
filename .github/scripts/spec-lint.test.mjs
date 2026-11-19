@@ -86,4 +86,23 @@ describe("lintChange", () => {
     expect(r.problems).toEqual([]);
     expect(r.warnings).toEqual(['daily-limits: "Limits are stored per child" is also changed by open change b; state the order in Depends on']);
   });
+
+  it("requires the design template sections for a risky change, also in light mode", () => {
+    put("openspec/changes/a/proposal.md", proposal("daily-limits"));
+    put("openspec/changes/a/specs/daily-limits/spec.md", `## MODIFIED Requirements\n\n${requirement("Limits are stored per child")}`);
+    put("openspec/changes/a/design.md", "## Data model\nNone.\n\n## Failure modes\n- Store down: fail closed.\n");
+    expect(lintChange({ root, change: "a", light: true }).problems).toEqual([]);
+    expect(lintChange({ root, change: "a", light: true, risky: true }).problems).toEqual([
+      "design.md lacks `## Contracts` (required for risky changes)",
+      "design.md lacks `## Alternatives` (required for risky changes)",
+      "design.md lacks `## ADR impact` (required for risky changes)",
+    ]);
+  });
+
+  it("accepts a risky change whose design has every template section", () => {
+    put("openspec/changes/a/proposal.md", proposal("daily-limits"));
+    put("openspec/changes/a/specs/daily-limits/spec.md", `## MODIFIED Requirements\n\n${requirement("Limits are stored per child")}`);
+    put("openspec/changes/a/design.md", ["Data model", "Contracts", "Failure modes", "Alternatives", "ADR impact"].map((h) => `## ${h}\nNone.\n`).join("\n"));
+    expect(lintChange({ root, change: "a", risky: true }).problems).toEqual([]);
+  });
 });

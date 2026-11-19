@@ -21,7 +21,9 @@ Claude or the scheduler labels #N needs-spec ──▶ factory spec writer ─�
   ▼
 SPEC GATE (Claude replaces the owner)                     max 3 fix rounds
   Claude reviews the spec critically (issue fit, ADRs, learnings checklist,
-  testable scenarios, failure paths, privacy, security, dependencies)
+  testable scenarios, failure paths, privacy, security, dependencies);
+  on a `risk-high` PR also the architect's verdict and the design template
+  (ADR 0022): an open high/medium architect finding is a gate finding
   ├─ high/medium issues ─▶ @claude fix request on the PR ─▶ re-review ─▶ (loop)
   ├─ 3 rounds and still not agreed ─▶ STOP, summary to owner
   └─ no high/medium ─▶ Claude merges the spec PR ─▶ issue becomes ready

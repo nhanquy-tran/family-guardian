@@ -29,9 +29,13 @@ Do not edit anything outside `openspec/changes/` and `docs/decisions/` (a new AD
 
 A delta spec that creates a new capability starts with `## Purpose` and one or two sentences on what the capability is for. `openspec archive` reads it only when it creates the capability; without it the main spec gets a `TBD` Purpose that fails `--strict`.
 
+## Risky changes (ADR 0022)
+
+The spec eval prints `- risk: high (<reasons>)` when the change adds a migration or new stored data, a new capability, a sensitive capability (auth, pairing, tracking, retention, schema), 3 or more capabilities, a new dependency or an ADR, or the issue has a `full-mode`, `privacy` or `security` label. Then `design.md` must have these sections in both modes, each answered (`None.` is an answer): `## Data model` (tables and columns, owner, RLS, grants, retention, existing rows), `## Contracts` (shared types, device API, extension–web compatibility with installed extensions), `## Failure modes` (each external call and store, fail closed), `## Alternatives` (at least one simpler option and why it was not chosen), `## ADR impact` (ADRs followed, any new or changed ADR). An architect agent reviews that design on the spec PR before the gate.
+
 ## Light mode
 
-When the prompt says `Factory mode: light`: at most 20 scenarios (split the issue in `QUESTIONS.md` if it needs more); `design.md` holds only the decisions a builder could get wrong, in a few bullets; `tasks.md` is a short list grouped by area. Read only the specs of the capabilities the issue names.
+When the prompt says `Factory mode: light`: at most 20 scenarios (split the issue in `QUESTIONS.md` if it needs more); `design.md` holds only the decisions a builder could get wrong, in a few bullets (a risky change still has the sections above, kept short); `tasks.md` is a short list grouped by area. Read only the specs of the capabilities the issue names.
 
 ## Context budget
 

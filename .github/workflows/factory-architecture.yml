@@ -1,0 +1,86 @@
+name: "Factory 9: architecture check"
+
+# Weekly: a read-only look at the whole system (ADR 0022). Facts come from a script; the steward agent
+# judges them and writes one report, posted as an `architecture` issue. Nothing is built from it
+# automatically: the owner or the gate turns findings into issues.
+
+on:
+  schedule:
+    - cron: "17 3 * * 1" # Monday 10:17 Asia/Ho_Chi_Minh, off :00/:30
+  workflow_dispatch:
+    inputs:
+      days:
+        description: Days of history for the facts
+        default: "7"
+
+concurrency:
+  group: factory-architecture
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Facts
+        env:
+          DAYS: ${{ inputs.days || '7' }}
+        run: |
+          node .github/scripts/arch-facts.mjs "$DAYS" > /tmp/facts.md
+          cat /tmp/facts.md >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "facts<<FACTS_EOF"
+            cat /tmp/facts.md
+            echo "FACTS_EOF"
+          } >> "$GITHUB_ENV"
+      - name: Architecture steward agent
+        id: agent
+        timeout-minutes: 15
+        continue-on-error: true
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ""
+        with:
+          anthropic_api_key: ${{ secrets.CLAUDE_API_KEY }}
+          allowed_bots: github-actions # revive-schedules.mjs dispatches missed runs as github-actions
+          github_token: ${{ github.token }}
+          prompt: |
+            Follow .claude/agents/architecture-steward.md exactly.
+
+            ${{ env.facts }}
+          claude_args: |
+            --model ${{ vars.FACTORY_STEWARD_MODEL || 'claude-sonnet-5-5' }}
+            --permission-mode default
+            --allowedTools "Read,Glob,Grep,Write(docs/.architecture-report.md),Bash(cd:*),Bash(git log:*),Bash(git show:*),Bash(git diff:*),Bash(ls:*)"
+      - name: Post report
+        id: report
+        if: always()
+        run: |
+          gh label create architecture --color 5319E7 --description "Weekly architecture check (ADR 0022)" >/dev/null 2>&1 || true
+          DATE=$(date -u +%Y-%m-%d)
+          {
+            if [ -s docs/.architecture-report.md ]; then cat docs/.architecture-report.md; else echo "**The steward produced no report** (outcome: ${{ steps.agent.outcome }}). The facts below are still current."; fi
+            echo; echo "---"; cat /tmp/facts.md
+            echo; echo "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          } > /tmp/body.md
+          NEW=$(gh issue create --title "Architecture check ${DATE}" --label architecture --body-file /tmp/body.md)
+          # One open check at a time: the new report supersedes older ones.
+          for n in $(gh issue list --label architecture --state open --search 'in:title "Architecture check"' --json number -q '.[].number'); do
+            [ "$n" = "${NEW##*/}" ] || gh issue close "$n" --comment "Superseded by ${NEW}."
+          done
+          echo "number=${NEW##*/}" >> "$GITHUB_OUTPUT"
+      - name: Metrics (architecture steward)
+        if: always() && steps.report.outputs.number != ''
+        continue-on-error: true
+        env:
+          EXEC_FILE: ${{ steps.agent.outputs.execution_file }}
+        run: bash .github/scripts/post-metrics.sh architecture-steward "${{ steps.report.outputs.number }}" "$EXEC_FILE"
