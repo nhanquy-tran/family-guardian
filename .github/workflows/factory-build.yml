@@ -35,10 +35,14 @@ jobs:
     steps:
       - id: pick
         run: |
-          if [ -n "$INPUT_ISSUE" ]; then LIST="[$INPUT_ISSUE]"
+          if [ -n "$INPUT_ISSUE" ]; then
+            # A dispatch queued before the issue was put on hold must not build it (#140 was built twice).
+            if gh issue view "$INPUT_ISSUE" --repo "$GITHUB_REPOSITORY" --json labels -q '.labels[].name' | grep -qx on-hold; then
+              LIST="[]"; echo "#$INPUT_ISSUE is on hold"
+            else LIST="[$INPUT_ISSUE]"; fi
           else
             LIST=$(gh issue list --repo "$GITHUB_REPOSITORY" --label ready --state open --limit 50 \
-              --json number,createdAt | jq -c "sort_by(.createdAt) | map(.number) | .[:$MAX]")
+              --json number,createdAt,labels | jq -c "map(select(all(.labels[]; .name != \"on-hold\"))) | sort_by(.createdAt) | map(.number) | .[:$MAX]")
           fi
           echo "issues=$LIST" >> "$GITHUB_OUTPUT"
           echo "Selected: $LIST"
