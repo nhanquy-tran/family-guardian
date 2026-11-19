@@ -1,5 +1,6 @@
 import { normalizePairingCode, PairRequest, PairResponse } from "@fg/shared";
 import type { BrowserName } from "./browser-info";
+import type { Dnr } from "./rules";
 import type { KeyValueStore, Post } from "./storage";
 
 export type PairFailure = "invalid_code" | "rate_limited" | "failed";
@@ -12,6 +13,7 @@ export interface PairDeps {
   os: string;
   store: KeyValueStore;
   post: Post;
+  dnr?: Dnr;
 }
 
 export const PAIR_MESSAGES: Record<PairFailure | "misconfigured", string> = {
