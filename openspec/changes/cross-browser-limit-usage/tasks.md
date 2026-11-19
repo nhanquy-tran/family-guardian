@@ -7,8 +7,8 @@
 
 ## 3. Extension
 - [ ] 3.1 `FlushResult` `ok` carries `otherUsage?` from the last `200` chunk; separate `safeParse`; store it before `evaluateLimits` and on sync (`sender.test.ts`, `controller.test.ts`, `rules.test.ts`)
-- [ ] 3.3 Add `otherUsage` to the keys `pairWithCode` removes (`pairing.test.ts`; after #146 merges)
 - [ ] 3.2 Add it to local usage in limit evaluation and the badge (`controller.test.ts`, `rules.test.ts`, `badge.test.ts`)
+- [ ] 3.3 Add `otherUsage` to the keys `pairWithCode` removes (`pairing.test.ts`; #146 is merged)
 
 ## 4. Docs
 - [ ] 4.1 NOTES.md lists the docs to update
