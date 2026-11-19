@@ -112,6 +112,7 @@ Deterministic checks run by the workflow, not by the agent that produced the wor
 | Hidden acceptance tests | Factory 3, after the developer (and debugger) | the tests in `acceptance/<change>/`, which the developer never saw, pass |
 | Hidden test verdict | Factory 3, debugger in hidden-test mode, only when hidden tests fail | a proposal, not a gate: `HIDDEN VERDICT: code / test / spec / mixed` in NOTES.md and the evidence table; the gate decides |
 | OpenSpec verify | Factory 3, verifier agent | `VERIFY.md` starts with `VERIFY: PASS`; only then the change is archived into `openspec/specs/` |
+| Spec eval (latest push) | Factory 8, `factory-eval.mjs spec` on every push to a `spec/*` PR | updates one comment and fails the job when the eval fails, so `@claude` fix rounds are re-checked; flags a change that became high risk without an architect review |
 | Evidence (latest push) | Factory 8, `.github/scripts/refresh-evidence.mjs` on every push to a `factory/*` PR | not a gate: keeps the evidence current after gate fixes and `@claude` rounds; reviewers judge this section |
 | AI review verdict | Factory 4, `.github/scripts/review-verdict.sh` | the reviewer ends its comment with `<!-- factory-review {...} -->`; the workflow sets the `factory/review` commit status and the `review-changes-needed` label from it |
 
@@ -151,7 +152,7 @@ Token: read-only views work without one (60 GitHub API calls per hour per IP, ab
 - One user-visible outcome per issue, small enough for one night.
 - Acceptance criteria as bullet points; the spec writer turns them into scenarios.
 - Name the area (`area:web`, `area:extension`, `area:infra`).
-- Put dependencies on their own line at the start of the body, `Depends on: #a, #b` (or `Depends on: none`); the scheduler reads it. Label `autopilot` to let the scheduler run the issue.
+- Put dependencies on their own line at the start of the body, `Depends on: #a, #b` (or `Depends on: none`); the scheduler reads it, together with the `Depends on` of the approved spec proposal. `on-hold` stops everything: the scheduler, the router and the build all skip an issue that carries it. Label `autopilot` to let the scheduler run the issue.
 
 ## Learn loop
 

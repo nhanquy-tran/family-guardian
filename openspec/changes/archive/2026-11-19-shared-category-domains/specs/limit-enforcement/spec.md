@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: A limit blocks the category's domains
-`limitBlockDomains` SHALL return, per over-limit category, the domains from `categoryDomains` (seed and override domains whose `categorize(domain, overrides)` is that category plus the domains seen today in that category), excluding domains already in the manual rules, with at most `MAX_RULE_DOMAINS` rules in total with the manual ones, cut alphabetically by `categoryDomains`. `buildLimitRules` SHALL make `main_frame` redirect rules to `/blocked.html?d=<domain>&c=<category>` with ids after the manual rules.
+`limitBlockDomains` SHALL return, per over-limit category, the domains from `categoryDomains` (seed, override and seen-today domains in that category, cut alphabetically), excluding manual-rule domains, with at most `MAX_RULE_DOMAINS` rules in total with the manual ones. `buildLimitRules` SHALL make `main_frame` redirect rules to `/blocked.html?d=<domain>&c=<category>` with ids after the manual rules.
 
 #### Scenario: Domain set and rules
 File: `apps/extension/lib/limits.test.ts`

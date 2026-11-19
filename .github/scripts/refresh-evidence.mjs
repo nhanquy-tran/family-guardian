@@ -72,7 +72,7 @@ if (existsSync(`acceptance/${change}`)) {
 const verify = changeDir && existsSync(`${changeDir}/VERIFY.md`) ? readFileSync(`${changeDir}/VERIFY.md`, "utf8").split("\n")[0].trim() : "";
 add("OpenSpec verify (report from the build, not re-run)", verify || (light ? "skipped (light mode)" : "no report"));
 add("Archive: delta specs merged into openspec/specs", archived ? `done (\`${archived}\`)` : "not archived");
-add("npm run check + build", "see the required CI `check` on this commit");
+add("npm run check:ci (coverage minimums) + build", "see the required CI `check` on this commit; its job summary has coverage by area");
 
 const section = [
   "<!-- evidence:latest:start -->",
