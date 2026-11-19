@@ -16,11 +16,11 @@ The e2e suite SHALL include flows on stage `onboarded` in which a signed-in pare
 #### Scenario: Parent generates a pairing code
 - **GIVEN** Noah has no devices and no active code
 - **WHEN** the parent presses "Pair a device" in Noah's card (`parent-writes.spec.ts`)
-- **THEN** Noah's card shows a pairing code of 6 characters and its expiry
+- **THEN** Noah's card shows a pairing code of 6 characters and an expiry (presence only, not its format)
 
 #### Scenario: Pairing with the generated code creates a device
 - **GIVEN** the code shown for Noah
-- **WHEN** `POST /api/device/pair` is called with `{ code, browser: "chrome", os: "Windows" }` (`parent-writes.spec.ts`)
+- **WHEN** `POST /api/device/pair` is called with `{ code, browser: "chrome", os: "Windows" }` and its own `x-forwarded-for` `192.0.2.<n>` per run and project (`parent-writes.spec.ts`)
 - **THEN** the response is 200 with a `deviceToken` of 43 base64url characters
 - **AND** `GET /api/device/rules` with that bearer token returns 200 and an empty `domains` list
 

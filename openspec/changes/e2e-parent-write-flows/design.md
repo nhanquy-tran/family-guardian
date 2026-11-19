@@ -2,13 +2,13 @@
 - Capability: no spec covers e2e today, so the flows are a new capability `e2e-parent-write-flows`. Product behaviour stays specified in `child-management`, `site-blocking`, `daily-limits` and `device-pairing`; these scenarios only prove the browser-to-device path, so there are no MODIFIED requirements.
 - Stage: `onboarded` (Mia, Leo, Noah with no devices and no rules). Flows act on Noah, so the only device his rules reach is the one the test pairs. The stage is reseeded per project, so desktop and mobile never see each other's writes.
 - Device token: the seed stores only token hashes, so the test gets a real token by pairing through the dashboard code and `POST /api/device/pair`, then calls `GET /api/device/rules` with `Authorization: Bearer <token>` (Playwright `request`). Device-dependent tests run in order in one `test.describe.serial`, the pairing test first, keeping the token in a describe-level variable.
-- Pair rate limit is 10 per IP: keep at most 3 `/api/device/pair` calls per project. `playwright.config.ts` sets `PAIR_RATE_LIMIT_SECRET` to a constant test string in the web server env (not a secret; local stack only).
+- Pair rate limit is 10 attempts per IP hash in a sliding 10-minute window, not per project. Playwright `request` sends no client IP, so every call would share the `unknown` bucket and reruns would hit 429. The pairing test therefore sends its own `x-forwarded-for` (which `clientIp` honours): a TEST-NET-1 address `192.0.2.<n>`, with `<n>` derived from the project name and a per-run nonce. Keep at most 3 `/api/device/pair` calls per project. `playwright.config.ts` sets `PAIR_RATE_LIMIT_SECRET` to a constant test string in the web server env (not a secret; local stack only).
 - Tests use accessible names already in the UI (`Child's name`, `Add child`, `Pair a device`, `Domain to block`, the `limit_games` input); no product markup changes. The blocked domain is `example-blocked.test`.
 - Revertable (ADR 0021): every row hangs off the e2e family, so the global teardown already removes it; `pairing_codes`, `devices`, `block_rules` and `child_category_limits` cascade from the child. Rate-limit rows hold only a keyed IP hash and are purged by the existing daily job.
 - Test titles equal the scenario titles.
 
 ## Data model
-None. No tables, columns or migrations. Test data goes through the dashboard into existing tables and is removed by teardown.
+None. No database change. Test data goes through the dashboard into existing tables and is removed by teardown.
 
 ## Contracts
 None. No shared type or device API change. The tests call `/api/device/pair` and `/api/device/rules` as an installed extension would.
