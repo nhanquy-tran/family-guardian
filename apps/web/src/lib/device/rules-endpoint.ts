@@ -1,4 +1,4 @@
-import { expandBlockRules, MAX_RULE_DOMAINS, OtherUsage as OtherUsageSchema, RulesResponse, type Category, type OtherUsage } from "@fg/shared";
+import { categoryDomains, MAX_RULE_DOMAINS, OtherUsage as OtherUsageSchema, RulesResponse, type Category, type OtherUsage } from "@fg/shared";
 import { hashDeviceToken } from "./token";
 
 export interface RulesStore {
@@ -52,13 +52,16 @@ export async function handleRules({ authorization, store }: RulesInput): Promise
     }
 
     const explicit = [...new Set(rules.filter((r) => r.kind === "domain").map((r) => r.value))].sort();
-    const explicitSet = new Set(explicit);
-    const expanded = expandBlockRules(rules, overrides).filter((d) => !explicitSet.has(d));
-    const all = [...explicit, ...expanded];
+    const expanded = categoryDomains({
+      categories: rules.filter((r) => r.kind === "category").map((r) => r.value as Category),
+      overrides: capped,
+      exclude: explicit,
+      limit: Math.max(0, MAX_RULE_DOMAINS - explicit.length),
+    });
     const body = RulesResponse.parse({
       rulesVersion: child.rulesVersion,
-      domains: all.slice(0, MAX_RULE_DOMAINS),
-      truncated: all.length > MAX_RULE_DOMAINS,
+      domains: [...explicit, ...expanded.domains].slice(0, MAX_RULE_DOMAINS),
+      truncated: expanded.truncated || explicit.length > MAX_RULE_DOMAINS,
       limits,
       timezone: child.timezone,
       categoryOverrides: capped,
