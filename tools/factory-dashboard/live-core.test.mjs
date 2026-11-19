@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 // live-core.js is a plain browser script; load it the way the page does, with a CommonJS-style module object.
 const mod = { exports: {} };
 new Function("module", readFileSync(new URL("./live-core.js", import.meta.url), "utf8"))(mod);
-const { LIVE_MS, liveInterval, visibleRuns, runningText, waitingText, keepPolling, reworkCost, deniedPerRun } = mod.exports;
+const { LIVE_MS, liveInterval, visibleRuns, runningText, waitingText, keepPolling, reworkCost, deniedPerRun, issueEnd, isFactoryWork } = mod.exports;
 
 const short = (ms) => `${Math.round(ms / 1000)}s`;
 const run = (over) => ({ name: "Factory 3: build #87", status: "in_progress", stepName: "Developer agent", stepStart: 0, hidden: false, ...over });
@@ -103,5 +103,30 @@ describe("deniedPerRun", () => {
 
   it("is null with no runs", () => {
     expect(deniedPerRun([])).toBeNull();
+  });
+});
+
+describe("issueEnd", () => {
+  it("ends at the build PR merge", () => {
+    expect(issueEnd({ state: "closed", closed_at: "2026-11-19T05:00:00Z" }, { merged_at: "2026-11-19T04:00:00Z" })).toBe(Date.parse("2026-11-19T04:00:00Z"));
+  });
+
+  it("ends when a closed issue has no merged build PR (architecture reports, closed without a build)", () => {
+    expect(issueEnd({ state: "closed", closed_at: "2026-11-19T05:00:00Z" }, null)).toBe(Date.parse("2026-11-19T05:00:00Z"));
+    expect(issueEnd({ state: "closed", closed_at: "2026-11-19T05:00:00Z" }, { merged_at: null })).toBe(Date.parse("2026-11-19T05:00:00Z"));
+  });
+
+  it("is null while the issue is open and nothing is merged", () => {
+    expect(issueEnd({ state: "open", closed_at: null }, { merged_at: null })).toBeNull();
+    expect(issueEnd(undefined, undefined)).toBeNull();
+  });
+});
+
+describe("isFactoryWork", () => {
+  it("leaves out the weekly architecture reports and the factory state issue", () => {
+    expect(isFactoryWork(issue(["architecture"], "closed"))).toBe(false);
+    expect(isFactoryWork(issue(["factory-state"]))).toBe(false);
+    expect(isFactoryWork(issue(["bug", "autopilot"]))).toBe(true);
+    expect(isFactoryWork(undefined)).toBe(true);
   });
 });

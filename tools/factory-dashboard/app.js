@@ -567,8 +567,9 @@ function deriveIssue(m) {
   m.rework = LiveCore.reworkCost(m.acts);
   m.unmeasured = m.acts.filter((a) => a.unmeasured).length;
   m.start = Math.min(...m.acts.map((a) => a.start), spec ? t(spec.created_at) : Infinity);
-  m.done = !!factory?.merged_at;
-  m.end = m.done ? t(factory.merged_at) : now;
+  const end = LiveCore.issueEnd(state.issues.find((i) => i.number === m.n), factory);
+  m.done = end !== null;
+  m.end = m.done ? end : now;
   m.e2e = Number.isFinite(m.start) ? m.end - m.start : null;
   m.waitMs = sumOf(Object.values(m.waits), (w) => w.end - w.from);
 
@@ -647,7 +648,7 @@ function median(xs) {
 }
 
 function renderHealth() {
-  const rows = state.models.filter((m) => m.acts.length || m.prs.spec);
+  const rows = state.models.filter((m) => (m.acts.length || m.prs.spec) && LiveCore.isFactoryWork(state.issues.find((i) => i.number === m.n)));
   const done = rows.filter((m) => m.done);
   const mergedPrs = rows.flatMap((m) => [m.prs.spec, m.prs.factory]).filter((pr) => pr?.merged_at);
   const mergedReviews = mergedPrs.map((pr) => reviewAt(pr.number, pr.merged_at)).filter(Boolean);
@@ -679,7 +680,7 @@ function renderHealth() {
       ${STEPS.map((s) => cell(m, s))}
       <td class="num">${short(m.claudeMs)}</td>
       <td class="num">${m.retries || ""}</td>
-      <td class="num"><strong>${m.e2e === null ? "" : short(m.e2e)}</strong>${m.done ? "" : html` <span class="muted" title="Not merged yet: time so far">running</span>`}</td>
+      <td class="num"><strong>${m.e2e === null ? "" : short(m.e2e)}</strong>${m.done ? "" : html` <span class="muted" title="Not done yet: time so far">running</span>`}</td>
     </tr>`)}</tbody>
     <tfoot><tr><td>Total, all ${rows.length} issues</td>
       ${STEPS.map((s) => html`<td class="num ${s.phase}">${total((m) => m.stepMs[s.key]) ? short(total((m) => m.stepMs[s.key])) : "—"}</td>`)}
@@ -737,7 +738,7 @@ function gantt(m) {
   return html`<div class="gantt">
     <div class="g-row g-axis"><div class="g-label"></div><div class="g-track">${ticks.map((t) => html`<span style="left:${pct(t).toFixed(2)}%">${clock(t)}</span>`)}</div></div>
     ${rows}
-    <div class="g-row g-axis end"><div class="g-label"></div><div class="g-track"><span style="left:0">${clock(t0)} start</span><span class="right">${m.done ? "merged" : "now"} ${clock(m.end)}</span></div></div>
+    <div class="g-row g-axis end"><div class="g-label"></div><div class="g-track"><span style="left:0">${clock(t0)} start</span><span class="right">${m.done ? "done" : "now"} ${clock(m.end)}</span></div></div>
   </div>
   <p class="legend small muted"><span class="bar agent spec"></span> agent <span class="bar review spec"></span> AI review <span class="bar fix spec"></span> fix round <span class="bar wait"></span> waiting on gate or queue <span class="bar pr-open"></span> PR open <span class="gate ok"></span> gate approved <span class="gate no"></span> gate: changes <span class="bar agent spec failed"></span> failed</p>`;
 }
@@ -779,7 +780,7 @@ function issueDetail(n, { keepScroll = false } = {}) {
     <p class="small"><a href="${issue.html_url}" target="_blank" rel="noopener">Issue on GitHub</a>
       ${m.prs.spec ? html` · ${prLink("spec", m.prs.spec)}` : ""}${m.prs.factory ? html` · ${prLink("build", m.prs.factory)}` : ""}</p>
     <div class="tiles">
-      ${tile(m.e2e === null ? "—" : short(m.e2e), m.done ? "end to end, first activity to merged" : "so far, not merged yet")}
+      ${tile(m.e2e === null ? "—" : short(m.e2e), m.done ? "end to end, first activity to done" : "so far, not done yet")}
       ${tile(short(m.claudeMs) || "0s", "Claude agent time")}
       ${tile(short(m.waitMs) || "0s", "waiting on gates and queue")}
       ${tile(String(m.retries), "retries")}
