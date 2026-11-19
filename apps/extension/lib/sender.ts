@@ -3,9 +3,11 @@ import {
   HeartbeatRequest,
   HeartbeatResponse,
   MAX_HEARTBEAT_ENTRIES,
+  type OtherUsage,
 } from "@fg/shared";
 import { parseBlockedQueue, pruneBlocked } from "./blocked";
 import type { BrowserName } from "./browser-info";
+import { parseOtherUsage } from "./limits";
 import { parseQueue, pruneQueue } from "./queue";
 import type { KeyValueStore, Post } from "./storage";
 
@@ -22,7 +24,7 @@ export interface FlushDeps {
 }
 
 export type FlushResult =
-  | { kind: "ok"; rulesVersion: number; otherUsage?: unknown }
+  | { kind: "ok"; rulesVersion: number; otherUsage?: OtherUsage }
   | { kind: "failed" }
   | { kind: "unauthorized" };
 
@@ -50,8 +52,15 @@ async function send(
     if (response.status === 401) return { kind: "unauthorized" };
     if (response.status === 413) return { kind: "too_many" };
     if (response.status !== 200) return { kind: "failed" };
-    const parsed = HeartbeatResponse.safeParse(await response.json());
-    return parsed.success ? { kind: "ok", rulesVersion: parsed.data.rulesVersion } : { kind: "failed" };
+    const json: unknown = await response.json();
+    const parsed = HeartbeatResponse.safeParse(json);
+    if (!parsed.success) return { kind: "failed" };
+    const otherUsage = parseOtherUsage(json);
+    return {
+      kind: "ok",
+      rulesVersion: parsed.data.rulesVersion,
+      ...(otherUsage !== undefined ? { otherUsage } : {}),
+    };
   } catch {
     return { kind: "failed" };
   }

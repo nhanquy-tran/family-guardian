@@ -45,7 +45,7 @@ export async function pairWithCode(deps: PairDeps, rawCode: string): Promise<Pai
     if (response.status !== 200) return fail("failed");
     const parsed = PairResponse.safeParse(await response.json());
     if (!parsed.success) return fail("failed");
-    await deps.store.remove(["queue", "trackerState", "authState", "rulesVersion", "blockedQueue", "rulesLimits", "rulesTimezone", "rulesOverrides", "limitUsage", "limitBlocked", "rulesAllowedHours"]);
+    await deps.store.remove(["queue", "trackerState", "authState", "rulesVersion", "blockedQueue", "rulesLimits", "rulesTimezone", "rulesOverrides", "limitUsage", "limitBlocked", "rulesAllowedHours", "otherUsage"]);
     await deps.store.set("browser", deps.browser);
     await deps.store.set("deviceToken", parsed.data.deviceToken);
     return { ok: true };

@@ -1,4 +1,4 @@
-import { categorize, CATEGORIES, MAX_RULE_DOMAINS, SEED_CATEGORIES, type Category, type UsageEntry } from "@fg/shared";
+import { categorize, CATEGORIES, MAX_RULE_DOMAINS, OtherUsage, SEED_CATEGORIES, type Category, type UsageEntry } from "@fg/shared";
 import type { Rule } from "./rules";
 
 export interface LimitUsage {
@@ -59,6 +59,28 @@ export function readUsage(stored: unknown, day: string): LimitUsage {
     }
   }
   return { day, seconds, domains: readOverrides(stored["domains"]) };
+}
+
+/** Validated apart from the base responses, so an invalid value never fails a heartbeat or a sync. */
+export function parseOtherUsage(body: unknown): OtherUsage | undefined {
+  if (!isObject(body)) return undefined;
+  const parsed = OtherUsage.safeParse(body["otherUsage"]);
+  return parsed.success ? parsed.data : undefined;
+}
+
+/** Local seconds plus the other browsers' stored seconds, only when the stored day is today. */
+export function withOtherUsage(
+  local: Partial<Record<Category, number>>,
+  storedOther: unknown,
+  day: string,
+): Partial<Record<Category, number>> {
+  const other = OtherUsage.safeParse(storedOther);
+  if (!other.success || other.data.day !== day) return local;
+  const total = { ...local };
+  for (const [category, value] of Object.entries(other.data.seconds)) {
+    if (isCategory(category)) total[category] = (total[category] ?? 0) + value;
+  }
+  return total;
 }
 
 export function addUsage(
@@ -140,13 +162,15 @@ export function buildLimitRules(blocked: Record<string, Category>, firstId: numb
 export function evaluateLimitBlocks(input: {
   limits: unknown;
   usage: unknown;
+  otherUsage?: unknown;
   overrides: unknown;
   manualDomains: string[];
   now: number;
   timezone: string | undefined;
 }): Record<string, Category> {
-  const usage = readUsage(input.usage, dayKey(input.now, input.timezone));
-  const over = overLimitCategories(readLimits(input.limits), usage.seconds);
+  const day = dayKey(input.now, input.timezone);
+  const usage = readUsage(input.usage, day);
+  const over = overLimitCategories(readLimits(input.limits), withOtherUsage(usage.seconds, input.otherUsage, day));
   if (over.length === 0) return {};
   return limitBlockDomains(over, readOverrides(input.overrides), usage.domains, input.manualDomains);
 }

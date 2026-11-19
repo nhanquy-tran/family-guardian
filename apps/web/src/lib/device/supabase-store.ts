@@ -1,4 +1,4 @@
-import { MAX_RULE_DOMAINS, type Category } from "@fg/shared";
+import { categorize, MAX_RULE_DOMAINS, type Category, type OtherUsage } from "@fg/shared";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { HeartbeatStore } from "./heartbeat";
 import type { RulesStore } from "./rules-endpoint";
@@ -31,7 +31,45 @@ export function createHeartbeatStore(client: SupabaseClient): HeartbeatStore {
       const { error } = await client.from("devices").update(patch).eq("id", deviceId);
       if (error) throw error;
     },
+    otherUsage: (deviceId) => otherUsage(client, deviceId),
   };
+}
+
+const PAGE = 1000;
+
+async function otherUsage(client: SupabaseClient, deviceId: string): Promise<OtherUsage> {
+  const { data: device, error: deviceError } = await client
+    .from("devices")
+    .select("children(family_id)")
+    .eq("id", deviceId)
+    .maybeSingle();
+  if (deviceError) throw deviceError;
+  const familyId = (device?.children as unknown as { family_id: string } | null)?.family_id;
+  if (!familyId) throw new Error("device_not_found");
+
+  const { data, error } = await client.rpc("device_other_usage", { p_device_id: deviceId });
+  if (error) throw error;
+  const rows = (data ?? []) as { day: string; domain: string | null; seconds: number }[];
+
+  const overrides: Record<string, Category> = {};
+  for (let from = 0; ; from += PAGE) {
+    const { data: page, error: pageError } = await client
+      .from("domain_categories")
+      .select("domain, category")
+      .eq("family_id", familyId)
+      .range(from, from + PAGE - 1);
+    if (pageError) throw pageError;
+    for (const row of page ?? []) overrides[row.domain as string] = row.category as Category;
+    if ((page ?? []).length < PAGE) break;
+  }
+
+  const seconds: Partial<Record<Category, number>> = {};
+  for (const row of rows) {
+    if (row.domain === null) continue;
+    const category = categorize(row.domain, overrides);
+    seconds[category] = (seconds[category] ?? 0) + Number(row.seconds);
+  }
+  return { day: rows[0]?.day ?? "", seconds };
 }
 
 export function createRulesStore(client: SupabaseClient): RulesStore {
@@ -39,7 +77,7 @@ export function createRulesStore(client: SupabaseClient): RulesStore {
     async findChild(tokenHash) {
       const { data, error } = await client
         .from("devices")
-        .select("child_id, children(family_id, rules_version, allowed_start, allowed_end, families(timezone))")
+        .select("id, child_id, children(family_id, rules_version, allowed_start, allowed_end, families(timezone))")
         .eq("token_hash", tokenHash)
         .maybeSingle();
       if (error) throw error;
@@ -53,6 +91,7 @@ export function createRulesStore(client: SupabaseClient): RulesStore {
       } | null;
       if (!child) return null;
       return {
+        deviceId: data.id as string,
         childId: data.child_id as string,
         familyId: child.family_id,
         rulesVersion: child.rules_version,
@@ -96,5 +135,6 @@ export function createRulesStore(client: SupabaseClient): RulesStore {
         category: row.category as Category,
       }));
     },
+    otherUsage: (deviceId) => otherUsage(client, deviceId),
   };
 }

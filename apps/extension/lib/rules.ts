@@ -1,6 +1,6 @@
 import { MAX_RULE_DOMAINS, RulesResponse, type Category } from "@fg/shared";
 import { ALLOWED_HOURS_RULE_ID, reconcileHours } from "./hours";
-import { buildLimitRules, evaluateLimitBlocks } from "./limits";
+import { buildLimitRules, evaluateLimitBlocks, parseOtherUsage } from "./limits";
 import type { Get, KeyValueStore } from "./storage";
 
 export interface Rule {
@@ -62,19 +62,23 @@ export async function syncRules(deps: SyncDeps): Promise<SyncResult> {
       headers: { Authorization: `Bearer ${deps.token}` },
     });
     if (response.status !== 200) return { kind: "failed" };
-    const parsed = RulesResponse.safeParse(await response.json());
+    const json: unknown = await response.json();
+    const parsed = RulesResponse.safeParse(json);
     if (!parsed.success) return { kind: "failed" };
     const { domains, limits, timezone, categoryOverrides, allowedHours } = parsed.data;
     const now = deps.now ?? Date.now();
+    const fresh = parseOtherUsage(json);
     const limitBlocked = evaluateLimitBlocks({
       limits,
       usage: await deps.store.get("limitUsage"),
+      otherUsage: fresh ?? (await deps.store.get("otherUsage")),
       overrides: categoryOverrides,
       manualDomains: domains,
       now,
       timezone,
     });
     await applyRules(deps.dnr, domains, limitBlocked);
+    if (fresh !== undefined) await deps.store.set("otherUsage", fresh);
     await deps.store.set("rulesLimits", limits);
     if (timezone === undefined) await deps.store.remove(["rulesTimezone"]);
     else await deps.store.set("rulesTimezone", timezone);

@@ -3,6 +3,7 @@ import {
   HeartbeatEnvelope,
   MAX_BLOCKED_ATTEMPTS,
   MAX_HEARTBEAT_ENTRIES,
+  OtherUsage,
   UsageEntry,
   type HeartbeatResponse,
 } from "@fg/shared";
@@ -13,7 +14,6 @@ export interface HeartbeatStore {
   upsertUsage(rows: { device_id: string; minute_utc: string; domain: string; seconds: number }[]): Promise<void>;
   insertBlocked(rows: { device_id: string; at: string; domain: string }[]): Promise<void>;
   updateDevice(deviceId: string, patch: { last_seen_at: string; browser: string; extension_version: string }): Promise<void>;
-  /** Stub for the cross-browser change: the developer makes it required and implements it. */
   otherUsage?(deviceId: string): Promise<unknown>;
 }
 
@@ -27,7 +27,7 @@ export type HeartbeatInput = {
 
 export type HeartbeatResult = {
   status: 200 | 400 | 401 | 413 | 500;
-  body: HeartbeatResponse | { error: string };
+  body: (HeartbeatResponse & { otherUsage?: OtherUsage }) | { error: string };
 };
 
 type UsageRow = { device_id: string; minute_utc: string; domain: string; seconds: number };
@@ -127,5 +127,12 @@ export async function handleHeartbeat(input: HeartbeatInput): Promise<HeartbeatR
   }
 
   input.log({ accepted: rows.size, skipped });
-  return { status: 200, body: { rulesVersion: device.rulesVersion } };
+  const body: HeartbeatResult["body"] = { rulesVersion: device.rulesVersion };
+  try {
+    const other = OtherUsage.safeParse(await store.otherUsage?.(device.deviceId));
+    if (other.success) return { status: 200, body: { ...body, otherUsage: other.data } };
+  } catch {
+    // the field is optional; the extension keeps its last value
+  }
+  return { status: 200, body };
 }

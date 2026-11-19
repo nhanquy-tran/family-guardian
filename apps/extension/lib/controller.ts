@@ -12,6 +12,7 @@ import {
   readLimits,
   readOverrides,
   readUsage,
+  withOtherUsage,
 } from "./limits";
 import { reconcileHours } from "./hours";
 import { applyRules, type Dnr, syncRules } from "./rules";
@@ -114,7 +115,8 @@ export function createController(deps: ControllerDeps): Controller {
     const tz = typeof timezone === "string" ? timezone : undefined;
     const category = domain === null ? null : categorize(domain, readOverrides(await store.get("rulesOverrides")));
     const usage = readUsage(await store.get("limitUsage"), dayKey(now, tz));
-    const left = minutesLeft(readLimits(await store.get("rulesLimits")), usage.seconds, category);
+    const seconds = withOtherUsage(usage.seconds, await store.get("otherUsage"), usage.day);
+    const left = minutesLeft(readLimits(await store.get("rulesLimits")), seconds, category);
     await setBadge(left === null ? "" : String(left));
   }
 
@@ -166,6 +168,7 @@ export function createController(deps: ControllerDeps): Controller {
       post: deps.post,
     });
     if (result.kind === "unauthorized") await store.set("authState", "rejected");
+    if (result.kind === "ok" && result.otherUsage !== undefined) await store.set("otherUsage", result.otherUsage);
     if (result.kind === "ok" && deps.get !== undefined && deps.dnr !== undefined) {
       const stored = await store.get("rulesVersion");
       if (stored !== result.rulesVersion) {
@@ -183,6 +186,7 @@ export function createController(deps: ControllerDeps): Controller {
     const blocked = evaluateLimitBlocks({
       limits: await store.get("rulesLimits"),
       usage: await store.get("limitUsage"),
+      otherUsage: await store.get("otherUsage"),
       overrides: await store.get("rulesOverrides"),
       manualDomains,
       now,

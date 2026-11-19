@@ -1,4 +1,4 @@
-import { expandBlockRules, MAX_RULE_DOMAINS, RulesResponse, type Category } from "@fg/shared";
+import { expandBlockRules, MAX_RULE_DOMAINS, OtherUsage, RulesResponse, type Category } from "@fg/shared";
 import { hashDeviceToken } from "./token";
 
 export interface RulesStore {
@@ -7,7 +7,6 @@ export interface RulesStore {
   listRules(childId: string): Promise<{ kind: "domain" | "category"; value: string }[]>;
   /** Global rows (familyId null) and the family's rows; the handler lets family rows win. */
   listCategoryOverrides(familyId: string): Promise<{ familyId: string | null; domain: string; category: Category }[]>;
-  /** Stub for the cross-browser change: the developer makes it required and implements it. */
   otherUsage?(deviceId: string): Promise<unknown>;
 }
 
@@ -15,7 +14,7 @@ export type RulesInput = { authorization: string | null; store: RulesStore };
 
 export type RulesResult = {
   status: 200 | 401 | 500;
-  body: RulesResponse | { error: string };
+  body: (RulesResponse & { otherUsage?: OtherUsage }) | { error: string };
   headers: Record<string, string>;
 };
 
@@ -65,7 +64,16 @@ export async function handleRules({ authorization, store }: RulesInput): Promise
       categoryOverrides: capped,
       allowedHours: child.allowedHours,
     });
-    return { status: 200, body, headers: HEADERS };
+    let otherUsage: OtherUsage | undefined;
+    if (child.deviceId !== undefined) {
+      try {
+        const parsed = OtherUsage.safeParse(await store.otherUsage?.(child.deviceId));
+        if (parsed.success) otherUsage = parsed.data;
+      } catch {
+        // optional field: omitted on failure
+      }
+    }
+    return { status: 200, body: otherUsage ? { ...body, otherUsage } : body, headers: HEADERS };
   } catch {
     return fail(500, "server_error");
   }
