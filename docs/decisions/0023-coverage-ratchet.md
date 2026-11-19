@@ -1,6 +1,6 @@
 # 0023. Coverage minimums per area that only go up
 
-Date: 2026-11-19. Status: proposed. Issue #156.
+Date: 2026-11-19. Status: accepted (owner approved 2026-11-19). Issue #156.
 
 ## Context
 Line coverage is 79%, but nothing measured it, so a factory PR could add untested code without anyone noticing. The test health report of 19 Nov 2026 found most of the gap in one area: pages and server actions (`apps/web/src/app/**`) at 31% lines and 14% branches, while shared code is at 99%. A single global number would hide a drop in one area behind a gain in another.
