@@ -5,6 +5,7 @@ import {
   MAX_BLOCKED_ATTEMPTS,
   MAX_HEARTBEAT_ENTRIES,
   MAX_RULE_DOMAINS,
+  parseAllowedHours,
   RulesResponse,
   UsageEntry,
 } from "./contracts";
@@ -128,5 +129,29 @@ describe("RulesResponse limits and timezone", () => {
       { categoryOverrides: many },
     ];
     for (const extra of bad) expect(RulesResponse.safeParse({ ...base, ...extra }).success).toBe(false);
+  });
+});
+
+describe("parseAllowedHours", () => {
+  it("Valid windows parse", () => {
+    const pairs: [string, string][] = [
+      ["07:00", "21:00"],
+      ["22:00", "06:00"],
+      ["00:00", "23:59"],
+    ];
+    for (const [start, end] of pairs) expect(parseAllowedHours(start, end)).toEqual({ start, end });
+  });
+
+  it("Invalid windows return null", () => {
+    const pairs: [unknown, unknown][] = [
+      ["24:00", "01:00"],
+      ["7:00", "21:00"],
+      ["07:60", "21:00"],
+      ["07:00", ""],
+      ["08:00", "08:00"],
+      ["07:00", undefined],
+      ["07:00", 7],
+    ];
+    for (const [start, end] of pairs) expect(parseAllowedHours(start, end)).toBeNull();
   });
 });
