@@ -77,7 +77,7 @@ jobs:
           {
             echo "<!-- factory-spec-eval -->"
             echo "**Spec eval (latest push, ${MODE} mode):** ${RESULT:-not run}"
-            if [ "$RISK" = "high" ] && [ "$LABELLED" = "null" ]; then
+            if [ "$RISK" = "high" ] && { [ "$LABELLED" = "null" ] || [ -z "$LABELLED" ]; }; then
               echo
               echo "Risk is now **high** but this PR had no architect review (ADR 0022). The spec gate reviews the design itself or asks for a review."
             fi
