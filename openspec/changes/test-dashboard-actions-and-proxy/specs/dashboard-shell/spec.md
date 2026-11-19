@@ -1,10 +1,10 @@
 ## ADDED Requirements
 
 ### Requirement: Dashboard server actions are covered by tests
-Every exported server action under `apps/web/src/app/dashboard/**/actions.ts` SHALL have unit tests for its success path, its validation and store-error paths, and its behaviour without a session. A failing action MUST redirect to its error URL and MUST NOT redirect to its success URL.
+Every exported server action under `apps/web/src/app/dashboard/**/actions.ts` SHALL have unit tests for its success path and its validation and store-error paths. Actions whose lib detects a signed-out user (`addChild`, devices, settings, `removeBlockRule`) SHALL also be tested without a session. A failing action MUST redirect to its error URL, never its success URL.
 
 #### Scenario: Children actions pass the form and redirect
-- **GIVEN** a fake session client and lib results of success, a validation error and a store error
+- **GIVEN** the real `lib/children` with a fake session client that produces success, a validation error and a store error
 - **WHEN** `addChildAction`, `renameChildAction`, `deleteChildAction` and `createCodeAction` run with form data (`apps/web/src/app/dashboard/children/actions.test.ts`)
 - **THEN** each passes the form values to its lib function, revalidates and redirects to `/dashboard/children` on success, and on failure redirects to `/dashboard/children?error=<encoded message>` (`?pairError=<childId>&reason=<reason>` for the code action) without revalidating
 
@@ -12,6 +12,11 @@ Every exported server action under `apps/web/src/app/dashboard/**/actions.ts` SH
 - **GIVEN** a client whose `parents` lookup returns no row
 - **WHEN** `addChildAction` runs with a valid name (`apps/web/src/app/dashboard/children/actions.test.ts`)
 - **THEN** it redirects to `/dashboard/children?error=No%20family%20for%20this%20account` and no insert is made
+
+#### Scenario: Other detecting actions without a session
+- **GIVEN** a client with no session (no family, zero rows changed)
+- **WHEN** the device actions, the settings actions and `removeRuleAction` run (`apps/web/src/app/dashboard/devices/actions.test.ts`, `settings/actions.test.ts`, `children/[childId]/rules/actions.test.ts`)
+- **THEN** each redirects to its error URL and never to its success URL
 
 #### Scenario: Missing form fields become empty strings
 - **WHEN** an action runs with an empty `FormData` (`apps/web/src/app/dashboard/categories/actions.test.ts`)
@@ -25,7 +30,7 @@ Every exported server action under `apps/web/src/app/dashboard/**/actions.ts` SH
 #### Scenario: Device actions
 - **GIVEN** `renameDevice` and `removeDevice` returning success, `invalid-name` and `failed`
 - **WHEN** `renameDeviceAction` and `removeDeviceAction` run (`apps/web/src/app/dashboard/devices/actions.test.ts`)
-- **THEN** both revalidate `/dashboard/devices` and redirect to it on success or to `?error=<code>` on failure
+- **THEN** both call `revalidatePath("/dashboard/devices")` on success and on failure, and redirect to `/dashboard/devices` on success or to `?error=<code>` on failure
 
 #### Scenario: Digest settings parsing
 - **GIVEN** `saveDigestSettings` spied
@@ -35,14 +40,14 @@ Every exported server action under `apps/web/src/app/dashboard/**/actions.ts` SH
 #### Scenario: Settings redirects
 - **GIVEN** the settings lib functions returning success, `invalid` and `failed`
 - **WHEN** `saveDigestSettingsAction` and `saveWeeklyReportAction` run (`apps/web/src/app/dashboard/settings/actions.test.ts`)
-- **THEN** success redirects to `/dashboard/settings?saved=1`, failure to `/dashboard/settings?error=<code>`, and `weekly_report=on` maps to `true`, any other value to `false`
+- **THEN** `revalidatePath` is called on success and on failure, success redirects to `/dashboard/settings?saved=1`, failure to `/dashboard/settings?error=<code>`, and `weekly_report=on` maps to `true`, any other value to `false`
 
 #### Scenario: Timezone capture
 - **WHEN** `captureTimezoneAction("Europe/Berlin")` runs (`apps/web/src/app/dashboard/settings/actions.test.ts`)
 - **THEN** `captureFamilyTimezone` receives that value and nothing is redirected
 
 #### Scenario: Rules actions
-- **GIVEN** `addDomainRule`, `addCategoryRule` and `removeBlockRule` returning success, `invalid_domain`, `duplicate` and `failed`
+- **GIVEN** `addDomainRule`, `addCategoryRule` and `removeBlockRule` returning success, `invalid_domain`, `invalid_category`, `duplicate`, `not_found` and `failed`
 - **WHEN** `addDomainAction`, `addCategoryAction` and `removeRuleAction` run for child `c 1` (`apps/web/src/app/dashboard/children/[childId]/rules/actions.test.ts`)
 - **THEN** success revalidates and redirects to `/dashboard/children/c%201/rules`, failure redirects to `.../rules?error=<code>`
 
