@@ -47,7 +47,12 @@ export async function pairWithCode(deps: PairDeps, rawCode: string): Promise<Pai
     if (response.status !== 200) return fail("failed");
     const parsed = PairResponse.safeParse(await response.json());
     if (!parsed.success) return fail("failed");
-    await deps.store.remove(["queue", "trackerState", "authState", "rulesVersion", "blockedQueue", "rulesLimits", "rulesTimezone", "rulesOverrides", "limitUsage", "limitBlocked", "rulesAllowedHours"]);
+    await deps.store.remove(["rulesVersion"]);
+    if (deps.dnr) {
+      const rules = await deps.dnr.getDynamicRules();
+      await deps.dnr.updateDynamicRules({ removeRuleIds: rules.map((r) => r.id), addRules: [] });
+    }
+    await deps.store.remove(["queue", "trackerState", "authState", "rulesDomains", "blockedQueue", "rulesLimits", "rulesTimezone", "rulesOverrides", "limitUsage", "limitBlocked", "rulesAllowedHours"]);
     await deps.store.set("browser", deps.browser);
     await deps.store.set("deviceToken", parsed.data.deviceToken);
     return { ok: true };

@@ -25,7 +25,7 @@ Test files:
 - **THEN** each returns `{ ok: false, reason: "invalid_code" }` and `post` was never called
 
 ### Requirement: Successful pairing stores the token and starts fresh
-On `200` with a body that passes `PairResponse`, `pairWithCode` SHALL remove `queue`, `trackerState` and `authState`, then store `browser` and `deviceToken`, replacing any earlier token, and return `{ ok: true }`. The token SHALL be stored only under `deviceToken`.
+On `200` with a body that passes `PairResponse`, `pairWithCode` SHALL remove `queue`, `trackerState` and `authState` and the previous device's rules and rule state as defined in the block-enforcement requirement "Re-pairing resets rule state", then store `browser` and `deviceToken`, replacing any earlier token, and return `{ ok: true }`. The token SHALL be stored only under `deviceToken`.
 
 #### Scenario: First pairing
 - **GIVEN** an empty store and `post` answering `200 { deviceToken: "tok-1" }`
