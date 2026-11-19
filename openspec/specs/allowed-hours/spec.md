@@ -52,7 +52,7 @@ File: `apps/web/src/lib/device/supabase-store.test.ts`
 - **THEN** it returns `allowedHours` `{ start: "07:00", end: "21:00" }`, then `null`, and in the third run it throws
 
 ### Requirement: Allowed hours are validated and saved fail-closed
-`saveAllowedHours(client, childId, { start, end })` SHALL trim both values; both empty clears the window (both columns null); otherwise it SHALL return `{ ok: false, error: "invalid_hours" }` before any write when one is empty, either does not match `HH:MM` 00:00 to 23:59, or they are equal. Any store error or throw SHALL return `{ ok: false, error: "failed" }`.
+`saveAllowedHours(client, childId, { start, end })` SHALL trim both values; both empty clears the window (both columns null); otherwise it SHALL return `{ ok: false, error: "invalid_hours" }` before any write when one is empty, either does not match `HH:MM` 00:00 to 23:59, or they are equal. Any store error or throw SHALL return `{ ok: false, error: "failed" }`. It SHALL ask for the updated row ids and return `{ ok: false, error: "not_found" }` when no row was updated.
 
 #### Scenario: Valid window saved and empty clears
 File: `apps/web/src/lib/allowed-hours.test.ts`
@@ -70,6 +70,13 @@ File: `apps/web/src/lib/allowed-hours.test.ts`
 - **GIVEN** the fake client returns an error on update, and in another run throws
 - **WHEN** `saveAllowedHours` is called with valid values
 - **THEN** each result is `{ ok: false, error: "failed" }` and none throws
+
+#### Scenario: Hours for a child the parent cannot see
+File: `apps/web/src/lib/allowed-hours.test.ts`
+- **GIVEN** the fake client's update returns no rows and no error (RLS matched nothing)
+- **WHEN** `saveAllowedHours` is called with valid values
+- **THEN** the result is `{ ok: false, error: "not_found" }`
+- **AND** `AllowedHoursCard` with `error="not_found"` shows "This child was not found. Reload the page and try again."
 
 ### Requirement: Allowed hours card on the rules page
 The rules page SHALL render an "Allowed hours" card (`AllowedHoursCard`) with `time` inputs `allowed_start` and `allowed_end` prefilled with the saved values, a hidden `childId`, a save button posting to a server action, a note that empty fields remove the limit and that start and end must be set together, and a readable message for `invalid_hours` and `failed`. It SHALL use only classes exported by `ui.ts`.

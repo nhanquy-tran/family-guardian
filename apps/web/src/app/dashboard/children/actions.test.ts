@@ -16,6 +16,7 @@ import { addChildAction, createCodeAction, deleteChildAction, renameChildAction 
 const PATH = "/dashboard/children";
 const NAME_ERROR = `${PATH}?error=${encodeURIComponent("Name must be 1 to 50 characters")}`;
 const GENERIC_ERROR = `${PATH}?error=${encodeURIComponent("Something went wrong. Please try again.")}`;
+const NOT_FOUND = `${PATH}?error=${encodeURIComponent("Child not found")}`;
 
 beforeEach(() => {
   state.revalidatePath.mockReset();
@@ -70,9 +71,10 @@ describe("addChildAction", () => {
 
 describe("renameChildAction", () => {
   it("updates only the name of the given child", async () => {
+    state.fake = fakeSupabase(byTable({ children: { data: [{ id: "child-1" }], error: null } }));
     expect(await redirectOf(() => renameChildAction(form({ id: "child-1", name: " An " })))).toBe(PATH);
     expect(state.fake.writes()).toEqual([
-      { table: "children", ops: [["update", [{ name: "An" }]], ["eq", ["id", "child-1"]]] },
+      { table: "children", ops: [["update", [{ name: "An" }]], ["eq", ["id", "child-1"]], ["select", ["id"]]] },
     ]);
     expect(state.revalidatePath).toHaveBeenCalledWith(PATH);
   });
@@ -87,17 +89,29 @@ describe("renameChildAction", () => {
     expect(await redirectOf(() => renameChildAction(form({ id: "child-1", name: "An" })))).toBe(GENERIC_ERROR);
     expect(state.revalidatePath).not.toHaveBeenCalled();
   });
+
+  it("reports a child that RLS hides instead of saving", async () => {
+    state.fake = fakeSupabase(byTable({ children: { data: [], error: null } }));
+    expect(await redirectOf(() => renameChildAction(form({ id: "other-family-child", name: "An" })))).toBe(NOT_FOUND);
+    expect(state.revalidatePath).not.toHaveBeenCalled();
+  });
 });
 
 describe("deleteChildAction", () => {
   it("deletes the given child", async () => {
+    state.fake = fakeSupabase(byTable({ children: { data: [{ id: "child-1" }], error: null } }));
     expect(await redirectOf(() => deleteChildAction(form({ id: "child-1" })))).toBe(PATH);
-    expect(state.fake.writes()).toEqual([{ table: "children", ops: [["delete", []], ["eq", ["id", "child-1"]]] }]);
+    expect(state.fake.writes()).toEqual([{ table: "children", ops: [["delete", []], ["eq", ["id", "child-1"]], ["select", ["id"]]] }]);
   });
 
   it("surfaces a database error", async () => {
     state.fake = fakeSupabase(byTable({ children: { error: DB_ERROR } }));
     expect(await redirectOf(() => deleteChildAction(form({ id: "child-1" })))).toBe(GENERIC_ERROR);
+  });
+
+  it("reports a child that RLS hides instead of deleting", async () => {
+    state.fake = fakeSupabase(anonymous, null);
+    expect(await redirectOf(() => deleteChildAction(form({ id: "child-1" })))).toBe(NOT_FOUND);
   });
 });
 

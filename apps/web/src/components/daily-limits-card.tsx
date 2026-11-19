@@ -12,6 +12,7 @@ export type DailyLimitsCardProps = {
 
 function message(error: string): string {
   if (error === "invalid_minutes") return "Enter whole minutes between 5 and 1440, or leave a field empty for no limit.";
+  if (error === "not_found") return "This child was not found. Reload the page and try again.";
   return "Limits could not be loaded or saved. Please try again.";
 }
 

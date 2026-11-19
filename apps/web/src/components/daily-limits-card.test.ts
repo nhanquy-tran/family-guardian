@@ -51,4 +51,10 @@ describe("DailyLimitsCard", () => {
     expect(html).not.toMatch(/\b(bg-blue-|text-gray-)/);
     expect(html).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
+
+  it("Clearing limits of a child the parent cannot see", () => {
+    const html = render({ error: "not_found" });
+    expect(html).toContain('role="alert"');
+    expect(html).toContain("This child was not found. Reload the page and try again.");
+  });
 });

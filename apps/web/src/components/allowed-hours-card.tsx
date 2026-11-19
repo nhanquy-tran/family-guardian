@@ -10,6 +10,7 @@ export type AllowedHoursCardProps = {
 
 function message(error: string): string {
   if (error === "invalid_hours") return "Enter a start and an end time that are different, or leave both empty.";
+  if (error === "not_found") return "This child was not found. Reload the page and try again.";
   return "Allowed hours could not be saved. Please try again.";
 }
 

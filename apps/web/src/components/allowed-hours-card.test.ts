@@ -40,4 +40,10 @@ describe("AllowedHoursCard", () => {
     expect(empty).toMatch(/start/i);
     expect(empty).toMatch(/end/i);
   });
+
+  it("Hours for a child the parent cannot see", () => {
+    const html = render({ error: "not_found" });
+    expect(html).toContain('role="alert"');
+    expect(html).toContain("This child was not found. Reload the page and try again.");
+  });
 });

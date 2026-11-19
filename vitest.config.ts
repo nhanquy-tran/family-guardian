@@ -17,7 +17,7 @@ export default defineConfig({
       thresholds: {
         autoUpdate: (value: number) => Math.floor(value),
         lines: 88,
-        branches: 82,
+        branches: 83,
         "packages/shared/src/**": { lines: 99, branches: 90 },
         "apps/web/src/lib/**": { lines: 90, branches: 81 },
         "apps/web/src/components/**": { lines: 95, branches: 92 },

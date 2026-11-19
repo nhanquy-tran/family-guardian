@@ -65,6 +65,7 @@ File: `apps/web/src/lib/daily-limits.test.ts`
 
 #### Scenario: All empty clears the limits
 File: `apps/web/src/lib/daily-limits.test.ts`
+- **GIVEN** the fake client finds the child
 - **WHEN** `saveDailyLimits` is called with every category set to `""`
 - **THEN** no upsert is made, one delete covers all 9 categories, and the result is `{ ok: true }`
 
@@ -85,6 +86,16 @@ File: `apps/web/src/lib/daily-limits.test.ts`
 - **GIVEN** the fake client returns an error, and in another run throws
 - **WHEN** `listDailyLimits` is called
 - **THEN** the result is `{ ok: false, error: "failed" }`
+
+### Requirement: Clearing limits checks the child is visible
+When `saveDailyLimits` sets no value, it SHALL first read the child by id (RLS-scoped) and return `{ ok: false, error: "not_found" }` without writing when the child is not visible, because a delete that matches no limit is a normal success. The daily-limits card SHALL show "This child was not found. Reload the page and try again." for `not_found`.
+
+#### Scenario: Clearing limits of a child the parent cannot see
+File: `apps/web/src/lib/daily-limits.test.ts`
+- **GIVEN** the fake client's `children` read returns no row
+- **WHEN** `saveDailyLimits` is called with every category set to `""`
+- **THEN** the result is `{ ok: false, error: "not_found" }` and no delete is made
+- **AND** `DailyLimitsCard` with `error="not_found"` shows "This child was not found. Reload the page and try again."
 
 ### Requirement: Daily limits card on the rules page
 The rules page SHALL render a "Daily limits" card (`DailyLimitsCard`) with one minutes input per category (all 9, in list order), prefilled with the saved value or empty, a save button submitting to a server action, and a readable message for an error code. The card SHALL use only the classes exported by `ui.ts`. The server action SHALL read the `limit_<category>` fields, call `saveDailyLimits` with the session client, and on any error redirect with the error code instead of saving.
