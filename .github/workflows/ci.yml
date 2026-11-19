@@ -25,7 +25,15 @@ jobs:
         if: github.event_name == 'pull_request'
         run: bash .github/scripts/check-migrations.sh
       - uses: ./.github/actions/setup
-      - run: npm run check
+      - name: Typecheck, lint, tests with coverage minimums (ADR 0023)
+        run: npm run check:ci
+      - name: Coverage by area
+        if: always() && hashFiles('coverage/coverage-summary.json') != ''
+        run: |
+          { echo "### Coverage by area"; echo; node .github/scripts/coverage-table.mjs; } >> "$GITHUB_STEP_SUMMARY"
+          if ! git diff --quiet vitest.config.ts; then
+            echo "::notice::Coverage rose above a minimum. Run npm run coverage and commit vitest.config.ts to raise it."
+          fi
       - name: Source-of-truth specs valid
         run: npx openspec validate --specs --strict --no-interactive
 

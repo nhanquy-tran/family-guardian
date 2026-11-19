@@ -13,7 +13,9 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "test": "vitest run",
+    "coverage": "vitest run --coverage",
     "check": "npm run typecheck && npm run lint && npm run test",
+    "check:ci": "npm run typecheck && npm run lint && npm run coverage",
     "e2e": "npm run e2e -w @fg/e2e",
     "e2e:seed": "npm run seed -w @fg/e2e --",
     "e2e:reset": "npm run reset -w @fg/e2e"
@@ -21,6 +23,7 @@
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.16",
     "@fission-ai/openspec": "2.1.0",
+    "@vitest/coverage-v8": "^4.1.12",
     "typescript": "^5",
     "vitest": "^4"
   },
