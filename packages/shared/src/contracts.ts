@@ -38,6 +38,16 @@ export const HeartbeatResponse = z.object({
 
 const HHMM = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
 
+export type AllowedHours = { start: string; end: string };
+
+export const HHMM_PATTERN = HHMM;
+
+export function parseAllowedHours(start: unknown, end: unknown): AllowedHours | null {
+  void start;
+  void end;
+  throw new Error("not implemented");
+}
+
 export const RulesResponse = z.object({
   rulesVersion: z.number().int().nonnegative(),
   domains: z.array(z.string()).max(MAX_RULE_DOMAINS),
