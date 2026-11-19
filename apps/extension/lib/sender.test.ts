@@ -205,3 +205,31 @@ describe("flushQueue", () => {
     expect(data.get("queue")).toEqual(entries(1, 2));
   });
 });
+
+describe("flushQueue other usage", () => {
+  const withOther = (games: number): Reply => ({
+    status: 200,
+    body: { rulesVersion: 3, otherUsage: { day: "2026-11-17", seconds: { games } } },
+  });
+
+  it("Several chunks use the last 200 response", async () => {
+    const { post, calls } = sequence([withOther(60), withOther(120)], withOther(180));
+    const { result } = run({ queue: entries(1, 3000) }, post);
+    expect(await result).toEqual({
+      kind: "ok",
+      rulesVersion: 3,
+      otherUsage: { day: "2026-11-17", seconds: { games: 180 } },
+    });
+    expect(calls).toHaveLength(3);
+  });
+
+  it("A keep-alive carries it too, an invalid value is dropped", async () => {
+    const a = run({ queue: [] }, always(withOther(90)).post);
+    expect(await a.result).toEqual({ kind: "ok", rulesVersion: 3, otherUsage: { day: "2026-11-17", seconds: { games: 90 } } });
+    const bad: Reply = { status: 200, body: { rulesVersion: 3, otherUsage: { day: "x", seconds: { games: -5 } } } };
+    const b = run({ queue: [] }, always(bad).post);
+    const result = await b.result;
+    expect(result).toMatchObject({ kind: "ok", rulesVersion: 3 });
+    expect(result).not.toHaveProperty("otherUsage");
+  });
+});

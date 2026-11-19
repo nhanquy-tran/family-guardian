@@ -178,6 +178,53 @@ describe("syncRules and limits", () => {
       expect(data.get("limitBlocked")).toMatchObject({ "roblox.com": "games" });
     });
   });
+
+  const today = "2026-11-17";
+
+  it("A sync applies it", async () => {
+    await withToday(async () => {
+      const answer = body({
+        limits: [{ category: "games", minutesPerDay: 5 }],
+        otherUsage: { day: today, seconds: { games: 180 } },
+      });
+      const { dnr, updates } = createDnr([1]);
+      const { result, data } = sync({ ...limitState, limitBlocked: {} }, always2(answer).get, dnr);
+      expect(await result).toEqual({ kind: "ok", rulesVersion: 3 });
+      // local 120 + other 180 = 300 >= 5 * 60
+      expect(paths(updates[0]?.addRules ?? [])).toContain("/blocked.html?d=roblox.com&c=games");
+      expect(data.get("limitBlocked")).toMatchObject({ "roblox.com": "games" });
+      expect(data.get("otherUsage")).toEqual({ day: today, seconds: { games: 180 } });
+    });
+  });
+
+  it("Invalid field in a rules sync is ignored", async () => {
+    await withToday(async () => {
+      const kept = { day: today, seconds: { games: 120 } };
+      const answer = body({
+        limits: [{ category: "games", minutesPerDay: 5 }],
+        otherUsage: { day: today, seconds: { games: 1.5 } },
+      });
+      const { dnr } = createDnr([1]);
+      const { result, data } = sync({ ...limitState, otherUsage: kept }, always2(answer).get, dnr);
+      expect(await result).toEqual({ kind: "ok", rulesVersion: 3 });
+      expect(data.get("rulesVersion")).toBe(3);
+      expect(data.get("rulesLimits")).toEqual([{ category: "games", minutesPerDay: 5 }]);
+      expect(data.get("otherUsage")).toEqual(kept);
+    });
+  });
+
+  it("A sync without it keeps the stored value, yesterday's value does not count", async () => {
+    await withToday(async () => {
+      const stale = { day: "2026-11-16", seconds: { games: 900 } };
+      const answer = body({ limits: [{ category: "games", minutesPerDay: 5 }] });
+      const { dnr, updates } = createDnr([1]);
+      const { result, data } = sync({ ...limitState, limitBlocked: {}, otherUsage: stale }, always2(answer).get, dnr);
+      await result;
+      // local 120 s < 300 and the stale day counts as empty
+      expect(paths(updates[0]?.addRules ?? [])).toEqual([]);
+      expect(data.get("otherUsage")).toEqual(stale);
+    });
+  });
 });
 
 function always2(reply: Reply) {

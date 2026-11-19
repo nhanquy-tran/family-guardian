@@ -67,6 +67,12 @@ export const RulesResponse = z.object({
     .default(null),
 });
 
+export const OtherUsage = z.object({
+  day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  seconds: z.partialRecord(z.enum(CATEGORIES), z.number().int().min(0)),
+});
+export type OtherUsage = z.infer<typeof OtherUsage>;
+
 export type RulesResponse = z.infer<typeof RulesResponse>;
 export type BlockedAttempt = z.infer<typeof BlockedAttempt>;
 export type UsageEntry = z.infer<typeof UsageEntry>;

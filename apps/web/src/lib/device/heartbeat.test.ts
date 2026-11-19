@@ -10,7 +10,15 @@ type Row = { device_id: string; minute_utc: string; domain: string; seconds: num
 type BlockedRow = { device_id: string; at: string; domain: string };
 
 function fakeStore(
-  opts: { known?: boolean; findThrows?: boolean; upsertThrows?: boolean; updateThrows?: boolean; blockedThrows?: boolean } = {},
+  opts: {
+    known?: boolean;
+    findThrows?: boolean;
+    upsertThrows?: boolean;
+    updateThrows?: boolean;
+    blockedThrows?: boolean;
+    other?: unknown;
+    otherThrows?: boolean;
+  } = {},
 ) {
   const known = opts.known ?? true;
   const findDevice = vi.fn(async (hash: string) => {
@@ -26,8 +34,12 @@ function fakeStore(
   const insertBlocked = vi.fn(async (_rows: BlockedRow[]) => {
     if (opts.blockedThrows) throw new Error("db down");
   });
-  const store: HeartbeatStore = { findDevice, upsertUsage, insertBlocked, updateDevice };
-  return { store, findDevice, upsertUsage, insertBlocked, updateDevice };
+  const otherUsage = vi.fn(async (_deviceId: string) => {
+    if (opts.otherThrows) throw new Error("db down");
+    return (opts.other ?? null) as Awaited<ReturnType<HeartbeatStore["otherUsage"]>>;
+  });
+  const store: HeartbeatStore = { findDevice, upsertUsage, insertBlocked, updateDevice, otherUsage };
+  return { store, findDevice, upsertUsage, insertBlocked, updateDevice, otherUsage };
 }
 
 type Fake = ReturnType<typeof fakeStore>;
@@ -454,5 +466,33 @@ describe("rules version in the response", () => {
     const res = await call(fakeStore());
     expect(res.status).toBe(200);
     expect(HeartbeatResponse.parse(res.body)).toEqual({ rulesVersion: 3 });
+  });
+});
+
+describe("heartbeat other usage", () => {
+  const other = { day: "2026-11-17", seconds: { games: 600 } };
+
+  it("Other device seconds by category", async () => {
+    const f = fakeStore({ other });
+    const res = await call(f);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ rulesVersion: 3, otherUsage: other });
+    expect(f.otherUsage).toHaveBeenCalledWith("dev-1");
+    expect(JSON.stringify(res.body)).not.toMatch(/\.com/);
+  });
+
+  it("Computation fails", async () => {
+    const f = fakeStore({ otherThrows: true });
+    const res = await call(f, { body: body({ entries: [entry("2026-11-17T10:04:00.000Z", "youtube.com", 30)] }) });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ rulesVersion: 3 });
+    expect(upserted(f)).toEqual([row("2026-11-17T10:04:00.000Z", "youtube.com", 30)]);
+  });
+
+  it("Invalid value is omitted", async () => {
+    const f = fakeStore({ other: { day: "x", seconds: { games: -1 } } });
+    const res = await call(f);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ rulesVersion: 3 });
   });
 });

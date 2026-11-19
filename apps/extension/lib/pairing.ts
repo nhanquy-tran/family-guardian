@@ -52,7 +52,7 @@ export async function pairWithCode(deps: PairDeps, rawCode: string): Promise<Pai
       const rules = await deps.dnr.getDynamicRules();
       await deps.dnr.updateDynamicRules({ removeRuleIds: rules.map((r) => r.id), addRules: [] });
     }
-    await deps.store.remove(["queue", "trackerState", "authState", "rulesDomains", "blockedQueue", "rulesLimits", "rulesTimezone", "rulesOverrides", "limitUsage", "limitBlocked", "rulesAllowedHours"]);
+    await deps.store.remove(["queue", "trackerState", "authState", "rulesDomains", "blockedQueue", "rulesLimits", "rulesTimezone", "rulesOverrides", "limitUsage", "limitBlocked", "rulesAllowedHours", "otherUsage"]);
     await deps.store.set("browser", deps.browser);
     await deps.store.set("deviceToken", parsed.data.deviceToken);
     return { ok: true };

@@ -11,6 +11,7 @@ const limitState = {
   limitUsage: { day: "2026-11-17", seconds: { games: 10 }, domains: {} },
   limitBlocked: { "roblox.com": "games" },
   rulesAllowedHours: { start: "07:00", end: "21:00" },
+  otherUsage: { day: "2026-11-17", seconds: { games: 600 } },
 };
 
 function deps(

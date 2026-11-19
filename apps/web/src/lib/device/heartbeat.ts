@@ -1,10 +1,12 @@
 import {
   BlockedAttempt,
   HeartbeatEnvelope,
+  OtherUsage as OtherUsageSchema,
   MAX_BLOCKED_ATTEMPTS,
   MAX_HEARTBEAT_ENTRIES,
   UsageEntry,
   type HeartbeatResponse,
+  type OtherUsage,
 } from "@fg/shared";
 import { hashDeviceToken } from "./token";
 
@@ -13,6 +15,7 @@ export interface HeartbeatStore {
   upsertUsage(rows: { device_id: string; minute_utc: string; domain: string; seconds: number }[]): Promise<void>;
   insertBlocked(rows: { device_id: string; at: string; domain: string }[]): Promise<void>;
   updateDevice(deviceId: string, patch: { last_seen_at: string; browser: string; extension_version: string }): Promise<void>;
+  otherUsage(deviceId: string): Promise<OtherUsage | null>;
 }
 
 export type HeartbeatInput = {
@@ -25,7 +28,7 @@ export type HeartbeatInput = {
 
 export type HeartbeatResult = {
   status: 200 | 400 | 401 | 413 | 500;
-  body: HeartbeatResponse | { error: string };
+  body: (HeartbeatResponse & { otherUsage?: OtherUsage }) | { error: string };
 };
 
 type UsageRow = { device_id: string; minute_utc: string; domain: string; seconds: number };
@@ -125,5 +128,11 @@ export async function handleHeartbeat(input: HeartbeatInput): Promise<HeartbeatR
   }
 
   input.log({ accepted: rows.size, skipped });
+  try {
+    const parsed = OtherUsageSchema.safeParse(await store.otherUsage(device.deviceId));
+    if (parsed.success) return { status: 200, body: { rulesVersion: device.rulesVersion, otherUsage: parsed.data } };
+  } catch {
+    // optional field: the heartbeat still succeeds without it
+  }
   return { status: 200, body: { rulesVersion: device.rulesVersion } };
 }

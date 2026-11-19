@@ -1,19 +1,20 @@
-import { expandBlockRules, MAX_RULE_DOMAINS, RulesResponse, type Category } from "@fg/shared";
+import { expandBlockRules, MAX_RULE_DOMAINS, OtherUsage as OtherUsageSchema, RulesResponse, type Category, type OtherUsage } from "@fg/shared";
 import { hashDeviceToken } from "./token";
 
 export interface RulesStore {
-  findChild(tokenHash: string): Promise<{ childId: string; familyId: string; rulesVersion: number; timezone: string; allowedHours: { start: string; end: string } | null } | null>;
+  findChild(tokenHash: string): Promise<{ deviceId: string; childId: string; familyId: string; rulesVersion: number; timezone: string; allowedHours: { start: string; end: string } | null } | null>;
   listLimits(childId: string): Promise<{ category: Category; minutesPerDay: number }[]>;
   listRules(childId: string): Promise<{ kind: "domain" | "category"; value: string }[]>;
   /** Global rows (familyId null) and the family's rows; the handler lets family rows win. */
   listCategoryOverrides(familyId: string): Promise<{ familyId: string | null; domain: string; category: Category }[]>;
+  otherUsage(deviceId: string): Promise<OtherUsage | null>;
 }
 
 export type RulesInput = { authorization: string | null; store: RulesStore };
 
 export type RulesResult = {
   status: 200 | 401 | 500;
-  body: RulesResponse | { error: string };
+  body: (RulesResponse & { otherUsage?: OtherUsage }) | { error: string };
   headers: Record<string, string>;
 };
 
@@ -63,7 +64,14 @@ export async function handleRules({ authorization, store }: RulesInput): Promise
       categoryOverrides: capped,
       allowedHours: child.allowedHours,
     });
-    return { status: 200, body, headers: HEADERS };
+    let other: OtherUsage | undefined;
+    try {
+      const parsed = OtherUsageSchema.safeParse(await store.otherUsage(child.deviceId));
+      if (parsed.success) other = parsed.data;
+    } catch {
+      other = undefined;
+    }
+    return { status: 200, body: other ? { ...body, otherUsage: other } : body, headers: HEADERS };
   } catch {
     return fail(500, "server_error");
   }

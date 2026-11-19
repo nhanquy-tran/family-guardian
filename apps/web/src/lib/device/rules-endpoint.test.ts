@@ -11,10 +11,10 @@ type Override = { familyId: string | null; domain: string; category: Category };
 type Limit = { category: Category; minutesPerDay: number };
 type Step = "findChild" | "listRules" | "listCategoryOverrides" | "listLimits";
 
-const CHILD = { childId: "child-1", familyId: "fam-1", rulesVersion: 3, timezone: "Asia/Ho_Chi_Minh" };
+const CHILD = { deviceId: "dev-1", childId: "child-1", familyId: "fam-1", rulesVersion: 3, timezone: "Asia/Ho_Chi_Minh" };
 
 function fakeStore(
-  opts: { rules?: Rule[]; overrides?: Override[]; limits?: Limit[]; known?: boolean; throwIn?: Step; hours?: { start: string; end: string } | null } = {},
+  opts: { rules?: Rule[]; overrides?: Override[]; limits?: Limit[]; known?: boolean; throwIn?: Step; hours?: { start: string; end: string } | null; other?: unknown; otherThrows?: boolean } = {},
 ) {
   const order: string[] = [];
   const boom = (name: Step) => {
@@ -37,8 +37,12 @@ function fakeStore(
     boom("listLimits");
     return opts.limits ?? [];
   });
-  const store: RulesStore = { findChild, listRules, listCategoryOverrides, listLimits };
-  return { store, findChild, listRules, listCategoryOverrides, listLimits, order };
+  const otherUsage = vi.fn(async (_deviceId: string) => {
+    if (opts.otherThrows) throw new Error("db down");
+    return (opts.other ?? null) as Awaited<ReturnType<RulesStore["otherUsage"]>>;
+  });
+  const store: RulesStore = { findChild, listRules, listCategoryOverrides, listLimits, otherUsage };
+  return { store, findChild, listRules, listCategoryOverrides, listLimits, otherUsage, order };
 }
 
 type Fake = ReturnType<typeof fakeStore>;
@@ -203,5 +207,28 @@ describe("rules API fails closed and is capped", () => {
     const exact = await call(build(MAX_RULE_DOMAINS));
     expect(domainsOf(exact.body)).toHaveLength(MAX_RULE_DOMAINS);
     expect((exact.body as { truncated: boolean }).truncated).toBe(false);
+  });
+});
+
+describe("rules other usage", () => {
+  it("Rules include other usage", async () => {
+    const other = { day: "2026-11-17", seconds: { games: 600 } };
+    const res = await call(fakeStore({ other }));
+    expect(res.status).toBe(200);
+    expect(() => RulesResponse.parse(res.body)).not.toThrow();
+    expect((res.body as { otherUsage?: unknown }).otherUsage).toEqual(other);
+  });
+
+  it("Other usage fails", async () => {
+    const res = await call(fakeStore({ otherThrows: true }));
+    expect(res.status).toBe(200);
+    expect(res.body).not.toHaveProperty("otherUsage");
+  });
+
+  it("Invalid value does not cause a 500", async () => {
+    const res = await call(fakeStore({ other: { day: "x", seconds: { games: -1 } } }));
+    expect(res.status).toBe(200);
+    expect(domainsOf(res.body)).toContain("youtube.com");
+    expect(res.body).not.toHaveProperty("otherUsage");
   });
 });

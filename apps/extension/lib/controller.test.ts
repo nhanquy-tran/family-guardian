@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createController, registerSchedule } from "./controller";
 import { connectionStatus } from "./pairing";
 import { limitBlockDomains } from "./limits";
-import { buildRules } from "./rules";
+import { buildRules, syncRules } from "./rules";
 import {
   always,
   at,
@@ -373,6 +373,21 @@ describe("controller re-pairing resets rules", () => {
     await controller.pair("AB2CD3", "edge");
     await controller.onAlarm(at("10:04:05"));
     expect(rules()).toEqual([]);
+  });
+
+  it("The previous child's other usage does not block the new child", async () => {
+    const { dnr, rules } = createDnr();
+    const { get } = createGet(() => ({ status: 500 }));
+    const state = { ...oldState, otherUsage: { day: "2026-11-17", seconds: { games: 600 } } };
+    const { controller, data } = setup(state, router({ status: 200, body: { rulesVersion: 4 } }), { get, dnr });
+    expect(await controller.pair("AB2CD3", "edge")).toEqual({ ok: true });
+    expect(data.has("otherUsage")).toBe(false);
+    // the new child's limit, as an earlier sync would have stored it; local games usage is 0
+    data.set("rulesLimits", [{ category: "games", minutesPerDay: 5 }]);
+    data.set("rulesTimezone", "UTC");
+    await controller.onAlarm(at("10:04:05"));
+    expect(rules()).toEqual([]);
+    expect(data.get("limitBlocked") ?? {}).toEqual({});
   });
 
   it("Store write fails after the rules were cleared", async () => {
@@ -766,5 +781,108 @@ describe("controller allowed hours", () => {
     expect(data.has("rulesAllowedHours")).toBe(false);
     await controller.onAlarm(Date.parse("2026-11-18T22:00:00Z"));
     expect(hasHours(rules())).toBe(false);
+  });
+});
+
+describe("controller cross-browser usage", () => {
+  const today = "2026-11-17";
+  const limitsGames = [{ category: "games", minutesPerDay: 5 }];
+  const base = { ...paired, rulesVersion: 3, rulesDomains: [], rulesLimits: limitsGames, rulesTimezone: "UTC" };
+  const local = (seconds: number) => ({ day: today, seconds: { games: seconds }, domains: { "roblox.com": "games" } });
+  const otherGames = (seconds: number, day = today) => ({ day, seconds: { games: seconds } });
+  const heartbeat = (extra: Record<string, unknown> = {}): Reply => ({ status: 200, body: { rulesVersion: 3, ...extra } });
+  const paths = (list: unknown[]) =>
+    (list as { action: { redirect: { extensionPath: string } } }[]).map((r) => r.action.redirect.extensionPath);
+  const gamesRule = "/blocked.html?d=roblox.com&c=games";
+
+  it("Two browsers reach the limit together", async () => {
+    // 120 local + 180 other = 300 >= 5 * 60 blocks; 120 + 179 = 299 does not
+    for (const [other, blocked] of [[180, true], [179, false]] as const) {
+      const { dnr, rules } = createDnr();
+      const { controller } = setup(
+        { ...base, limitUsage: local(120), otherUsage: otherGames(other) },
+        always(heartbeat()).post,
+        { dnr },
+      );
+      await controller.onAlarm(at("10:00:05"));
+      expect(paths(rules()).includes(gamesRule), String(other)).toBe(blocked);
+    }
+  });
+
+  it("Other browser's usage arrives with the heartbeat", async () => {
+    const { dnr, rules } = createDnr();
+    const { controller } = setup(
+      { ...base, limitUsage: local(120) },
+      always(heartbeat({ otherUsage: otherGames(180) })).post,
+      { dnr },
+    );
+    await controller.onAlarm(at("10:00:05"));
+    expect(paths(rules())).toContain(gamesRule);
+  });
+
+  it("Offline uses the last value", async () => {
+    const { dnr, rules } = createDnr();
+    const { controller } = setup({ ...base, otherUsage: otherGames(250) }, always("network").post, { dnr });
+    await track(controller, "10:00:00", "https://roblox.com/");
+    // the minute 10:00 completes at 10:01:05: 60 local + 250 other = 310 >= 300
+    await controller.onAlarm(at("10:01:05"));
+    expect(paths(rules())).toContain(gamesRule);
+  });
+
+  it("Day rollover ignores yesterday's value", async () => {
+    const blocked = limitBlockDomains(["games"], {}, {}, []);
+    const state = {
+      ...base,
+      rulesTimezone: "Asia/Ho_Chi_Minh",
+      otherUsage: otherGames(300),
+      limitBlocked: blocked,
+    };
+    const { dnr, rules, updates } = createDnr([5]);
+    const { controller, data } = setup(state, always(heartbeat()).post, { dnr });
+    await controller.onAlarm(at("16:59:30"));
+    // still blocked by the other usage of 2026-11-17: nothing changes
+    expect(updates).toHaveLength(0);
+    expect(data.get("limitBlocked")).toEqual(blocked);
+    // 17:00:30Z is 00:00:30 on 2026-11-18 in Ho Chi Minh, so the stored day is yesterday
+    await controller.onAlarm(at("17:00:30"));
+    expect(rules()).toEqual([]);
+    expect(data.get("limitBlocked")).toEqual({});
+  });
+
+  it("Stored from heartbeat and rules, kept when absent", async () => {
+    const { post } = createPost((_call, index) => (index === 0 ? heartbeat({ otherUsage: otherGames(120) }) : heartbeat()));
+    const { dnr } = createDnr();
+    const answer: Reply = {
+      status: 200,
+      body: { rulesVersion: 3, domains: [], truncated: false, otherUsage: otherGames(240) },
+    };
+    const { controller, data, store } = setup(base, post, { dnr });
+    await controller.onAlarm(at("10:00:05"));
+    expect(data.get("otherUsage")).toEqual(otherGames(120));
+    await controller.onAlarm(at("10:01:05"));
+    expect(data.get("otherUsage")).toEqual(otherGames(120));
+    await syncRules({
+      baseUrl: "https://fg.example",
+      token: "tok-1",
+      store,
+      get: createGet(() => answer).get,
+      dnr,
+      now: at("10:02:05"),
+    });
+    expect(data.get("otherUsage")).toEqual(otherGames(240));
+  });
+
+  it("Invalid field in a heartbeat is ignored", async () => {
+    const bad = { day: "x", seconds: { games: -5 } };
+    const { post, calls } = createPost(() => heartbeat({ rulesVersion: 4, otherUsage: bad }));
+    const { dnr, rules } = createDnr();
+    const get = createGet(() => ({ status: 200, body: { rulesVersion: 4, domains: ["a.com"], truncated: false } })).get;
+    const { controller, data } = setup({ ...base, queue: entries(1, 2), otherUsage: otherGames(120) }, post, { dnr, get });
+    await controller.onAlarm(at("10:00:05"));
+    expect(heartbeats(calls)).toHaveLength(1);
+    expect(data.get("queue")).toEqual([]);
+    expect(data.get("rulesVersion")).toBe(4);
+    expect(rules()).toEqual(buildRules(["a.com"]));
+    expect(data.get("otherUsage")).toEqual(otherGames(120));
   });
 });
