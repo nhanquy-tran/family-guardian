@@ -102,12 +102,10 @@ function usageLines(entries: UsageEntry[], child: DigestChild): string[] {
 export async function buildDigest(input: BuildDigestInput): Promise<DigestMessage> {
   const { source, period } = input;
   const children = await source.listChildren(input.familyId);
-  const incidents = children.length
-    ? await source.listIncidents(
-        children.map((c) => c.id),
-        period.start,
-        period.end,
-      )
+  const childIds = children.map((c) => c.id);
+  const incidents = children.length ? await source.listIncidents(childIds, period.start, period.end) : [];
+  const siteAccessIncidents = children.length
+    ? await source.listSiteAccessIncidents(childIds, period.start, period.end)
     : [];
 
   const weekly = period.frequency === "weekly";
@@ -123,6 +121,14 @@ export async function buildDigest(input: BuildDigestInput): Promise<DigestMessag
       lines.push("Offline incidents:");
       for (const i of own) {
         const to = i.resolvedAt ? clock(i.resolvedAt) : "still offline";
+        lines.push(`  ${i.browser} on ${i.os}: from ${clock(i.startedAt)} to ${to}`);
+      }
+    }
+    const ownSiteAccess = siteAccessIncidents.filter((i) => i.childId === child.id);
+    if (ownSiteAccess.length > 0) {
+      lines.push("Site access off:");
+      for (const i of ownSiteAccess) {
+        const to = i.resolvedAt ? clock(i.resolvedAt) : "still off";
         lines.push(`  ${i.browser} on ${i.os}: from ${clock(i.startedAt)} to ${to}`);
       }
     }

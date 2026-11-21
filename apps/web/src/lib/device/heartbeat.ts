@@ -14,7 +14,7 @@ export interface HeartbeatStore {
   findDevice(tokenHash: string): Promise<{ deviceId: string; rulesVersion: number } | null>;
   upsertUsage(rows: { device_id: string; minute_utc: string; domain: string; seconds: number }[]): Promise<void>;
   insertBlocked(rows: { device_id: string; at: string; domain: string }[]): Promise<void>;
-  updateDevice(deviceId: string, patch: { last_seen_at: string; browser: string; extension_version: string }): Promise<void>;
+  updateDevice(deviceId: string, patch: { last_seen_at: string; browser: string; extension_version: string; site_access?: boolean }): Promise<void>;
   otherUsage(deviceId: string): Promise<OtherUsage | null>;
 }
 
@@ -122,6 +122,7 @@ export async function handleHeartbeat(input: HeartbeatInput): Promise<HeartbeatR
       last_seen_at: now.toISOString(),
       browser,
       extension_version: extensionVersion,
+      ...(envelope.data.siteAccess === undefined ? {} : { site_access: envelope.data.siteAccess }),
     });
   } catch {
     return fail(500, "server_error");

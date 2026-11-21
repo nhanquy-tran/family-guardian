@@ -161,8 +161,35 @@ export function createDigestSource(client: SupabaseClient): DigestSource {
       return incidents;
     },
 
-    async listSiteAccessIncidents(_childIds, _start, _end) {
-      throw new Error("not implemented");
+    async listSiteAccessIncidents(childIds, start, end) {
+      if (childIds.length === 0) return [];
+      const { data: devices, error } = await client.from("devices").select("id, child_id, browser, os").in("child_id", childIds);
+      if (error || !devices) fail("list devices");
+      const byId = new Map((devices as DeviceRow[]).map((d) => [d.id, d]));
+      if (byId.size === 0) return [];
+
+      const { data: rows, error: rowError } = await client
+        .from("site_access_incidents")
+        .select("device_id, started_at, resolved_at")
+        .in("device_id", [...byId.keys()])
+        .gte("started_at", start)
+        .lt("started_at", end)
+        .order("started_at");
+      if (rowError || !rows) fail("list site access incidents");
+
+      const incidents: DigestIncident[] = [];
+      for (const r of rows as { device_id: string; started_at: string; resolved_at: string | null }[]) {
+        const device = byId.get(r.device_id);
+        if (!device) continue;
+        incidents.push({
+          childId: device.child_id,
+          browser: browserLabel(device.browser),
+          os: device.os,
+          startedAt: r.started_at,
+          resolvedAt: r.resolved_at,
+        });
+      }
+      return incidents;
     },
 
     async readUsage(childId, start, end, from, to) {

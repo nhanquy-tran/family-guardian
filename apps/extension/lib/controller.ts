@@ -120,6 +120,26 @@ export function createController(deps: ControllerDeps): Controller {
     await setBadge(left === null ? "" : String(left));
   }
 
+  async function checkPermission(origin: string): Promise<boolean | undefined> {
+    if (deps.permissions === undefined) return undefined;
+    try {
+      return await deps.permissions.contains({ origins: [origin] });
+    } catch {
+      deps.log("Family Guardian: permission check failed");
+      return undefined;
+    }
+  }
+
+  async function checkApiAccess(): Promise<void> {
+    const granted = await checkPermission(`${deps.baseUrl}/*`);
+    if (granted !== undefined) await store.set("apiAccess", granted);
+  }
+
+  async function checkSiteAccess(): Promise<{ siteAccess?: boolean }> {
+    const granted = await checkPermission("<all_urls>");
+    return granted === undefined ? {} : { siteAccess: granted };
+  }
+
   async function alarmWhileRejected(token: string, now: number): Promise<void> {
     await setBadge("");
     const stored = parseQueue(await store.get("queue"));
@@ -134,6 +154,7 @@ export function createController(deps: ControllerDeps): Controller {
       extensionVersion: deps.extensionVersion,
       currentDomain: null,
       keepAliveOnly: true,
+      ...(await checkSiteAccess()),
       store,
       post: deps.post,
     });
@@ -156,6 +177,7 @@ export function createController(deps: ControllerDeps): Controller {
     const queue = enqueue(parseQueue(await store.get("queue")), taken.entries, now);
     await store.set("queue", queue);
     const active = taken.state.focused && taken.state.idle === "active";
+    const access = await checkSiteAccess();
     const result = await flushQueue({
       now,
       token,
@@ -164,6 +186,7 @@ export function createController(deps: ControllerDeps): Controller {
       extensionVersion: deps.extensionVersion,
       currentDomain: active ? taken.state.domain : null,
       keepAliveOnly: false,
+      ...access,
       store,
       post: deps.post,
     });
@@ -210,6 +233,7 @@ export function createController(deps: ControllerDeps): Controller {
       return serialize(async () => {
         const token = await readToken(store);
         if (token === null) return;
+        await checkApiAccess();
         try {
           if (await isRejected()) await alarmWhileRejected(token, now);
           else await alarmNormal(token, now);

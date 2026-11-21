@@ -23,6 +23,7 @@ export const HeartbeatRequest = z.object({
   browser: z.enum(BROWSER_NAMES),
   extensionVersion: z.string().max(32),
   blocked: z.array(BlockedAttempt).max(MAX_BLOCKED_ATTEMPTS).optional(),
+  siteAccess: z.boolean().optional(),
 });
 
 export const HeartbeatEnvelope = z.object({
@@ -31,6 +32,7 @@ export const HeartbeatEnvelope = z.object({
   browser: z.enum(BROWSER_NAMES),
   extensionVersion: z.string().max(32),
   blocked: z.array(z.unknown()).optional(),
+  siteAccess: z.boolean().optional(),
 });
 
 export const HeartbeatResponse = z.object({

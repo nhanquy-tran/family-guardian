@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildDigest, type DigestMessage, type DigestSource } from "./content";
 import { handleDigestSend, type DigestFamilyRow, type DigestStore } from "./send";
+import type { DuePeriod } from "./schedule";
 
 const NOW = new Date("2026-11-18T08:00:00Z"); // send moment of a daily family with hour 8 on UTC
 const SECRET = "s3cret";
@@ -68,7 +69,7 @@ const message = (familyId: string): DigestMessage => ({
 type Fakes = {
   store: ReturnType<typeof fakeStore>;
   mail: ReturnType<typeof fakeMailer>;
-  build: ReturnType<typeof vi.fn<(f: DigestFamilyRow) => Promise<DigestMessage>>>;
+  build: ReturnType<typeof vi.fn<(f: DigestFamilyRow, p: DuePeriod) => Promise<DigestMessage>>>;
 };
 
 const fakes = (opts: StoreOpts = {}, mode: "ok" | "rejectAll" | "rejectFirst" = "ok", failBuildFor?: string): Fakes => ({
