@@ -121,7 +121,7 @@ jobs:
       - name: Transcript (test-writer)
         if: always() && steps.test_writer.outputs.execution_file != ''
         continue-on-error: true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: transcript-${{ matrix.issue }}-test-writer
           path: ${{ steps.test_writer.outputs.execution_file }}
@@ -212,7 +212,7 @@ jobs:
       - name: Transcript (developer)
         if: always() && steps.developer.outputs.execution_file != ''
         continue-on-error: true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: transcript-${{ matrix.issue }}-developer
           path: ${{ steps.developer.outputs.execution_file }}
@@ -294,7 +294,7 @@ jobs:
       - name: Transcript (debugger)
         if: always() && steps.debugger.outputs.execution_file != ''
         continue-on-error: true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: transcript-${{ matrix.issue }}-debugger
           path: ${{ steps.debugger.outputs.execution_file }}
@@ -383,7 +383,7 @@ jobs:
       - name: Transcript (hidden verdict)
         if: always() && steps.hidden_verdict.outputs.execution_file != ''
         continue-on-error: true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: transcript-${{ matrix.issue }}-hidden-verdict
           path: ${{ steps.hidden_verdict.outputs.execution_file }}
@@ -420,7 +420,7 @@ jobs:
       - name: Transcript (verifier)
         if: always() && steps.verifier.outputs.execution_file != ''
         continue-on-error: true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: transcript-${{ matrix.issue }}-verifier
           path: ${{ steps.verifier.outputs.execution_file }}
