@@ -29,8 +29,8 @@ Parent: any browser (phone/PC) ──────────▶  └───�
 
 | Component | Tech | Responsibility |
 |---|---|---|
-| `apps/extension` | TypeScript, [WXT](https://wxt.dev), Manifest V3 | Track active domain and seconds, detect idle, enforce block rules, send heartbeats, queue offline |
-| `apps/web` | Next.js (App Router), TypeScript, Tailwind | Parent dashboard, device API, installer generation |
+| `apps/extension` | TypeScript, [WXT](https://wxt.dev), Manifest V3 (Firefox build: Manifest V2) | Track active domain and seconds, detect idle, enforce block rules, send heartbeats, queue offline. Build targets: Chrome/Edge/Brave and Firefox (`-b firefox`); the device `browser` value is `chrome`, `edge`, `brave`, `firefox` or `other` |
+| `apps/web` | Next.js (App Router), TypeScript, Tailwind | Parent dashboard, device API, installer generation; serves the signed Firefox add-on and its update manifest as static files under `/firefox/` (`updates.json`, `latest.xpi`, versioned `.xpi`) |
 | `packages/shared` | TypeScript | API contracts (zod schemas), category list, focus-score function |
 | `supabase/` | SQL migrations | Schema, RLS policies, cron jobs |
 | Policy installer | Generated `.reg` file | Force-install extension in Chrome, Edge, Brave; disable private browsing (`InPrivateModeAvailability` in Edge) and guest mode (`BrowserGuestModeEnabled`) |

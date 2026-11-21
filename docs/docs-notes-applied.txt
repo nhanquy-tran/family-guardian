@@ -16,3 +16,5 @@
 2026-11-19-clear-rules-on-repair
 2026-11-19-report-unchanged-writes
 2026-11-19-share-allowed-hours-validation
+2026-11-21-firefox-distribution
+2026-11-21-firefox-extension
