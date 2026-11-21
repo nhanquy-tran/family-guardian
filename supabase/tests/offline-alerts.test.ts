@@ -24,6 +24,9 @@ async function seedFamily(db: Db) {
   return { userId, familyId, childId };
 }
 
+const newChild = (db: Db, familyId: string) =>
+  scalar<string>(db, "insert into children (family_id, name) values ($1, 'Kid') returning id", [familyId]);
+
 /** Creates a device last seen `agoMs` before NOW (null = never seen). */
 async function device(db: Db, childId: string, agoMs: number | null): Promise<string> {
   const lastSeen = agoMs === null ? null : new Date(Date.parse(NOW) - agoMs).toISOString();
@@ -59,19 +62,19 @@ describe("offline alerts migration", () => {
   });
 
   it("Silence thresholds", async () => {
-    const d1459 = await device(db, fam.childId, 14 * MINUTE + 59 * SECOND); // 14 min 59 s
-    const d15 = await device(db, fam.childId, 15 * MINUTE); // exactly 15 min
-    const d2359 = await device(db, fam.childId, 23 * HOUR + 59 * MINUTE); // 23 h 59 min
-    const d24 = await device(db, fam.childId, 24 * HOUR); // exactly 24 h
-    const d24s = await device(db, fam.childId, 24 * HOUR + SECOND); // 24 h 1 s
-    const never = await device(db, fam.childId, null);
+    const d1459 = await device(db, await newChild(db, fam.familyId),14 * MINUTE + 59 * SECOND); // 14 min 59 s
+    const d15 = await device(db, await newChild(db, fam.familyId),15 * MINUTE); // exactly 15 min
+    const d2359 = await device(db, await newChild(db, fam.familyId),23 * HOUR + 59 * MINUTE); // 23 h 59 min
+    const d24 = await device(db, await newChild(db, fam.familyId),24 * HOUR); // exactly 24 h
+    const d24s = await device(db, await newChild(db, fam.familyId),24 * HOUR + SECOND); // 24 h 1 s
+    const never = await device(db, await newChild(db, fam.familyId),null);
 
     const all = [d1459, d15, d2359, d24, d24s, never];
     expect(await found(db, NOW, all)).toEqual([d15, d2359, d24]);
   });
 
   it("One incident is recorded once", async () => {
-    const d = await device(db, fam.childId, 20 * MINUTE); // last seen 11:40:00
+    const d = await device(db, await newChild(db, fam.familyId),20 * MINUTE); // last seen 11:40:00
     const lastSeen = "2026-11-17T11:40:00Z";
     await addAlert(db, d, lastSeen);
     expect(await found(db, NOW, [d])).toEqual([]);
@@ -83,7 +86,7 @@ describe("offline alerts migration", () => {
   });
 
   it("Function and table access", async () => {
-    const d = await device(db, fam.childId, 20 * MINUTE);
+    const d = await device(db, await newChild(db, fam.familyId),20 * MINUTE);
     for (const role of ["anon", { parent: fam.userId }] as const) {
       const find = await attempt(db, role, "select * from public.find_offline_devices($1::timestamptz)", [NOW]);
       expect(find.ok).toBe(false);
@@ -106,7 +109,7 @@ describe("offline alerts migration", () => {
   });
 
   it("Duplicate claim rejected", async () => {
-    const d = await device(db, fam.childId, 20 * MINUTE);
+    const d = await device(db, await newChild(db, fam.familyId),20 * MINUTE);
     await addAlert(db, d, "2026-11-17T11:40:00Z");
     const second = await attempt(
       db,
@@ -116,6 +119,39 @@ describe("offline alerts migration", () => {
     );
     expect(second.ok).toBe(false);
     expect(!second.ok && second.code).toBe(UNIQUE_VIOLATION);
+  });
+
+  it("Silent browser covered by an active browser", async () => {
+    const child = await newChild(db, fam.familyId);
+    const chrome = await device(db, child, 2 * MINUTE);
+    const firefox = await device(db, child, 3 * HOUR);
+    expect(await found(db, NOW, [chrome, firefox])).toEqual([]);
+  });
+
+  it("Every browser silent", async () => {
+    const child = await newChild(db, fam.familyId);
+    const chrome = await device(db, child, 20 * MINUTE);
+    const firefox = await device(db, child, 3 * HOUR);
+    expect(await found(db, NOW, [chrome, firefox])).toEqual([chrome, firefox]);
+  });
+
+  it("Sibling reported before the silent device", async () => {
+    const child = await newChild(db, fam.familyId);
+    const chrome = await device(db, child, 2 * HOUR);
+    const firefox = await device(db, child, 20 * MINUTE);
+    expect(await found(db, NOW, [chrome, firefox])).toEqual([chrome, firefox]);
+  });
+
+  it("Single device child unchanged", async () => {
+    const single = await device(db, await newChild(db, fam.familyId), 20 * MINUTE);
+    const other = await device(db, await newChild(db, fam.familyId), MINUTE);
+    expect(await found(db, NOW, [single, other])).toEqual([single]);
+  });
+
+  it("Another child's activity does not cover", async () => {
+    const firefox = await device(db, await newChild(db, fam.familyId), 3 * HOUR);
+    const chromeOfB = await device(db, await newChild(db, fam.familyId), 2 * MINUTE);
+    expect(await found(db, NOW, [firefox, chromeOfB])).toEqual([firefox]);
   });
 
   it("Migration loads without cron extensions", async () => {

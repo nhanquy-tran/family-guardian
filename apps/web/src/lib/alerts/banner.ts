@@ -4,6 +4,7 @@ export type BannerAlert = {
   id: string;
   sent_at: string;
   incident_last_seen_at: string;
+  resolved_at: string | null;
   devices: {
     last_seen_at: string | null;
     browser: string;
