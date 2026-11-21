@@ -161,6 +161,10 @@ export function createDigestSource(client: SupabaseClient): DigestSource {
       return incidents;
     },
 
+    async listSiteAccessIncidents(_childIds, _start, _end) {
+      throw new Error("not implemented");
+    },
+
     async readUsage(childId, start, end, from, to) {
       const ids = await deviceIds(childId);
       if (ids.length === 0) return [];

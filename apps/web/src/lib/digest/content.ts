@@ -22,6 +22,8 @@ export interface DigestSource {
   listChildren(familyId: string): Promise<DigestChild[]>;
   /** Incidents of the children's devices that started in [start, end). */
   listIncidents(childIds: string[], start: string, end: string): Promise<DigestIncident[]>;
+  /** Site-access incidents of the children's devices that started in [start, end). */
+  listSiteAccessIncidents(childIds: string[], start: string, end: string): Promise<DigestIncident[]>;
   /** Usage rows of one child in [start, end), rows `from` to `to` inclusive (a page). Rejects on failure. */
   readUsage(childId: string, start: string, end: string, from: number, to: number): Promise<UsageEntry[]>;
 }

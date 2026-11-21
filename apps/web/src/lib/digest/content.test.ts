@@ -47,6 +47,7 @@ function minutes(day: string, domain: string, count: number, startMinute = 0, se
 type SourceOpts = {
   families?: Record<string, DigestChild[]>;
   incidents?: DigestIncident[];
+  siteAccessIncidents?: DigestIncident[];
   usage?: Record<string, UsageEntry[] | ((from: number, to: number) => UsageEntry[])>;
   failUsageFor?: Record<string, number>; // childId -> page index (0-based) whose read rejects
 };
@@ -65,8 +66,11 @@ function fakeSource(opts: SourceOpts) {
     if (typeof source === "function") return source(from, to);
     return source.filter((e) => inPeriod(e.minuteUtc, start, end)).slice(from, to + 1);
   });
-  const source: DigestSource = { listChildren, listIncidents, readUsage };
-  return { source, listChildren, listIncidents, readUsage };
+  const listSiteAccessIncidents = vi.fn(async (childIds: string[], start: string, end: string) =>
+    (opts.siteAccessIncidents ?? []).filter((i) => childIds.includes(i.childId) && inPeriod(i.startedAt, start, end)),
+  );
+  const source: DigestSource = { listChildren, listIncidents, listSiteAccessIncidents, readUsage };
+  return { source, listChildren, listIncidents, listSiteAccessIncidents, readUsage };
 }
 
 const build = (s: ReturnType<typeof fakeSource>, over: { period?: DuePeriod; timezone?: string; familyId?: string } = {}) =>
@@ -270,6 +274,28 @@ describe("buildDigest", () => {
     for (const [ids] of s.listIncidents.mock.calls) expect(ids).toEqual(["c-mia"]);
     for (const call of s.readUsage.mock.calls) expect(call[0]).toBe("c-mia");
     expect(s.listChildren).toHaveBeenCalledWith("fam-a");
+  });
+
+  it("Resolved and open incident", async () => {
+    const mia = child("c-mia", "Mia");
+    const leo = child("c-leo", "Leo");
+    const ff = { browser: "Firefox", os: "Windows" };
+    const s = fakeSource({
+      families: { "fam-a": [mia, leo] },
+      siteAccessIncidents: [
+        incident("c-mia", { ...ff, startedAt: "2026-11-17T13:00:00.000Z", resolvedAt: "2026-11-17T13:30:00.000Z" }),
+        incident("c-mia", { ...ff, startedAt: "2026-11-17T18:00:00.000Z", resolvedAt: null }),
+      ],
+    });
+    const { text } = await build(s);
+    expect(text).toContain("Site access off:");
+    expect(text).toContain("Firefox on Windows: from 13:00 to 13:30");
+    expect(text).toContain("Firefox on Windows: from 18:00 to still off");
+    // only Mia has incidents: the block appears once, inside Mia's section (before Leo's)
+    expect(text.match(/Site access off:/g)).toHaveLength(1);
+    expect(text.indexOf("Site access off:")).toBeGreaterThan(text.indexOf("Mia"));
+    expect(text.indexOf("Site access off:")).toBeLessThan(text.indexOf("Leo"));
+    expect(s.listSiteAccessIncidents).toHaveBeenCalledWith(["c-mia", "c-leo"], DAY.start, DAY.end);
   });
 
   it("Plain text with no URL except the dashboard link", async () => {

@@ -21,6 +21,26 @@ describe("createHeartbeatStore", () => {
     expect(f.upsert).toHaveBeenCalledWith(rows, { onConflict: "device_id,minute_utc,domain" });
   });
 
+  it("Patch includes site access", async () => {
+    const eq = vi.fn().mockResolvedValue({ error: null });
+    const update = vi.fn().mockReturnValue({ eq });
+    const from = vi.fn().mockReturnValue({ update });
+    const patch = {
+      last_seen_at: "2026-11-17T10:05:30.000Z",
+      browser: "edge",
+      extension_version: "0.3.0",
+      site_access: false,
+    };
+    await createHeartbeatStore({ from } as unknown as Client).updateDevice("dev-1", patch);
+    expect(from).toHaveBeenCalledWith("devices");
+    expect(update).toHaveBeenCalledWith(patch);
+    expect(eq).toHaveBeenCalledWith("id", "dev-1");
+
+    const failing = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: { message: "boom" } }) });
+    const bad = { from: vi.fn().mockReturnValue({ update: failing }) } as unknown as Client;
+    await expect(createHeartbeatStore(bad).updateDevice("dev-1", patch)).rejects.toBeDefined();
+  });
+
   it("Store finds device with rules version", async () => {
     const f = fakeClient({ data: { id: "dev-1", children: { rules_version: 7 } }, error: null });
     expect(await createHeartbeatStore(f.client).findDevice("h")).toEqual({ deviceId: "dev-1", rulesVersion: 7 });

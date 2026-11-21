@@ -1,9 +1,13 @@
-import { loadActiveOfflineAlerts } from "@/lib/alerts/banner";
-import { createClient } from "@/lib/supabase/server";
+import { loadActiveOfflineAlerts, type BannerAlert } from "../lib/alerts/banner";
+import { createClient } from "../lib/supabase/server";
 import { alertWarning } from "./ui";
 
 function formatUtc(iso: string): string {
   return `${new Date(iso).toISOString().slice(0, 16).replace("T", " ")} UTC`;
+}
+
+export function OfflineBannerView(_props: { offline: BannerAlert[]; siteAccessLost: string[] }): React.ReactNode {
+  throw new Error("not implemented");
 }
 
 export async function OfflineBanner() {

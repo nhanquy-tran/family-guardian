@@ -35,6 +35,7 @@ export interface ControllerDeps {
     setBadgeText(details: { text: string }): Promise<unknown>;
     setBadgeBackgroundColor(details: { color: string }): Promise<unknown>;
   };
+  permissions?: { contains(query: { origins: string[] }): Promise<boolean> };
   baseUrl: string;
   extensionVersion: string;
   os: string;

@@ -28,7 +28,7 @@ function fakeStore(
   const upsertUsage = vi.fn(async (_rows: Row[]) => {
     if (opts.upsertThrows) throw new Error("db down");
   });
-  const updateDevice = vi.fn(async (_id: string, _patch: { last_seen_at: string; browser: string; extension_version: string }) => {
+  const updateDevice = vi.fn(async (_id: string, _patch: { last_seen_at: string; browser: string; extension_version: string; site_access?: boolean }) => {
     if (opts.updateThrows) throw new Error("db down");
   });
   const insertBlocked = vi.fn(async (_rows: BlockedRow[]) => {
@@ -356,6 +356,38 @@ describe("device status update", () => {
     });
     const args = JSON.stringify([f.findDevice.mock.calls, f.upsertUsage.mock.calls, f.updateDevice.mock.calls]);
     expect(args.includes("youtube.com")).toBe(false);
+  });
+
+  it("Site access stored as sent", async () => {
+    const f = fakeStore();
+    await call(f, { body: body({ siteAccess: false }) });
+    await call(f, { body: body({ siteAccess: true }) });
+    await call(f, { body: body() });
+    const patches = f.updateDevice.mock.calls.map((c) => c[1]);
+    expect(patches).toHaveLength(3);
+    expect(patches[0]!.site_access).toBe(false);
+    expect(patches[1]!.site_access).toBe(true);
+    expect(patches[2]).not.toHaveProperty("site_access");
+  });
+
+  it("Keep-alive value ignored on 401", async () => {
+    const f = fakeStore({ known: false });
+    const res = await call(f, { body: body({ siteAccess: false }) });
+    expect(res.status).toBe(401);
+    expect(f.updateDevice).not.toHaveBeenCalled();
+  });
+
+  it("Wrong type is a bad request, keep-alive value ignored", async () => {
+    const valid = fakeStore();
+    const bad = await call(valid, { body: body({ siteAccess: "no" }) });
+    expect(bad.status).toBe(400);
+    expect(bad.body).toEqual({ error: "invalid_request" });
+    nothingWritten(valid);
+
+    const unknown = fakeStore({ known: false });
+    const res = await call(unknown, { body: body({ siteAccess: false }) });
+    expect(res.status).toBe(401);
+    nothingWritten(unknown);
   });
 
   it("Store failure", async () => {

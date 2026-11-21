@@ -1,3 +1,4 @@
+import { HeartbeatRequest } from "@fg/shared";
 import { describe, expect, it, vi } from "vitest";
 import { createController, registerSchedule } from "./controller";
 import { connectionStatus } from "./pairing";
@@ -891,5 +892,108 @@ describe("controller cross-browser usage", () => {
     expect(data.get("rulesVersion")).toBe(4);
     expect(rules()).toEqual(buildRules(["a.com"]));
     expect(data.get("otherUsage")).toEqual(otherGames(120));
+  });
+});
+
+type Contains = (query: { origins: string[] }) => Promise<boolean>;
+
+function setupPermissions(
+  initial: Record<string, unknown>,
+  contains: Contains | "missing",
+  post: ReturnType<typeof createPost>["post"],
+) {
+  const fake = createStore(initial);
+  const log = vi.fn<(message: string) => void>();
+  const containsMock = vi.fn<Contains>(contains === "missing" ? async () => true : contains);
+  const controller = createController({
+    store: fake.store,
+    post,
+    get: noRules().get,
+    dnr: createDnr().dnr,
+    ...(contains === "missing" ? {} : { permissions: { contains: containsMock } }),
+    baseUrl: "https://fg.example",
+    extensionVersion: "0.2.0",
+    os: "Windows",
+    log,
+  });
+  return { ...fake, controller, log, contains: containsMock };
+}
+
+const ALL_URLS = { origins: ["<all_urls>"] };
+const API_ORIGIN = { origins: ["https://fg.example/*"] };
+
+/** Answers for the origin in the query, one per call; the last answer repeats, "reject" throws. */
+function answers(map: Record<string, (boolean | "reject")[]>): Contains {
+  const seen: Record<string, number> = {};
+  return async ({ origins }) => {
+    const key = origins[0] ?? "";
+    const list = map[key] ?? [true];
+    const i = seen[key] ?? 0;
+    seen[key] = i + 1;
+    const answer = list[Math.min(i, list.length - 1)];
+    if (answer === "reject") throw new Error("permissions unavailable for secret-domain.example tok-1");
+    return answer as boolean;
+  };
+}
+
+describe("controller site access", () => {
+  it("Value follows the browser", async () => {
+    const order: string[] = [];
+    const { post, calls } = createPost(() => {
+      order.push("post");
+      return ok;
+    });
+    const f = setupPermissions(paired, async () => true, post);
+    const seq = answers({ "<all_urls>": [true, false, true] });
+    f.contains.mockImplementation(async (q) => {
+      if (q.origins[0] === "<all_urls>") order.push("contains");
+      return seq(q);
+    });
+    for (const time of ["10:04:05", "10:05:05", "10:06:05"]) await f.controller.onAlarm(at(time));
+    expect(f.contains).toHaveBeenCalledWith(ALL_URLS);
+    expect(f.contains.mock.calls.filter(([q]) => q.origins[0] === "<all_urls>")).toHaveLength(3);
+    expect(order).toEqual(["contains", "post", "contains", "post", "contains", "post"]);
+    expect(heartbeats(calls).map((c) => c.body["siteAccess"])).toEqual([true, false, true]);
+    for (const c of calls) {
+      expect(Object.keys(c.body).sort()).toEqual(["browser", "currentDomain", "entries", "extensionVersion", "siteAccess"]);
+      expect(() => HeartbeatRequest.parse(c.body)).not.toThrow();
+    }
+
+    // a rejected device's keep-alive carries the value too, with no entries
+    const keepAlive = createPost(() => ok);
+    const rejected = setupPermissions({ ...paired, authState: "rejected" }, answers({ "<all_urls>": [false] }), keepAlive.post);
+    await rejected.controller.onAlarm(at("10:15:05"));
+    expect(keepAlive.calls).toHaveLength(1);
+    expect(keepAlive.calls[0]?.body["entries"]).toEqual([]);
+    expect(keepAlive.calls[0]?.body["siteAccess"]).toBe(false);
+    for (const key of [...f.data.keys(), ...rejected.data.keys()]) expect(key).not.toMatch(/site.?access/i);
+
+    // a failing check and a missing dependency omit the field, never throw, and log no detail
+    const failing = createPost(() => ok);
+    const broken = setupPermissions(paired, answers({ "<all_urls>": ["reject"] }), failing.post);
+    await broken.controller.onAlarm(at("10:04:05"));
+    const missing = createPost(() => ok);
+    const none = setupPermissions(paired, "missing", missing.post);
+    await none.controller.onAlarm(at("10:04:05"));
+    for (const c of [failing.calls, missing.calls]) {
+      expect(c).toHaveLength(1);
+      expect(c[0]?.body).not.toHaveProperty("siteAccess");
+    }
+    expect(broken.log).toHaveBeenCalled();
+    for (const [message] of broken.log.mock.calls) {
+      for (const secret of ["secret-domain", "tok-1", "https://", "youtube"]) expect(message).not.toContain(secret);
+    }
+  });
+
+  it("API origin access kept locally, not sent", async () => {
+    const { post, calls } = createPost(() => ok);
+    const f = setupPermissions(paired, answers({ "https://fg.example/*": [false, "reject"] }), post);
+    await f.controller.onAlarm(at("10:04:05"));
+    expect(f.data.get("apiAccess")).toBe(false);
+    await f.controller.onAlarm(at("10:05:05"));
+    expect(f.contains).toHaveBeenCalledWith(API_ORIGIN);
+    expect(f.data.get("apiAccess")).toBe(false);
+    expect(heartbeats(calls)).toHaveLength(2);
+    for (const c of calls) expect(c.raw).not.toContain("apiAccess");
   });
 });

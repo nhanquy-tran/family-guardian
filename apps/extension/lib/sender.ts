@@ -19,6 +19,7 @@ export interface FlushDeps {
   extensionVersion: string;
   currentDomain: string | null;
   keepAliveOnly: boolean;
+  siteAccess?: boolean;
   store: KeyValueStore;
   post: Post;
 }
