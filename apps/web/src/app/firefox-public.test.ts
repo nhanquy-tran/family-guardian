@@ -91,7 +91,7 @@ describe("firefox public serving", () => {
   it("No login and not listed", () => {
     const matchers = Array.isArray(config.matcher) ? config.matcher : [config.matcher];
     for (const m of matchers) {
-      const source = typeof m === "string" ? m : m.source;
+      const source: string = m;
       expect(source.startsWith("/firefox")).toBe(false);
       expect(pathToRegexp(source).test("/firefox/updates.json")).toBe(false);
       expect(pathToRegexp(source).test("/firefox/latest.xpi")).toBe(false);

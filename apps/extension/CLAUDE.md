@@ -8,3 +8,4 @@ WXT for Chrome, Edge and Brave (Manifest V3) and Firefox (MV2, `-b firefox`, see
 - A `401` never wipes local data (it marks the device rejected and retries every 15 minutes).
 - Manifest comes from `lib/manifest.ts`; add a permission only with the change that uses it, and update `docs/chrome-web-store.md` justifications.
 - Store builds: `WXT_API_BASE_URL=https://family-guardian.co npm run zip -w extension`. Firefox: `npm run build:firefox -w extension`, `npm run zip:firefox -w extension` (add-on zip plus sources zip for AMO).
+- Firefox release (owner, ADR 0024): sign the zip on AMO by hand, run `npm run firefox:release -w extension -- <signed.xpi>` (checks ID, version, AMO signature; writes `apps/web/public/firefox/`, rolls back on error), commit the result and merge to `main`.
