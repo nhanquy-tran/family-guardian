@@ -9,6 +9,7 @@
     "zip": "wxt zip",
     "build:firefox": "wxt build -b firefox",
     "zip:firefox": "wxt zip -b firefox",
+    "firefox:release": "node scripts/firefox-release.ts",
     "postinstall": "wxt prepare",
     "typecheck": "wxt prepare && tsc --noEmit"
   },
