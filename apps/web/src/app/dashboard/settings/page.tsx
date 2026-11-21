@@ -1,3 +1,4 @@
+import { ActionForm } from "../../../components/action-form";
 import { alertError, buttonPrimary, card, input, pageTitle, pillGreen } from "../../../components/ui";
 import { WeeklyReportForm } from "../../../components/weekly-report-form";
 import { loadWeeklyReportSetting } from "../../../lib/digest/settings";
@@ -24,7 +25,7 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
   return (
     <div className="space-y-6">
       <h1 className={pageTitle}>Settings</h1>
-      <form action={saveDigestSettingsAction} className={`${card} max-w-md space-y-4`}>
+      <ActionForm action={saveDigestSettingsAction} className={`${card} max-w-md space-y-4`}>
         <fieldset className="space-y-2">
           <legend className="font-medium">E-mail digest</legend>
           <label className="flex items-center gap-2">
@@ -61,7 +62,7 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
             {error === "invalid" ? "Please check the values" : "Could not save"}
           </p>
         ) : null}
-      </form>
+      </ActionForm>
       {report.ok ? (
         <WeeklyReportForm enabled={report.enabled} action={saveWeeklyReportAction} />
       ) : (

@@ -1,3 +1,4 @@
+import { ActionForm } from "./action-form";
 import Link from "next/link";
 import { CATEGORIES } from "@fg/shared";
 import type { ReactElement } from "react";
@@ -31,13 +32,13 @@ export function BlockRulesView({ childId, childName, rules, error, actions }: Bl
       <Link href="/dashboard/children" className={LINK}>Back to children</Link>
       {error ? <p role="alert" className={alertError}>{MESSAGES[error] ?? MESSAGES.failed}</p> : null}
 
-      <form action={actions?.addDomainAction} className={`${card} flex flex-wrap gap-2`}>
+      <ActionForm action={actions?.addDomainAction} className={`${card} flex flex-wrap gap-2`}>
         <input type="hidden" name="childId" value={childId} />
         <input type="text" name="domain" required maxLength={253} placeholder="example.com" aria-label="Domain to block" className={input} />
         <button type="submit" className={buttonPrimary}>Block domain</button>
-      </form>
+      </ActionForm>
 
-      <form action={actions?.addCategoryAction} className={`${card} flex flex-wrap gap-2`}>
+      <ActionForm action={actions?.addCategoryAction} className={`${card} flex flex-wrap gap-2`}>
         <input type="hidden" name="childId" value={childId} />
         <select name="category" aria-label="Category to block" className={input}>
           {CATEGORIES.map((category) => (
@@ -45,7 +46,7 @@ export function BlockRulesView({ childId, childName, rules, error, actions }: Bl
           ))}
         </select>
         <button type="submit" className={buttonPrimary}>Block category</button>
-      </form>
+      </ActionForm>
 
       {rules.length === 0 && error !== "failed" ? <p>No sites blocked</p> : null}
 
@@ -54,11 +55,11 @@ export function BlockRulesView({ childId, childName, rules, error, actions }: Bl
           <li key={rule.id} className={`${card} flex flex-wrap items-center gap-3 py-3`}>
             <span className={pillGrey}>{rule.kind}</span>
             <span className="font-medium">{rule.value}</span>
-            <form action={actions?.removeRuleAction}>
+            <ActionForm action={actions?.removeRuleAction}>
               <input type="hidden" name="childId" value={childId} />
               <input type="hidden" name="ruleId" value={rule.id} />
               <button type="submit" className={buttonDanger}>Remove</button>
-            </form>
+            </ActionForm>
           </li>
         ))}
       </ul>

@@ -1,3 +1,4 @@
+import { ActionForm } from "./action-form";
 import Link from "next/link";
 import { CATEGORIES, type Category } from "@fg/shared";
 import type { ReactElement } from "react";
@@ -33,7 +34,7 @@ export function HomeworkSettingsView({ childId, childName, categories, extraDoma
       <Link href="/dashboard/children" className={LINK}>Back to children</Link>
       {error ? <p role="alert" className={alertError}>{MESSAGES[error] ?? MESSAGES.failed}</p> : null}
 
-      <form action={actions?.saveCategoriesAction} className={`${card} space-y-3`}>
+      <ActionForm action={actions?.saveCategoriesAction} className={`${card} space-y-3`}>
         <input type="hidden" name="childId" value={childId} />
         <fieldset className="grid grid-cols-1 gap-1 sm:grid-cols-2">
           <legend className="font-medium">Categories that count as homework</legend>
@@ -45,23 +46,23 @@ export function HomeworkSettingsView({ childId, childName, categories, extraDoma
           ))}
         </fieldset>
         <button type="submit" className={buttonPrimary}>Save categories</button>
-      </form>
+      </ActionForm>
 
       <section className={`${card} space-y-3`}>
         <h2 className={cardTitle}>Extra homework sites</h2>
-        <form action={actions?.addDomainAction} className="flex flex-wrap gap-2">
+        <ActionForm action={actions?.addDomainAction} className="flex flex-wrap gap-2">
           <input type="hidden" name="childId" value={childId} />
           <input type="text" name="domain" required maxLength={253} placeholder="example.com" aria-label="Homework site" className={input} />
           <button type="submit" className={buttonPrimary}>Add site</button>
-        </form>
+        </ActionForm>
         {extraDomains.length === 0 ? <p className="text-sm text-ink-2">No extra sites</p> : null}
         {extraDomains.map((domain) => (
-          <form key={domain} action={actions?.removeDomainAction} className="flex items-center gap-2">
+          <ActionForm key={domain} action={actions?.removeDomainAction} className="flex items-center gap-2">
             <input type="hidden" name="childId" value={childId} />
             <input type="hidden" name="domain" value={domain} />
             <span>{domain}</span>
             <button type="submit" className={buttonDanger}>Remove</button>
-          </form>
+          </ActionForm>
         ))}
       </section>
     </div>

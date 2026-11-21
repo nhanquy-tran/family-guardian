@@ -1,3 +1,4 @@
+import { ActionForm } from "./action-form";
 import Link from "next/link";
 import { type ChildDevices, deviceErrorMessage } from "../lib/devices/devices";
 import { browserLabel, deviceLabel, deviceStatus, formatLastSeen } from "../lib/devices/status";
@@ -48,11 +49,11 @@ export function DeviceList({ groups, now, error, confirmRemoveId, renameAction, 
                   {browserLabel(device.browser)} · {device.os} · Version {device.extension_version ?? "unknown"} · Last
                   seen {formatLastSeen(device.last_seen_at, now)}
                 </p>
-                <form action={renameAction} className="flex flex-wrap gap-2">
+                <ActionForm action={renameAction} className="flex flex-wrap gap-2">
                   <input type="hidden" name="deviceId" value={device.id} />
                   <input name="name" maxLength={40} required aria-label="Device name" className={input} />
                   <button type="submit" className={buttonSecondary}>Rename</button>
-                </form>
+                </ActionForm>
                 <a href={`/dashboard/devices?remove=${encodeURIComponent(device.id)}`} className={LINK}>
                   Remove
                 </a>
@@ -62,10 +63,10 @@ export function DeviceList({ groups, now, error, confirmRemoveId, renameAction, 
                       Remove {deviceLabel(device)} from {child.name}? This will delete the device and its usage history.
                       This cannot be undone.
                     </p>
-                    <form action={removeAction} className="inline">
+                    <ActionForm action={removeAction} className="inline">
                       <input type="hidden" name="deviceId" value={device.id} />
                       <button type="submit" className={buttonDanger}>Yes, remove</button>
-                    </form>{" "}
+                    </ActionForm>{" "}
                     <Link href="/dashboard/devices" className={LINK}>
                       Cancel
                     </Link>
