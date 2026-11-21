@@ -1,7 +1,13 @@
 {
   "addons": {
     "guardian@family-guardian.co": {
-      "updates": []
+      "updates": [
+        {
+          "version": "0.3.0",
+          "update_link": "https://family-guardian.co/firefox/family-guardian-0.3.0.xpi",
+          "update_hash": "sha256:afb90b2f6b2e4e1cdc3f5a8eae35d746c3e2f113a6c4e4e8dac98c5cd835fec0"
+        }
+      ]
     }
   }
 }
