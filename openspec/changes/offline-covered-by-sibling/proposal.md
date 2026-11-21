@@ -8,7 +8,7 @@ With one device per browser (ADR 0024), a child who uses only Chrome makes the F
 
 ## What changes
 - `find_offline_devices` skips a device while a sibling device (same child) reported after this device's `last_seen_at` and is itself still reporting (seen within 15 minutes of `p_now`).
-- `resolve_offline_alerts` also resolves an open incident when a sibling device reported after `incident_last_seen_at`.
+- `resolve_offline_alerts` also resolves an open incident when a sibling device reported after `incident_last_seen_at` and is itself still reporting (seen within 15 minutes of `p_now`).
 - The dashboard banner hides alerts with `resolved_at` set.
 - A new migration replaces both functions (`create or replace`).
 
