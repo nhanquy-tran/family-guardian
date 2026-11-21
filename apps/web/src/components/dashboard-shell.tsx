@@ -1,6 +1,7 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { DASHBOARD_NAV, DashboardNav } from "./dashboard-nav";
+import { NavigationOverlay } from "./navigation-overlay";
 import { buttonSecondary, container, navLink } from "./ui";
 
 export { DASHBOARD_NAV };
@@ -38,6 +39,9 @@ export function DashboardShell({
         </div>
       </header>
       <main>{children}</main>
+      <Suspense>
+        <NavigationOverlay />
+      </Suspense>
     </div>
   );
 }

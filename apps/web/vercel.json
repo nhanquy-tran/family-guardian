@@ -1,4 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "ignoreCommand": "bash ../../.github/scripts/vercel-ignore.sh"
+  "ignoreCommand": "bash ../../.github/scripts/vercel-ignore.sh",
+  "regions": ["hnd1"]
 }

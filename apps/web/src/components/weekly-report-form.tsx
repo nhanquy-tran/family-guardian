@@ -1,3 +1,4 @@
+import { ActionForm } from "./action-form";
 import { buttonPrimary, card } from "./ui";
 
 export type WeeklyReportFormProps = {
@@ -7,7 +8,7 @@ export type WeeklyReportFormProps = {
 
 export function WeeklyReportForm({ enabled, action }: WeeklyReportFormProps) {
   return (
-    <form action={action} className={`${card} max-w-md space-y-4`}>
+    <ActionForm action={action} className={`${card} max-w-md space-y-4`}>
       <label htmlFor="weekly_report" className="flex items-center gap-2 font-medium">
         <input id="weekly_report" type="checkbox" name="weekly_report" defaultChecked={enabled} />
         Weekly report
@@ -19,6 +20,6 @@ export function WeeklyReportForm({ enabled, action }: WeeklyReportFormProps) {
       <button type="submit" className={buttonPrimary}>
         Save
       </button>
-    </form>
+    </ActionForm>
   );
 }

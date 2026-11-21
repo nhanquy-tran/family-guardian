@@ -1,3 +1,4 @@
+import { ActionForm } from "./action-form";
 import { CATEGORIES } from "@fg/shared";
 import type { ReactElement } from "react";
 import type { CategoryOverride } from "../lib/category-overrides";
@@ -25,7 +26,7 @@ export function CategoryOverridesView({ overrides, error, domain, actions }: Cat
       <h1 className={pageTitle}>Categories</h1>
       {error ? <p role="alert" className={alertError}>{MESSAGES[error] ?? MESSAGES.failed}</p> : null}
 
-      <form action={actions?.saveAction} className={`${card} flex flex-wrap gap-2`}>
+      <ActionForm action={actions?.saveAction} className={`${card} flex flex-wrap gap-2`}>
         <input
           type="text"
           name="domain"
@@ -42,7 +43,7 @@ export function CategoryOverridesView({ overrides, error, domain, actions }: Cat
           ))}
         </select>
         <button type="submit" className={buttonPrimary}>Save override</button>
-      </form>
+      </ActionForm>
 
       {overrides.length === 0 && error !== "failed" ? <p>No overrides yet</p> : null}
 
@@ -51,10 +52,10 @@ export function CategoryOverridesView({ overrides, error, domain, actions }: Cat
           <li key={o.id} className={`${card} flex flex-wrap items-center gap-3 py-3`}>
             <span className="font-medium">{o.domain}</span>
             <span className={pillGrey}>{o.category}</span>
-            <form action={actions?.removeAction}>
+            <ActionForm action={actions?.removeAction}>
               <input type="hidden" name="id" value={o.id} />
               <button type="submit" aria-label={`Remove override for ${o.domain}`} className={buttonDanger}>Remove</button>
-            </form>
+            </ActionForm>
           </li>
         ))}
       </ul>
