@@ -18,6 +18,10 @@ export const POLICY_TARGETS = [
   },
 ] as const;
 
+export function regString(_value: string): string {
+  throw new Error("not implemented");
+}
+
 const HEADER = "Windows Registry Editor Version 5.00";
 
 function build(remove: boolean): string {
