@@ -6,6 +6,7 @@ const alert = (id: string, sentAt: string, incident: string, lastSeen: string | 
   id,
   sent_at: sentAt,
   incident_last_seen_at: incident,
+  resolved_at: null,
   devices: { last_seen_at: lastSeen, browser: "Edge", os: "Windows", children: { name: "Mia" } },
 });
 
@@ -30,6 +31,11 @@ function fakeClient(result: { data: unknown; error: unknown } | "throw") {
 describe("activeOfflineAlerts", () => {
   it("Active and resolved alerts", () => {
     expect(activeOfflineAlerts([A, B])).toEqual([A]);
+  });
+
+  it("Alert resolved by another browser", () => {
+    const resolved = { ...A, resolved_at: "2026-11-17T12:00:00.000Z" };
+    expect(activeOfflineAlerts([resolved])).toEqual([]);
   });
 
   it("Ordering and empty", () => {

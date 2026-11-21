@@ -36,10 +36,10 @@ If `ALERT_CRON_SECRET` is unset or empty the endpoint SHALL respond `500 { "erro
 - **THEN** the response is `200`, the incident is recorded and no e-mail is attempted
 
 ### Requirement: Offline detection
-`find_offline_devices(p_now)` SHALL return devices whose `last_seen_at` is at most `p_now - 15 minutes` and at least `p_now - 24 hours` and that have no `alerts` row with `kind = 'offline'` and `incident_last_seen_at = last_seen_at`. Its execute right SHALL belong to `service_role` only.
+`find_offline_devices(p_now)` SHALL return devices whose `last_seen_at` is at most `p_now - 15 minutes` and at least `p_now - 24 hours`, that have no `alerts` row with `kind = 'offline'` and `incident_last_seen_at = last_seen_at`, and that are not covered. A device is covered when another device of the same child has `last_seen_at` after this device's `last_seen_at` and after `p_now - 15 minutes`. Its execute right SHALL belong to `service_role` only.
 
 #### Scenario: Silence thresholds
-- **GIVEN** devices last seen 14 min 59 s, exactly 15 min, 23 h 59 min, exactly 24 h and 24 h 1 s before `p_now`, plus one never seen (`last_seen_at` null)
+- **GIVEN** devices of separate children last seen 14 min 59 s, exactly 15 min, 23 h 59 min, exactly 24 h and 24 h 1 s before `p_now`, plus one never seen (`last_seen_at` null)
 - **WHEN** `find_offline_devices(p_now)` runs
 - **THEN** it returns the 15 min, 23 h 59 min and 24 h devices only
 
@@ -58,6 +58,31 @@ If `ALERT_CRON_SECRET` is unset or empty the endpoint SHALL respond `500 { "erro
 - **GIVEN** an alert for `(device, incident_last_seen_at)` exists
 - **WHEN** a second row with the same pair is inserted
 - **THEN** the unique constraint rejects it
+
+#### Scenario: Silent browser covered by an active browser
+- **GIVEN** a child with a Chrome device last seen 2 min before `p_now` and a Firefox device last seen 3 h before `p_now`
+- **WHEN** `find_offline_devices(p_now)` runs
+- **THEN** it returns neither device
+
+#### Scenario: Every browser silent
+- **GIVEN** a child with a Chrome device last seen 20 min before `p_now` and a Firefox device last seen 3 h before `p_now`
+- **WHEN** `find_offline_devices(p_now)` runs
+- **THEN** it returns both devices
+
+#### Scenario: Sibling reported before the silent device
+- **GIVEN** a child with a Chrome device last seen 2 h before `p_now` and a Firefox device last seen 20 min before `p_now`
+- **WHEN** `find_offline_devices(p_now)` runs
+- **THEN** it returns both devices
+
+#### Scenario: Single device child unchanged
+- **GIVEN** a child with one device last seen 20 min before `p_now`, and another child's device seen 1 min before `p_now`
+- **WHEN** `find_offline_devices(p_now)` runs
+- **THEN** it returns the single device
+
+#### Scenario: Another child's activity does not cover
+- **GIVEN** a silent Firefox device of child A and an active Chrome device of child B in the same family
+- **WHEN** `find_offline_devices(p_now)` runs
+- **THEN** it returns the Firefox device
 
 ### Requirement: Resend mailer
 The mailer SHALL `POST https://api.resend.com/emails` with `Authorization: Bearer <RESEND_API_KEY>`, JSON `{ from, to: [address], subject, text }`, plus `html` only when the message has one. A non-2xx response or a thrown error SHALL be reported as a failed send, not thrown past the handler.
@@ -138,12 +163,17 @@ The same migration SHALL schedule `cron.schedule('purge-pair-attempts', '17 3 * 
 - **THEN** it lists `offline-alerts` with `*/5 * * * *` and `purge-pair-attempts` with `17 3 * * *`
 
 ### Requirement: Dashboard banner
-`activeOfflineAlerts(rows)` SHALL keep only alerts whose device's current `last_seen_at` equals the alert's `incident_last_seen_at`, newest `sent_at` first. The layout SHALL render a banner for each (child, browser, OS, last seen), else nothing. A failed alerts query SHALL NOT break the page. It SHALL also show a line per device whose `site_access` is false. A pure `OfflineBannerView({ offline, siteAccessLost })` renders it; the async `OfflineBanner` loads both lists.
+`activeOfflineAlerts(rows)` SHALL keep only alerts whose `resolved_at` is null and whose device's current `last_seen_at` equals the alert's `incident_last_seen_at`, newest `sent_at` first. The layout SHALL render a banner for each (child, browser, OS, last seen), else nothing. A failed alerts query SHALL NOT break the page. It SHALL show a line per device whose `site_access` is false. A pure `OfflineBannerView({ offline, siteAccessLost })` renders it; the async `OfflineBanner` loads both.
 
 #### Scenario: Active and resolved alerts
 - **GIVEN** alert A (device last seen `11:40`, `incident_last_seen_at` `11:40`) and alert B (device last seen `11:55`, `incident_last_seen_at` `11:30`)
 - **WHEN** `activeOfflineAlerts([A, B])` runs
 - **THEN** it returns `[A]`
+
+#### Scenario: Alert resolved by another browser
+- **GIVEN** an alert whose device last seen equals `incident_last_seen_at` but whose `resolved_at` is set
+- **WHEN** `activeOfflineAlerts` runs
+- **THEN** it returns `[]`
 
 #### Scenario: Ordering and empty
 - **GIVEN** two active alerts with different `sent_at`, then an empty list

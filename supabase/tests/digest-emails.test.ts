@@ -203,8 +203,9 @@ describe("digest emails migration", () => {
 
   it("Returned device resolves its incident", async () => {
     const childId = await scalar<string>(db, "insert into children (family_id, name) values ($1, 'Mia') returning id", [a.familyId]);
+    const otherChild = await newChild(a.familyId);
     const returned = await seedDevice(db, childId, "2026-11-17T11:55:00Z");
-    const stillOff = await seedDevice(db, childId, "2026-11-17T11:40:00Z");
+    const stillOff = await seedDevice(db, otherChild, "2026-11-17T11:40:00Z");
     for (const device of [returned, stillOff]) {
       await db.query("insert into alerts (device_id, kind, incident_last_seen_at) values ($1, 'offline', '2026-11-17T11:40:00Z')", [device]);
     }
@@ -222,6 +223,96 @@ describe("digest emails migration", () => {
     expect(second.ok).toBe(true);
     expect(await resolvedAt(returned)).toBe("2026-11-17T12:00:00.000Z");
     expect(await resolvedAt(stillOff)).toBeNull();
+  });
+
+  const newChild = (familyId: string) =>
+    scalar<string>(db, "insert into children (family_id, name) values ($1, 'Kid') returning id", [familyId]);
+  const openIncident = (deviceId: string, incident: string) =>
+    db.query("insert into alerts (device_id, kind, incident_last_seen_at) values ($1, 'offline', $2)", [deviceId, incident]);
+  const resolvedAtOf = (deviceId: string) =>
+    db
+      .query<{ r: string | null }>("select resolved_at as r from alerts where device_id = $1", [deviceId])
+      .then((x) => (x.rows[0]!.r === null ? null : new Date(x.rows[0]!.r).toISOString()));
+  const resolveAt = (now: string) => attempt(db, "service", "select public.resolve_offline_alerts($1::timestamptz)", [now]);
+
+  it("Active sibling resolves an open incident", async () => {
+    const child = await newChild(a.familyId);
+    const firefox = await seedDevice(db, child, "2026-11-17T11:40:00Z");
+    await seedDevice(db, child, "2026-11-17T11:55:00Z"); // Chrome
+    await openIncident(firefox, "2026-11-17T11:40:00Z");
+
+    expect((await resolveAt("2026-11-17T12:00:00Z")).ok).toBe(true);
+    expect(await resolvedAtOf(firefox)).toBe("2026-11-17T12:00:00.000Z");
+    expect((await resolveAt("2026-11-17T12:30:00Z")).ok).toBe(true);
+    expect(await resolvedAtOf(firefox)).toBe("2026-11-17T12:00:00.000Z");
+  });
+
+  it("Sibling that does not cover leaves the incident open", async () => {
+    // sibling 11:30 is not after the incident 11:40; another child's 11:55 does not count
+    const child = await newChild(a.familyId);
+    const open = await seedDevice(db, child, "2026-11-17T11:40:00Z");
+    await seedDevice(db, child, "2026-11-17T11:30:00Z");
+    await seedDevice(db, await newChild(a.familyId), "2026-11-17T11:55:00Z");
+    await openIncident(open, "2026-11-17T11:40:00Z");
+
+    // Chrome 20 min and Firefox 3 h before p_now 12:00
+    const both = await newChild(a.familyId);
+    const chrome = await seedDevice(db, both, "2026-11-17T11:40:00Z");
+    const firefox = await seedDevice(db, both, "2026-11-17T09:00:00Z");
+    await openIncident(chrome, "2026-11-17T11:40:00Z");
+    await openIncident(firefox, "2026-11-17T09:00:00Z");
+
+    expect((await resolveAt("2026-11-17T12:00:00Z")).ok).toBe(true);
+    expect(await resolvedAtOf(open)).toBeNull();
+    expect(await resolvedAtOf(chrome)).toBeNull();
+    expect(await resolvedAtOf(firefox)).toBeNull();
+  });
+
+  it("Find, claim and resolve in one run", async () => {
+    const child = await newChild(a.familyId);
+    const firefox = await seedDevice(db, child, "2026-11-17T09:00:00Z");
+    const chrome = await seedDevice(db, child, "2026-11-17T12:00:00Z");
+    const pNow = "2026-11-17T12:15:00Z"; // Chrome 12:00 is not after pNow - 15 min = 12:00
+
+    const res = await attempt(db, "service", "select * from public.find_offline_devices($1::timestamptz)", [pNow]);
+    expect(res.ok).toBe(true);
+    const ids = res.ok ? res.rows.map((r) => String(r.device_id ?? r.id)) : [];
+    expect(ids).toEqual(expect.arrayContaining([firefox, chrome]));
+
+    await openIncident(firefox, "2026-11-17T09:00:00Z");
+    await openIncident(chrome, "2026-11-17T12:00:00Z");
+    expect((await resolveAt(pNow)).ok).toBe(true);
+    expect(await resolvedAtOf(firefox)).toBeNull();
+    expect(await resolvedAtOf(chrome)).toBeNull();
+  });
+
+  it("Function attributes kept", async () => {
+    const attrs = await db.query<{
+      proname: string;
+      provolatile: string;
+      prosecdef: boolean;
+      cfg: string;
+      anon: boolean;
+      auth: boolean;
+      svc: boolean;
+    }>(
+      `select proname, provolatile, prosecdef, coalesce(array_to_string(proconfig, ','), '') as cfg,
+         has_function_privilege('anon', oid, 'execute') as anon,
+         has_function_privilege('authenticated', oid, 'execute') as auth,
+         has_function_privilege('service_role', oid, 'execute') as svc
+       from pg_proc where pronamespace = 'public'::regnamespace
+         and proname in ('find_offline_devices', 'resolve_offline_alerts') order by proname`,
+    );
+    const [find, resolve] = attrs.rows;
+    expect(find?.proname).toBe("find_offline_devices");
+    expect(find?.provolatile).toBe("s");
+    expect(find?.prosecdef).toBe(false);
+    expect(resolve?.proname).toBe("resolve_offline_alerts");
+    expect(resolve?.prosecdef).toBe(true);
+    for (const f of [find, resolve]) {
+      expect(f?.cfg).toMatch(/search_path=("")?$/);
+      expect([f?.anon, f?.auth, f?.svc]).toEqual([false, false, true]);
+    }
   });
 
   // pg_cron cannot run on PGlite: check what the migration schedules and that it is guarded.
