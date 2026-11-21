@@ -1,6 +1,6 @@
 # 0025. Site-access incidents stored per device for 90 days
 
-Date: 2026-11-21. Status: proposed (owner to approve with the spec PR of #176).
+Date: 2026-11-21. Status: accepted (owner approved 2026-11-21).
 
 ## Context
 ADR 0024 lets the extension report whether it still holds access to all sites, as one yes/no heartbeat value, so the parent is alerted when blocking silently stops. The banner needs only the latest value; the digest should list past incidents like offline incidents, which needs a history.
