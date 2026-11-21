@@ -8,11 +8,11 @@ Open an ADR only when your change touches its subject. All accepted unless noted
 | [0002](0002-extension-not-native-agent.md) | Browser extension + policy file, no native agent | install, tamper resistance |
 | [0003](0003-stack.md) | Next.js, Supabase, Vercel, npm workspaces | dependencies, tooling |
 | [0004](0004-google-sign-in-only.md) | Parents sign in with Google only | auth |
-| [0005](0005-privacy-domain-and-time.md) | Collect only domain and time (amended: extension version) | anything the extension collects or sends |
+| [0005](0005-privacy-domain-and-time.md) | Collect only domain and time (amended: extension version; site-access yes/no, ADR 0024) | anything the extension collects or sends |
 | [0006](0006-ai-factory.md) | Factory: Claude Code Action, OpenSpec, GitHub Actions | factory workflows |
 | [0007](0007-factory-auth-and-cost.md) | Factory uses a Console API key with a spend limit; no model gateway | factory cost, auth |
 | [0008](0008-public-repo.md) | Public repo; agents run only for the owner | workflow triggers, secrets |
-| [0009](0009-windows-first-chrome-web-store.md) | Windows first; Chrome Web Store, unlisted | store, permissions |
+| [0009](0009-windows-first-chrome-web-store.md) | Windows first; Chrome Web Store, unlisted (Firefox: ADR 0024) | store, permissions |
 | [0010](0010-offline-alerts-pg-cron.md) | Offline detection with pg_cron (e-mail part superseded by 0016) | scheduled jobs |
 | [0011](0011-supabase-migrations-ci.md) | Migrations applied by CI on merge | migrations |
 | [0012](0012-rate-limit-ip-hmac.md) | Pairing rate limit with a keyed IP hash, 10 minutes | pairing, any IP data |
@@ -27,3 +27,4 @@ Open an ADR only when your change touches its subject. All accepted unless noted
 | [0021](0021-e2e-tests-local-supabase.md) | E2E tests on a local Supabase stack (Docker) with generated, revertable stage data; Playwright | testing, e2e data |
 | [0022](0022-design-review-and-architecture-check.md) | Risk tier for specs; design template and an architect review (Opus) on risky specs only; weekly architecture check posted as an `architecture` issue | factory workflows, spec gate, factory cost |
 | [0023](0023-coverage-ratchet.md) | Coverage minimums per area in `vitest.config.ts`, raised automatically and enforced in CI and the factory gate (`@vitest/coverage-v8`) | testing, CI, factory workflows |
+| [0024](0024-firefox-unlisted-amo-self-hosted.md) | Firefox: same extension, unlisted AMO-signed add-on hosted on our domain, force-installed by policy; lost site access reported as one yes/no heartbeat value | Firefox, install, store, permissions, anything the extension sends |
