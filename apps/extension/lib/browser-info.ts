@@ -13,6 +13,14 @@ export function detectBrowser(input: {
   return "other";
 }
 
+export function resolveBadgeApi<T extends object>(_browser: { action?: T; browserAction?: T }): T | undefined {
+  throw new Error("not implemented");
+}
+
+export function parseBrowserName(_value: unknown): BrowserName {
+  throw new Error("not implemented");
+}
+
 const OS_NAMES: Record<string, string> = {
   win: "Windows",
   mac: "macOS",

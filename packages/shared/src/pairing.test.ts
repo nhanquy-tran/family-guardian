@@ -31,10 +31,15 @@ describe("pair contracts", () => {
     const parsed = PairRequest.parse({ code: "AB2CD3", browser: "edge", os: "Windows", url: "https://x.com/a" });
     expect(parsed).toEqual({ code: "AB2CD3", browser: "edge", os: "Windows" });
     expect(Object.keys(parsed)).not.toContain("url");
+    expect(PairRequest.parse({ code: "AB2CD3", browser: "firefox", os: "Windows" })).toEqual({
+      code: "AB2CD3",
+      browser: "firefox",
+      os: "Windows",
+    });
   });
 
   it("Invalid request", () => {
-    expect(PairRequest.safeParse({ code: "AB2CD3", browser: "firefox", os: "Windows" }).success).toBe(false);
+    expect(PairRequest.safeParse({ code: "AB2CD3", browser: "netscape", os: "Windows" }).success).toBe(false);
     expect(PairRequest.safeParse({ code: "AB2CD3", browser: "edge", os: "" }).success).toBe(false);
   });
 });

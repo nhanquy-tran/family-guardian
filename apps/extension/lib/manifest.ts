@@ -6,6 +6,12 @@ export interface ManifestParts {
   action: { default_title: string };
 }
 
+export const FIREFOX_MANIFEST_VERSION: number = 3;
+
+export function buildFirefoxManifest(_apiOrigin: string): Record<string, unknown> {
+  throw new Error("not implemented");
+}
+
 export function buildManifest(apiOrigin: string): ManifestParts {
   return {
     permissions: ["tabs", "idle", "storage", "alarms", "declarativeNetRequest"],

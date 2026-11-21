@@ -1,0 +1,9 @@
+{
+  "name": "Family Guardian",
+  "description": "Shows parents which websites are used and for how long. Collects website domains and time only.",
+  "permissions": ["tabs", "idle", "storage", "alarms", "declarativeNetRequest"],
+  "host_permissions": ["https://fg.example/*", "<all_urls>"],
+  "web_accessible_resources": [{ "resources": ["blocked.html"], "matches": ["<all_urls>"] }],
+  "incognito": "not_allowed",
+  "action": { "default_title": "Family Guardian" }
+}

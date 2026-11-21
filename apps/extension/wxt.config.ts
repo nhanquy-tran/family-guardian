@@ -3,6 +3,10 @@ import { buildManifest } from "./lib/manifest";
 
 const apiOrigin = (process.env.WXT_API_BASE_URL ?? "https://family-guardian.co").replace(/\/$/, "");
 
+export function manifestFor(_target: { browser: string; apiOrigin: string }): Record<string, unknown> {
+  throw new Error("not implemented");
+}
+
 export default defineConfig({
   manifest: {
     name: "Family Guardian",

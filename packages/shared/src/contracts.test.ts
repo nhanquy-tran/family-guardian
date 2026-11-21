@@ -41,6 +41,11 @@ describe("heartbeat contracts", () => {
     expect(HeartbeatRequest.safeParse(body).success).toBe(false);
     expect(UsageEntry.safeParse({ ...entry, seconds: 61 }).success).toBe(false);
     expect(UsageEntry.safeParse(entry).success).toBe(true);
+    const firefox = { entries: [], currentDomain: null, browser: "firefox", extensionVersion: "0.3.0" };
+    for (const schema of [HeartbeatEnvelope, HeartbeatRequest]) {
+      expect(schema.safeParse(firefox).success).toBe(true);
+      expect(schema.safeParse({ ...firefox, browser: "netscape" }).success).toBe(false);
+    }
   });
 
   it("Constant exported", () => {
@@ -53,7 +58,7 @@ describe("heartbeat contracts", () => {
   it("Envelope rejects a bad browser, long version, non-array entries and missing currentDomain", () => {
     const { currentDomain: _c, ...noCurrent } = { ...base, entries: [] };
     for (const bad of [
-      { ...base, entries: [], browser: "firefox" },
+      { ...base, entries: [], browser: "netscape" },
       { ...base, entries: [], extensionVersion: "x".repeat(33) },
       { ...base, entries: "nope" },
       noCurrent,

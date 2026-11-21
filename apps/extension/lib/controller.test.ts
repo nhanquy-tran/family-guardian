@@ -470,6 +470,13 @@ describe("controller serialization", () => {
     expect(calls[1]?.body["entries"]).toEqual([]);
   });
 
+  it("Parsing (firefox heartbeat)", async () => {
+    const { post, calls } = always(ok);
+    const { controller } = setup({ ...paired, browser: "firefox" }, post);
+    await controller.onAlarm(at("10:04:05"));
+    expect(calls[0]?.body["browser"]).toBe("firefox");
+  });
+
   it("stored browser is sent", async () => {
     const browsers: unknown[] = [];
     for (const stored of [{ browser: "brave" }, {}, { browser: "netscape" }]) {
