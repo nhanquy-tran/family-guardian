@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { resolveBadgeApi } from "./browser-info";
 import { createController } from "./controller";
 import { always, at, createDnr, createGet, createStore, type Reply } from "./test-fakes";
 
@@ -147,6 +148,17 @@ describe("badge", () => {
     const json = JSON.stringify(t.args);
     expect(json).not.toContain("path");
     expect(json).not.toContain("secret");
+  });
+});
+
+describe("badge api resolution", () => {
+  it("Badge API resolution (badge calls)", async () => {
+    const browserAction = { setBadgeText: vi.fn(async (_d: { text: string }) => undefined) };
+    await resolveBadgeApi({ browserAction })?.setBadgeText({ text: "!" });
+    expect(browserAction.setBadgeText).toHaveBeenCalledWith({ text: "!" });
+
+    const none = resolveBadgeApi<typeof browserAction>({});
+    await expect(Promise.resolve().then(() => none?.setBadgeText({ text: "!" }))).resolves.toBeUndefined();
   });
 });
 

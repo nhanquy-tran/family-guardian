@@ -54,6 +54,7 @@ describe("deviceLabel", () => {
   it("name or default", () => {
     expect(deviceLabel({ name: "Lan's laptop", browser: "chrome", os: "Windows" })).toBe("Lan's laptop");
     expect(deviceLabel({ name: null, browser: "edge", os: "Windows" })).toBe("Edge on Windows");
+    expect(deviceLabel({ name: null, browser: "firefox", os: "Windows" })).toBe("Firefox on Windows");
     expect(deviceLabel({ name: null, browser: "other", os: "Windows" })).toBe("Other browser on Windows");
   });
 });

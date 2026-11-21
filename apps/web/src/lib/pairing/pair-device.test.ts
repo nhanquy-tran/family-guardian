@@ -58,7 +58,7 @@ describe("pairDevice", () => {
 
   it("Malformed body", async () => {
     const d = makeDeps();
-    for (const body of [{ code: "AB2CD3", browser: "firefox", os: "Windows" }, null]) {
+    for (const body of [{ code: "AB2CD3", browser: "netscape", os: "Windows" }, null]) {
       const res = await pairDevice(d.deps, IP, body);
       expect(res).toEqual({ status: 400, body: { error: "invalid_request" } });
     }

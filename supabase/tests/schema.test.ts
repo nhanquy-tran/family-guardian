@@ -169,7 +169,7 @@ describe("schema constraints and triggers", () => {
 
   it("invalid enum values rejected", async () => {
     const statements: [string, string, unknown[]][] = [
-      ["device browser", "insert into devices (child_id, token_hash, browser, os) values ($1, 'h-ff', 'firefox', 'Windows')", [fam.childId]],
+      ["device browser", "insert into devices (child_id, token_hash, browser, os) values ($1, 'h-ff', 'netscape', 'Windows')", [fam.childId]],
       ["block rule kind", "insert into block_rules (child_id, kind, value) values ($1, 'url', 'x.com')", [fam.childId]],
       ["pairing code", "insert into pairing_codes (code, child_id, expires_at) values ('abc123', $1, now() + interval '1 hour')", [fam.childId]],
       ["child homework category", "insert into children (family_id, name, homework_categories) values ($1, 'Z', '{homework}')", [fam.familyId]],
@@ -186,6 +186,7 @@ describe("schema constraints and triggers", () => {
   it("valid values accepted", async () => {
     const statements: [string, string, unknown[]][] = [
       ["device browser", "insert into devices (child_id, token_hash, browser, os) values ($1, 'h-edge', 'edge', 'Windows')", [fam.childId]],
+      ["device browser firefox", "insert into devices (child_id, token_hash, browser, os) values ($1, 'h-firefox', 'firefox', 'Windows')", [fam.childId]],
       ["block rule", "insert into block_rules (child_id, kind, value) values ($1, 'category', 'games')", [fam.childId]],
       ["pairing code", "insert into pairing_codes (code, child_id, expires_at) values ('AB12CD', $1, now() + interval '1 hour')", [fam.childId]],
       ["child", "insert into children (family_id, name, homework_categories) values ($1, 'Okay', '{education,productivity}')", [fam.familyId]],
@@ -195,6 +196,17 @@ describe("schema constraints and triggers", () => {
       const r = await attempt(db, svc, sql, params);
       expect(r.ok, label).toBe(true);
     }
+  });
+
+  it("Firefox migration only changes the check", () => {
+    const file = migrationFiles().find((f) => f.endsWith("_firefox_browser.sql"));
+    expect(file).toBeDefined();
+    const sql = readFileSync(join(__dirname, "..", "migrations", file ?? ""), "utf8").toLowerCase();
+    for (const word of ["update", "delete", "truncate", "grant", "revoke"]) {
+      expect(sql, word).not.toMatch(new RegExp(`\\b${word}\\b`));
+    }
+    expect(sql).toMatch(/drop constraint[^;]*devices_browser_check/);
+    expect(sql).toMatch(/add constraint\s+devices_browser_check[^;]*firefox/);
   });
 
   it("new user gets a family", async () => {

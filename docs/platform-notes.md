@@ -31,6 +31,23 @@ Facts about the platforms we build on that caused real defects or failures. Ever
 - `requestDomains` matches subdomains too. Dynamic rules are capped at 5000 redirect rules. Redirect rules do not affect tabs that are already open.
 - Calls from the service worker to our API need a host permission for the API origin (no CORS headers on our routes).
 
+## Firefox
+
+- **Manifest version 2.** Firefox MV3 treats host permissions as optional: a user can revoke "access to all sites" in `about:addons` and the blocking redirects stop. Firefox MV2 grants them at install and they cannot be revoked. The Firefox build uses MV2 (`FIREFOX_MANIFEST_VERSION`, pinned by a test). Not yet checked against Mozilla's documentation by the builder (no network access); the owner confirms on a real Firefox with the checklist below.
+- `browser.action` does not exist in MV2: the badge uses `resolveBadgeApi` (`action ?? browserAction`). The background is a non-persistent event page; listeners are registered synchronously.
+- Minimum Firefox 140.0 (first desktop release with `data_collection_permissions`).
+
+### Smoke checklist (real Firefox on Windows, owner)
+
+1. Load the signed add-on; the pairing page opens. Pairing with a code works and the devices page shows "Firefox".
+2. Browse a site: usage appears after a heartbeat; idle (no input) stops crediting time.
+3. Close Firefox: the device looks offline after a while (known, see #179).
+4. Block page: a blocked domain redirects to `blocked.html`, and the attempt is reported.
+5. A category limit that is used up blocks its sites; allowed hours outside the window block everything.
+6. Badge: with a limit near its end the badge shows the minutes left.
+7. `about:addons`: site access cannot be revoked; private windows are not allowed.
+8. Use Chrome and Firefox alternately: totals add up and no second is counted twice.
+
 ## Product behaviour
 
 - The extension tracker credits no time across a gap over 120 s (`MAX_GAP_MS`): tests of time-based features need an alarm at least every 2 minutes.

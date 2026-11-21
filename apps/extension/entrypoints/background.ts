@@ -1,12 +1,12 @@
-import { type BrowserName, osName } from "../lib/browser-info";
+import { osName, parseBrowserName, resolveBadgeApi } from "../lib/browser-info";
 import { resolveApiBaseUrl } from "../lib/config";
 import { type Controller, createController, registerSchedule } from "../lib/controller";
 import { parseBlockedMessage } from "../lib/blocked";
 import { browserStore, fetchGet, fetchPost } from "../lib/storage";
 
-const BROWSERS: readonly string[] = ["chrome", "edge", "brave", "other"];
-
-export default defineBackground(() => {
+export default defineBackground({
+  persistent: false,
+  main() {
   let baseUrl: string | null = null;
   try {
     baseUrl = resolveApiBaseUrl(import.meta.env.WXT_API_BASE_URL);
@@ -24,7 +24,7 @@ export default defineBackground(() => {
             get: fetchGet,
             dnr: browser.declarativeNetRequest,
             alarms: browser.alarms,
-            badge: browser.action,
+            badge: resolveBadgeApi(browser as unknown as { action?: typeof browser.action; browserAction?: typeof browser.action }),
             baseUrl: baseUrl as string,
             extensionVersion: browser.runtime.getManifest().version,
             os: osName(os),
@@ -80,11 +80,11 @@ export default defineBackground(() => {
     const m = message as { type?: unknown; code?: unknown; browser?: unknown } | null;
     if (m?.type !== "pair" || typeof m.code !== "string") return undefined;
     const code = m.code;
-    const name: BrowserName =
-      typeof m.browser === "string" && BROWSERS.includes(m.browser) ? (m.browser as BrowserName) : "other";
+    const name = parseBrowserName(m.browser);
     void controllerPromise.then(async (controller) => {
       sendResponse(controller === null ? { ok: false, reason: "misconfigured" } : await controller.pair(code, name));
     });
     return true;
   });
+  },
 });

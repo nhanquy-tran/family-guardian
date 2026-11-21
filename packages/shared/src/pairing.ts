@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { BROWSER_NAMES } from "./extension";
 
 export const PAIRING_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 export const PAIRING_CODE_LENGTH = 6;
@@ -7,7 +8,7 @@ export const PAIRING_CODE_TTL_MS = 3_600_000;
 // Only the code, browser name and OS name are sent (ADR 0005).
 export const PairRequest = z.object({
   code: z.string().max(32),
-  browser: z.enum(["chrome", "edge", "brave", "other"]),
+  browser: z.enum(BROWSER_NAMES),
   os: z.string().min(1).max(32),
 });
 export type PairRequest = z.infer<typeof PairRequest>;

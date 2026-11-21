@@ -1,4 +1,4 @@
-import type { BrowserName } from "./browser-info";
+import { type BrowserName, parseBrowserName } from "./browser-info";
 import { type PairResult, pairWithCode, readToken } from "./pairing";
 import { enqueue, parseQueue, pruneQueue } from "./queue";
 import { flushQueue } from "./sender";
@@ -51,7 +51,6 @@ export interface Controller {
 const MINUTE_MS = 60_000;
 const BADGE_COLOR = "#F59E0B";
 const REJECTED_RETRY_MINUTES = 15;
-const BROWSERS: readonly string[] = ["chrome", "edge", "brave", "other"];
 const IDLE_STATES: readonly unknown[] = ["active", "idle", "locked"];
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -90,8 +89,7 @@ export function createController(deps: ControllerDeps): Controller {
   }
 
   async function readBrowser(): Promise<BrowserName> {
-    const value = await store.get("browser");
-    return typeof value === "string" && BROWSERS.includes(value) ? (value as BrowserName) : "other";
+    return parseBrowserName(await store.get("browser"));
   }
 
   async function loadTracker(): Promise<TrackerState> {

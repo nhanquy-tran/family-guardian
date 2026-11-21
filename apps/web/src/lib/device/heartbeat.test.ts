@@ -128,7 +128,7 @@ describe("envelope validation", () => {
   it("Envelope check order", async () => {
     const f = fakeStore();
     const entries = Array.from({ length: 1441 }, () => entry("2026-11-17T10:03:00Z", "youtube.com", 10));
-    const res = await call(f, { body: body({ entries, browser: "firefox" }) });
+    const res = await call(f, { body: body({ entries, browser: "netscape" }) });
     expect(res.status).toBe(400);
     expect(res.body).toEqual({ error: "invalid_request" });
   });
@@ -145,7 +145,7 @@ describe("envelope validation", () => {
     const { extensionVersion: _v, ...noVersion } = body();
     const { currentDomain: _c, ...noCurrent } = body();
     const cases = [
-      body({ browser: "firefox" }),
+      body({ browser: "netscape" }),
       noVersion,
       body({ extensionVersion: "x".repeat(33) }),
       body({ entries: "nope" }),

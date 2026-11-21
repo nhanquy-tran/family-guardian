@@ -51,6 +51,18 @@ const twoDevices: ChildDevices[] = [
 ];
 
 describe("DeviceList", () => {
+  it("Firefox device listed", () => {
+    const html = render([
+      {
+        id: "c1",
+        name: "Lan",
+        devices: [device({ id: "a", browser: "chrome" }), device({ id: "b", browser: "firefox" })],
+      },
+    ]);
+    expect(html).toContain("Chrome");
+    expect(html).toContain("Firefox");
+  });
+
   it("online and offline devices rendered", () => {
     const html = render([
       {

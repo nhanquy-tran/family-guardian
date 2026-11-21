@@ -39,6 +39,27 @@ function take(state: TrackerState, now: number) {
 
 const focusedOn = (url: string, at = T) => run([focus(at, true), tab(at, url)]);
 
+describe("two browsers", () => {
+  const total = (state: TrackerState, now: number) =>
+    takeCompletedEntries(state, now).entries.reduce((n, e) => n + e.seconds, 0);
+
+  it("Focus handoff between two browsers", () => {
+    const a0 = run([focus(T, true), tab(T, EX)]);
+    const b0 = run([tab(T, EX)]);
+    const a1 = run([focus(T + 30 * S, false), focus(T + 60 * S, true), tick(T + 90 * S)], a0);
+    const b1 = run([focus(T + 30 * S, true), focus(T + 60 * S, false), tick(T + 90 * S)], b0);
+    // A: 30 s before losing focus + 30 s from regaining it to the tick = 60 s; B: 30 s; wall time 90 s
+    expect(total(a1, T + 5 * 60 * S)).toBe(60);
+    expect(total(b1, T + 5 * 60 * S)).toBe(30);
+
+    const a2 = run([focus(T + 90 * S, false), tick(T + 180 * S)], a1);
+    const b2 = run([focus(T + 90 * S, false), tick(T + 180 * S)], b1);
+    // nobody has focus between 10:01:30 and 10:03:00, so the totals do not move
+    expect(total(a2, T + 5 * 60 * S)).toBe(60);
+    expect(total(b2, T + 5 * 60 * S)).toBe(30);
+  });
+});
+
 describe("tracker", () => {
   it("fresh tracker counts nothing", () => {
     const s = run([tick(T), tick(T + 30 * S)]);

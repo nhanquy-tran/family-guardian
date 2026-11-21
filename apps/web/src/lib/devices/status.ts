@@ -16,7 +16,7 @@ export function formatLastSeen(lastSeenAt: string | null, now: Date): string {
   return `${Math.floor(hours / 24)} d ago`;
 }
 
-const BROWSERS: Record<string, string> = { chrome: "Chrome", edge: "Edge", brave: "Brave" };
+const BROWSERS: Record<string, string> = { chrome: "Chrome", edge: "Edge", brave: "Brave", firefox: "Firefox" };
 
 export function browserLabel(browser: string): string {
   return Object.hasOwn(BROWSERS, browser) ? (BROWSERS[browser] ?? "Other browser") : "Other browser";
