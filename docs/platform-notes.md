@@ -19,6 +19,7 @@ Facts about the platforms we build on that caused real defects or failures. Ever
 - React server rendering of forms with server actions **injects an inline `<script>`** (form replay). Never assert "no `<script>`" to prove "works without JavaScript"; assert plain links/forms instead. (#13)
 - Vercel is on **Pro** (since 2026-11-18). Production builds only from `main` when `apps/web`, `packages`, dependencies or `vercel-ignore.sh` change; previews build only for `factory/*` branches (the build gate's UI check). Spec, docs and other branches are skipped. Hobby's daily deployment limit stopped all deploys on 2026-11-17.
 - `x-forwarded-for` is trustworthy only on Vercel (it overwrites it).
+- **Functions run in `hnd1` (Tokyo)**, next to Supabase (`ap-northeast-1`), via `regions` in `apps/web/vercel.json`. Vercel's default `iad1` (Washington) put every Supabase call across the Pacific: about 200 ms each, 4 to 6 per dashboard page. If the database moves, move `regions` with it.
 
 ## Chrome / Edge / Brave extensions (MV3)
 

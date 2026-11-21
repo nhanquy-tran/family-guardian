@@ -1,3 +1,4 @@
+import { ActionForm } from "./action-form";
 import { CATEGORIES } from "@fg/shared";
 import type { ReactElement } from "react";
 import type { DailyLimit } from "../lib/daily-limits";
@@ -26,7 +27,7 @@ export function DailyLimitsCard({ childId, limits, error, action }: DailyLimitsC
           {message(error)}
         </p>
       ) : null}
-      <form action={action} className="mt-3 flex flex-col gap-3">
+      <ActionForm action={action} className="mt-3 flex flex-col gap-3">
         <input type="hidden" name="childId" value={childId} />
         {CATEGORIES.map((category) => {
           const current = limits.find((l) => l.category === category);
@@ -48,7 +49,7 @@ export function DailyLimitsCard({ childId, limits, error, action }: DailyLimitsC
         <button type="submit" className={buttonPrimary}>
           Save limits
         </button>
-      </form>
+      </ActionForm>
     </section>
   );
 }

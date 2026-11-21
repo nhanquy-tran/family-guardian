@@ -32,3 +32,9 @@ export const navLinkCurrent: string = "bg-accent-soft text-accent-ink";
 
 export const alertError: string = "rounded-sm border border-red bg-red-soft p-3 text-sm text-ink";
 export const alertWarning: string = "rounded-sm border border-amber bg-amber-soft p-3 text-sm text-ink";
+
+// Loading overlay: blocks clicks at once; the grey backdrop fades in after a short delay so fast pages do not flash.
+export const loadingOverlay: string =
+  "fg-overlay-in fixed inset-0 z-50 flex items-center justify-center bg-ground/70 backdrop-blur-[2px]";
+export const loadingPanel: string = "flex flex-col items-center gap-3 rounded-card bg-card px-6 py-5 shadow-card";
+export const spinner: string = "size-10 animate-spin rounded-pill border-4 border-accent-soft border-t-accent";

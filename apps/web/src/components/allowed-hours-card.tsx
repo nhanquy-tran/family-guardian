@@ -1,3 +1,4 @@
+import { ActionForm } from "./action-form";
 import type { ReactElement } from "react";
 import { alertError, buttonPrimary, card, cardTitle, input } from "./ui";
 
@@ -27,7 +28,7 @@ export function AllowedHoursCard({ childId, hours, error, action }: AllowedHours
           {message(error)}
         </p>
       ) : null}
-      <form action={action} className="mt-3 flex flex-col gap-3">
+      <ActionForm action={action} className="mt-3 flex flex-col gap-3">
         <input type="hidden" name="childId" value={childId} />
         <label className="flex items-center justify-between gap-3 text-sm text-ink">
           <span>Start</span>
@@ -40,7 +41,7 @@ export function AllowedHoursCard({ childId, hours, error, action }: AllowedHours
         <button type="submit" className={buttonPrimary}>
           Save allowed hours
         </button>
-      </form>
+      </ActionForm>
     </section>
   );
 }
