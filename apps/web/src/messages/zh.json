@@ -95,8 +95,8 @@
       "code": "为孩子的笔记本电脑获取配对码，有效期 1 小时。",
       "installer": "在孩子的 Windows 笔记本电脑上，以管理员（administrator）身份运行 .reg 安装文件。",
       "standard": "确保孩子使用 Standard（标准）Windows 账户，而不是 Administrator（管理员）账户。",
-      "restart": "完全关闭并重新打开 Chrome、Edge 和 Brave。",
-      "pair": "打开扩展并输入配对码。",
+      "restart": "完全关闭并重新打开 Chrome、Edge、Brave 和 Firefox。",
+      "pair": "打开扩展并输入配对码。Firefox 需要为同一个孩子使用单独的新配对码。",
       "dashboard": "查看仪表板：几分钟内电脑应显示为在线。"
     },
     "loginLink": "登录",
