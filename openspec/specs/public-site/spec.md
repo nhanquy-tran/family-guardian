@@ -135,7 +135,7 @@ Public pages SHALL NOT include analytics, set cookies, use browser storage or re
 
 ### Requirement: Setup guide page
 
-Each locale SHALL have `/<locale>/setup`, an ordered step-by-step guide for parents that matches the real flow: sign in, add a child, get a pairing code, run the `.reg` installer as administrator on the child's Windows laptop, use a Standard (not Administrator) Windows account, restart the browsers, pair the extension and check the dashboard. It SHALL link to `/install` for the files.
+Each locale SHALL have `/<locale>/setup`, an ordered step-by-step guide for parents that matches the real flow: sign in, add a child, get a pairing code, run the `.reg` installer as administrator on the child's Windows laptop, use a Standard (not Administrator) Windows account, restart the browsers (Chrome, Edge, Brave and Firefox), pair the extension in each browser (a code for the same child) and check the dashboard. It SHALL link to `/install` for the files.
 
 #### Scenario: Steps in order
 - **GIVEN** `SetupGuide` rendered for each locale with `getMessages(locale)`
@@ -149,8 +149,14 @@ Each locale SHALL have `/<locale>/setup`, an ordered step-by-step guide for pare
 
 #### Scenario: Same facts as the install page
 - **GIVEN** the markup of `SetupGuide` for each locale and the source of `apps/web/src/components/install-instructions.tsx`
-- **WHEN** `setup-guide.test.tsx` checks the words `Chrome`, `Edge`, `Brave`, `Standard` and `Administrator`
+- **WHEN** `setup-guide.test.tsx` checks the words `Chrome`, `Edge`, `Brave`, `Firefox`, `Standard` and `Administrator`
 - **THEN** every word that the install source contains is also in the guide markup of every locale
+
+#### Scenario: Firefox in restart and pairing steps
+- **GIVEN** `SetupGuide` rendered for each locale with `getMessages(locale)`
+- **WHEN** `setup-guide.test.tsx` reads the `<li>` items for the restart and pairing steps
+- **THEN** the restart item contains `Firefox` and still contains the words `Chrome`, `Edge` and `Brave` (each at least once)
+- **AND** the pairing item equals the `setup.steps.pair` message, which contains `Firefox`, and `en.json`, `vi.json` and `zh.json` still have identical `setup.steps` keys
 
 ### Requirement: FAQ page
 

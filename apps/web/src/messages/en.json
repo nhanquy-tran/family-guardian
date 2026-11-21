@@ -95,8 +95,8 @@
       "code": "Get a pairing code for your child's laptop. It is valid for 1 hour.",
       "installer": "On your child's Windows laptop, run the .reg installer as administrator.",
       "standard": "Make sure your child uses a Standard (not Administrator) Windows account.",
-      "restart": "Fully close and reopen Chrome, Edge and Brave.",
-      "pair": "Open the extension and enter the pairing code.",
+      "restart": "Fully close and reopen Chrome, Edge, Brave and Firefox.",
+      "pair": "Open the extension and enter the pairing code. Firefox needs its own new code for the same child.",
       "dashboard": "Check the dashboard: the laptop should show as online within a few minutes."
     },
     "loginLink": "Sign in",
