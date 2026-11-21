@@ -3,7 +3,7 @@ The signed Firefox add-on and its update manifest are served publicly from famil
 
 Test files:
 - `apps/web/src/app/firefox-public.test.ts`
-- `apps/extension/scripts/firefox-release.test.ts`
+- `apps/extension/lib/firefox-release.test.ts`
 
 ## ADDED Requirements
 
@@ -32,18 +32,23 @@ Test files:
 
 #### Scenario: Content type for add-on files
 - **WHEN** `firefox-public.test.ts` calls `headers()` of `apps/web/next.config.ts`
-- **THEN** a rule for `/firefox/:file*.xpi` sets `Content-Type` to `application/x-xpinstall`
+- **THEN** a rule with source `/firefox/:name(.+\\.xpi)` sets `Content-Type` to `application/x-xpinstall`
+- **AND** that source, converted with `path-to-regexp` as Next does, matches `/firefox/latest.xpi` and `/firefox/family-guardian-0.3.0.xpi` and does not match `/firefox/updates.json`
 
 #### Scenario: No login and not listed
 - **WHEN** `firefox-public.test.ts` reads the `matcher` of `apps/web/src/proxy.ts` and calls `sitemap()`
 - **THEN** no matcher entry covers `/firefox` and no sitemap URL contains `/firefox`
 
 ### Requirement: Release script
-`npm run firefox:release -w extension -- <signed.xpi>` SHALL store a valid file as `family-guardian-<version>.xpi`, copy it to `latest.xpi` and add the version to `updates.json` (`update_hash` is the SHA-256 of the file). On any failure it SHALL exit non-zero and change nothing.
+`npm run firefox:release -w extension -- <signed.xpi>` SHALL store a valid file as `family-guardian-<version>.xpi`, copy it to `latest.xpi` and add the version to `updates.json` (`update_hash` is the SHA-256 of the file). On any failure, including a write error at any step, it SHALL exit non-zero and change nothing (rollback). The logic lives in `apps/extension/lib/firefox-release.ts`; the reader supports stored and deflate zip entries.
+
+#### Scenario: Test zips
+- **WHEN** `lib/firefox-release.test.ts` needs a signed-looking `.xpi` or a malformed zip
+- **THEN** it builds stored (method 0) zips with a helper in the test file, and the reader also handles deflate entries read from the central directory
 
 #### Scenario: First release
 - **GIVEN** an empty output directory with the committed empty `updates.json` and a valid signed test `.xpi` for the build version
-- **WHEN** `firefox-release.test.ts` runs the release function
+- **WHEN** `lib/firefox-release.test.ts` runs the release function
 - **THEN** `family-guardian-<version>.xpi` and `latest.xpi` exist with the input's bytes
 - **AND** `updates.json` lists exactly that version with the right `update_link` and `update_hash`
 
@@ -53,7 +58,7 @@ Test files:
 - **THEN** both versioned files exist, `updates` lists `0.3.0` then `0.3.1`, and `latest.xpi` equals the `0.3.1` file
 
 ### Requirement: Release validation
-The release script SHALL accept a file only if it is a zip containing `manifest.json` whose `browser_specific_settings.gecko.id` equals `FIREFOX_ADDON_ID` and whose `version` equals the build version (`apps/extension/package.json`), it contains `META-INF/mozilla.rsa` (AMO signature), and its version is greater than the newest listed.
+The release script SHALL accept a file only if it is a zip containing `manifest.json` whose `browser_specific_settings.gecko.id` equals `FIREFOX_ADDON_ID` and whose `version` equals the build version (`apps/extension/package.json`), it contains `META-INF/mozilla.rsa` (AMO signature), and its version is greater than the newest listed, compared numerically part by part (not as strings).
 
 #### Scenario: Wrong add-on ID
 - **WHEN** the test releases a file whose manifest ID is another ID
@@ -76,11 +81,27 @@ The release script SHALL accept a file only if it is a zip containing `manifest.
 - **WHEN** the test releases a valid file for `0.3.1`, then one for `0.3.0` (matching build versions)
 - **THEN** each call rejects, and the stored `.xpi` bytes, `latest.xpi` and `updates.json` are unchanged
 
-#### Scenario: Write failure keeps the old release
-- **GIVEN** a stored release and an output directory where writing `updates.json` fails (the test injects a failing write)
+#### Scenario: Numeric version order
+- **GIVEN** a stored release `0.9.0`
+- **WHEN** the test releases a valid `0.10.0` file (build version `0.10.0`)
+- **THEN** the call succeeds and `updates` lists `0.9.0` then `0.10.0`
+
+#### Scenario: Write failure rolls back
+- **GIVEN** a stored release and a write function the test makes fail at each write step in turn (versioned `.xpi`, `latest.xpi`, `updates.json`)
 - **WHEN** the test releases a newer valid file
-- **THEN** the call rejects and `updates.json` still lists only the old release
+- **THEN** each call rejects and every file in the directory is byte-for-byte unchanged, with no new versioned file left
+
+#### Scenario: Rerun after a failure
+- **GIVEN** a release that failed with a write error and was rolled back
+- **WHEN** the test releases the same file again with a working write function
+- **THEN** the release completes as in the first-release scenario
 
 #### Scenario: Command-line wiring
-- **WHEN** `firefox-release.test.ts` reads `apps/extension/package.json`
-- **THEN** the script `firefox:release` exists and runs `scripts/firefox-release.ts`
+- **WHEN** `lib/firefox-release.test.ts` reads `apps/extension/package.json` and the root `package.json`
+- **THEN** the script `firefox:release` is `node scripts/firefox-release.ts` and `engines.node` is `>=22.18`
+
+#### Scenario: CLI runs as a child process
+- **GIVEN** a temp output directory with an empty `updates.json` and a valid signed test `.xpi`
+- **WHEN** the test runs `node scripts/firefox-release.ts <file>` as a child process against that directory
+- **THEN** it exits 0 and the directory holds the versioned `.xpi`, `latest.xpi` and an updated `updates.json`
+- **AND** run with an invalid file it exits non-zero and the directory is unchanged

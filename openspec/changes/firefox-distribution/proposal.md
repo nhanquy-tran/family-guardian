@@ -1,5 +1,5 @@
 Depends on: #173
-Touches: firefox-distribution, apps/web/next.config.ts
+Touches: firefox-distribution, apps/web/next.config.ts, apps/extension/package.json, package.json, .gitattributes
 
 # Serve the signed Firefox add-on and its update manifest
 
@@ -9,6 +9,7 @@ ADR 0024: Firefox installs our add-on by policy from `https://family-guardian.co
 ## What changes
 - Static public files under `apps/web/public/firefox/`: `updates.json` (committed with no versions), versioned `.xpi` files and `latest.xpi` (both appear only when the owner runs the release script and commits the result).
 - `apps/web/next.config.ts` sends `Content-Type: application/x-xpinstall` for `.xpi` files under `/firefox/`.
+- `.gitattributes` marks `*.xpi` binary; root `engines.node` becomes `>=22.18`.
 - `npm run firefox:release -w extension -- <signed.xpi>`: validates the signed file against the build, stores it as `family-guardian-<version>.xpi`, updates `updates.json` and `latest.xpi`.
 
 ## Out of scope
