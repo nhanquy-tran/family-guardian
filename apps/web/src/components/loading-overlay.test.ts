@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ActionForm } from "./action-form";
 import { LoadingOverlay } from "./loading-overlay";
-import { isPageChange, shouldShowForClick } from "./navigation-overlay";
+import { routeKey, shouldShowForClick } from "./navigation-overlay";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const current = new URL("https://app.test/dashboard/children?tz=Asia%2FHo_Chi_Minh");
@@ -49,14 +49,15 @@ describe("shouldShowForClick", () => {
     expect(shouldShowForClick({ ...plainClick, metaKey: true }, link("/dashboard/devices"), current)).toBe(false);
     expect(shouldShowForClick({ ...plainClick, ctrlKey: true }, link("/dashboard/devices"), current)).toBe(false);
     expect(shouldShowForClick({ ...plainClick, button: 1 }, link("/dashboard/devices"), current)).toBe(false);
+    expect(shouldShowForClick(plainClick, { href: "http://[bad", target: "", download: false }, current)).toBe(false);
+    expect(shouldShowForClick(plainClick, link("/dashboard/devices", { target: "_self" }), current)).toBe(true);
   });
 });
 
-describe("isPageChange", () => {
-  it("compares path and query, not hash", () => {
-    expect(isPageChange("/a?x=1", "/a?x=1")).toBe(false);
-    expect(isPageChange("/a?x=1", "/a?x=2")).toBe(true);
-    expect(isPageChange("/a", "/b")).toBe(true);
+describe("routeKey", () => {
+  it("joins path and query", () => {
+    expect(routeKey("/a", "x=1")).toBe("/a?x=1");
+    expect(routeKey("/a", "")).toBe("/a?");
   });
 });
 

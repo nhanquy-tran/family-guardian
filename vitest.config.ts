@@ -20,7 +20,7 @@ export default defineConfig({
         branches: 84,
         "packages/shared/src/**": { lines: 99, branches: 90 },
         "apps/web/src/lib/**": { lines: 91, branches: 81 },
-        "apps/web/src/components/**": { lines: 95, branches: 94 },
+        "apps/web/src/components/**": { lines: 96, branches: 95 },
         "apps/web/src/app/**": { lines: 82, branches: 84 },
         "apps/extension/**": { lines: 89, branches: 83 },
       },
