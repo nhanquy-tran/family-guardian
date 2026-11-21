@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { inflateRawSync } from "node:zlib";
 
@@ -59,6 +59,15 @@ function readZip(buf: Buffer): Map<string, Buffer> {
   return files;
 }
 
+function readOrNull(path: string): Buffer | null {
+  try {
+    return readFileSync(path);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw err;
+  }
+}
+
 function compareVersions(a: string, b: string): number {
   const x = a.split(".").map(Number);
   const y = b.split(".").map(Number);
@@ -99,7 +108,7 @@ export async function releaseFirefox(options: ReleaseOptions): Promise<void> {
   if (newest && compareVersions(buildVersion, newest.version) <= 0) {
     throw new Error(`version ${buildVersion} is not newer than ${newest.version}`);
   }
-  if (existsSync(versionedPath)) throw new Error(`${versionedPath} already exists`);
+  if (readOrNull(versionedPath)) throw new Error(`${versionedPath} already exists`);
 
   const entry: UpdateEntry = {
     version: buildVersion,
@@ -107,7 +116,7 @@ export async function releaseFirefox(options: ReleaseOptions): Promise<void> {
     update_hash: `sha256:${createHash("sha256").update(bytes).digest("hex")}`,
   };
   const next: UpdateManifest = { ...manifest, addons: { ...manifest.addons, [addonId]: { updates: [...updates, entry] } } };
-  const oldLatest = existsSync(latestPath) ? readFileSync(latestPath) : null;
+  const oldLatest = readOrNull(latestPath);
 
   const temps: string[] = [];
   const put = async (target: string, data: Uint8Array) => {

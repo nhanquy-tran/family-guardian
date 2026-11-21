@@ -17,3 +17,8 @@ Added `apps/extension/lib/firefox-release.ts` (zip reader, validation, numeric v
   - Verdict: test (an impossible type branch, not a behaviour problem). The code is correct.
   - Change: one line, `const source: string = m;`. The three assertions on `source` are unchanged, so scenario "No login and not listed" is checked as written.
 - Result: `npm run check` passes (0 lint errors, 132 files and 1035 tests green).
+
+### Build gate fix round 1
+- **What failed:** `npm run check:ci` failed on the coverage gate: `apps/extension/**` branches were 80.85 %, below the 81 % minimum. Untested branches of `firefox-release.ts`: invalid build version, unsupported zip method, corrupt directory or entry, existing versioned file, rollback with no previous `latest.xpi`. CodeQL `js/file-system-race` also flagged the `existsSync` check-then-read.
+- **Fix:** added five new tests in `firefox-release.test.ts` (no existing test changed, no threshold lowered). Replaced `existsSync` with a `readOrNull` helper that maps only `ENOENT` to `null` and rethrows other errors; rollback behaviour is unchanged.
+- **Result:** `npm run check:ci` passes (1040 tests, extension branches above 81 %) and `npm run build` passes.

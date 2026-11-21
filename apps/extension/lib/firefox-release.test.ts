@@ -224,6 +224,48 @@ describe("firefox release script", () => {
     expect(readFileSync(join(dir, "latest.xpi")).equals(bytes)).toBe(true);
   });
 
+  it("Rejects an invalid build version", async () => {
+    const before = snapshot(dir);
+    await expect(run("0.3.x", put(xpi("0.3.x")))).rejects.toThrow("invalid build version");
+    expect(snapshot(dir)).toEqual(before);
+  });
+
+  it("Rejects an unsupported compression method", async () => {
+    const bytes = xpi("0.3.0");
+    bytes.writeUInt16LE(99, bytes.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02])) + 10);
+    const before = snapshot(dir);
+    await expect(run("0.3.0", put(bytes))).rejects.toThrow("unsupported zip method");
+    expect(snapshot(dir)).toEqual(before);
+  });
+
+  it("Rejects a corrupt zip directory or entry", async () => {
+    const before = snapshot(dir);
+    const badDir = xpi("0.3.0");
+    badDir.writeUInt32LE(0, badDir.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02])));
+    await expect(run("0.3.0", put(badDir))).rejects.toThrow("corrupt zip directory");
+    const badEntry = xpi("0.3.0");
+    badEntry.writeUInt32LE(0, 0);
+    await expect(run("0.3.0", put(badEntry))).rejects.toThrow("corrupt zip entry");
+    expect(snapshot(dir)).toEqual(before);
+  });
+
+  it("Rejects when the versioned file already exists", async () => {
+    writeFileSync(join(dir, "family-guardian-0.3.0.xpi"), "old");
+    const before = snapshot(dir);
+    await expect(run("0.3.0", put(xpi("0.3.0")))).rejects.toThrow("already exists");
+    expect(snapshot(dir)).toEqual(before);
+  });
+
+  it("Write failure on a first release leaves no latest.xpi", async () => {
+    const before = snapshot(dir);
+    const failing = (p: string, d: Uint8Array) => {
+      if (p.includes("updates.json")) throw new Error("disk full");
+      realWrite(p, d);
+    };
+    await expect(run("0.3.0", put(xpi("0.3.0")), failing)).rejects.toThrow("disk full");
+    expect(snapshot(dir)).toEqual(before);
+  });
+
   it("Command-line wiring", () => {
     const ext = JSON.parse(readFileSync(join(EXT, "package.json"), "utf8"));
     const root = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8"));
