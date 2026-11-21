@@ -36,6 +36,7 @@ Facts about the platforms we build on that caused real defects or failures. Ever
 - **Manifest version 2.** Firefox MV3 treats host permissions as optional: a user can revoke "access to all sites" in `about:addons` and the blocking redirects stop. Firefox MV2 grants them at install and they cannot be revoked. The Firefox build uses MV2 (`FIREFOX_MANIFEST_VERSION`, pinned by a test). Not yet checked against Mozilla's documentation by the builder (no network access); the owner confirms on a real Firefox with the checklist below.
 - `browser.action` does not exist in MV2: the badge uses `resolveBadgeApi` (`action ?? browserAction`). The background is a non-persistent event page; listeners are registered synchronously.
 - Minimum Firefox 140.0 (first desktop release with `data_collection_permissions`).
+- **Troubleshoot Mode starts Firefox with add-ons disabled** (Help > Troubleshoot Mode, or Shift at launch) and a Standard user can open it: the Firefox counterpart of the Chromium guest-mode hole (#17). Policy `DisableSafeMode=1` removes it. Policies are still read in that mode.
 
 ### Smoke checklist (real Firefox on Windows, owner)
 
@@ -47,6 +48,7 @@ Facts about the platforms we build on that caused real defects or failures. Ever
 6. Badge: with a limit near its end the badge shows the minutes left.
 7. `about:addons`: site access cannot be revoked; private windows are not allowed.
 8. Use Chrome and Firefox alternately: totals add up and no second is counted twice.
+9. After running the setup `.reg`: in Firefox, Help > Troubleshoot Mode is greyed out, and `about:policies` lists `DisableSafeMode`.
 
 ## Product behaviour
 
