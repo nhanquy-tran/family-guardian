@@ -80,6 +80,7 @@ digest_runs(family_id, frequency, period_start, claimed_at)  -- one claim per di
 ## Non-functional targets (MVP)
 
 - 20 families, about 60 devices, 1 heartbeat/min each, about 86k requests/day: well within free/hobby tiers.
+- Latency: parents are mostly in Vietnam. Vercel functions run in `hnd1` (Tokyo, `regions` in `apps/web/vercel.json`), the same region as Supabase (`ap-northeast-1`), because a dashboard page makes several Supabase calls in a row. Keep both in one region; the browser shows a loading overlay (`NavigationOverlay`, `ActionForm`) while a page or server action is pending.
 - Dashboard p95 under 1 s for a 7-day view.
 - Extension CPU/memory negligible; no content scripts except the block page.
 
