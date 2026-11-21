@@ -2,3 +2,4 @@
 *.reg text eol=crlf
 *.ico binary
 *.png binary
+*.xpi binary
