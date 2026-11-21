@@ -1,6 +1,6 @@
-import { CHROME_WEB_STORE_UPDATE_URL, EXTENSION_ID } from "@fg/shared";
+import { CHROME_WEB_STORE_UPDATE_URL, EXTENSION_ID, FIREFOX_ADDON_ID, FIREFOX_INSTALL_URL } from "@fg/shared";
 import { describe, expect, it } from "vitest";
-import { POLICY_TARGETS, buildRemoveReg, buildSetupReg } from "./reg";
+import { POLICY_TARGETS, buildRemoveReg, buildSetupReg, regString } from "./reg";
 
 const CRLF = "\r\n";
 const FORCE_VALUE = `"1"="mohnkinbpagpelmlfmgkgaplfikdjjcb;https://clients2.google.com/service/update2/crx"`;
@@ -25,6 +25,38 @@ function section(text: string, key: string): string[] {
   return out;
 }
 
+const FIREFOX_KEY = "HKEY_LOCAL_MACHINE\\SOFTWARE\\Policies\\Mozilla\\Firefox";
+const FIREFOX_SETTINGS_LINE =
+  '"ExtensionSettings"="{\\"guardian@family-guardian.co\\":{\\"installation_mode\\":\\"force_installed\\",\\"install_url\\":\\"https://family-guardian.co/firefox/latest.xpi\\"}}"';
+
+/** Literal copy of the Chrome, Edge and Brave text generated before Firefox was added. */
+const CHROMIUM_TEXT = [
+  "Windows Registry Editor Version 5.00",
+  "",
+  "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Policies\\Google\\Chrome]",
+  '"IncognitoModeAvailability"=dword:00000001',
+  '"BrowserGuestModeEnabled"=dword:00000000',
+  "",
+  "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Policies\\Google\\Chrome\\ExtensionInstallForcelist]",
+  FORCE_VALUE,
+  "",
+  "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Policies\\Microsoft\\Edge]",
+  '"InPrivateModeAvailability"=dword:00000001',
+  '"BrowserGuestModeEnabled"=dword:00000000',
+  "",
+  "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Policies\\Microsoft\\Edge\\ExtensionInstallForcelist]",
+  FORCE_VALUE,
+  "",
+  "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Policies\\BraveSoftware\\Brave]",
+  '"IncognitoModeAvailability"=dword:00000001',
+  '"BrowserGuestModeEnabled"=dword:00000000',
+  "",
+  "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Policies\\BraveSoftware\\Brave\\ExtensionInstallForcelist]",
+  FORCE_VALUE,
+  "",
+  "",
+].join(CRLF);
+
 function expectedFile(mode: "setup" | "remove"): string {
   let text = `Windows Registry Editor Version 5.00${CRLF}${CRLF}`;
   for (const t of TARGETS) {
@@ -36,6 +68,13 @@ function expectedFile(mode: "setup" | "remove"): string {
     text += mode === "setup" ? `${FORCE_VALUE}${CRLF}` : `"1"=-${CRLF}`;
     text += CRLF;
   }
+  text += `[${FIREFOX_KEY}]${CRLF}`;
+  if (mode === "setup") {
+    text += `${FIREFOX_SETTINGS_LINE}${CRLF}"DisablePrivateBrowsing"=dword:00000001${CRLF}"DisableSafeMode"=dword:00000001${CRLF}`;
+  } else {
+    text += `"ExtensionSettings"=-${CRLF}"DisablePrivateBrowsing"=-${CRLF}"DisableSafeMode"=-${CRLF}`;
+  }
+  text += CRLF;
   return text;
 }
 
@@ -84,9 +123,13 @@ describe("reg installer", () => {
     const all = lines(buildSetupReg());
     const keyLines = all.filter((l) => l.startsWith("["));
     const valueLines = all.filter((l) => l.startsWith('"'));
-    expect(keyLines).toHaveLength(6);
+    expect(keyLines).toHaveLength(7); // 3 browsers x 2 keys + Firefox
     for (const k of keyLines) expect(k.startsWith("[HKEY_LOCAL_MACHINE\\SOFTWARE\\Policies\\")).toBe(true);
-    expect(valueLines).toHaveLength(9);
+    expect(valueLines).toHaveLength(12); // 3 browsers x 3 values + 3 Firefox values
+    for (const l of all) {
+      expect(l.startsWith("[-")).toBe(false);
+      expect(l.endsWith("=-")).toBe(false);
+    }
   });
 
   it("Full expected setup file", () => {
@@ -134,5 +177,57 @@ describe("reg installer", () => {
 
   it("No key is deleted", () => {
     for (const l of lines(buildRemoveReg())) expect(l.startsWith("[-")).toBe(false);
+  });
+
+  it("Chrome, Edge and Brave lines are unchanged", () => {
+    expect(buildSetupReg().startsWith(CHROMIUM_TEXT)).toBe(true);
+  });
+
+  it("Firefox values are removed", () => {
+    expect(section(buildRemoveReg(), FIREFOX_KEY)).toEqual([
+      `"ExtensionSettings"=-`,
+      `"DisablePrivateBrowsing"=-`,
+      `"DisableSafeMode"=-`,
+    ]);
+  });
+
+  it("Install URL constant is used", () => {
+    expect(FIREFOX_ADDON_ID).toBe("guardian@family-guardian.co");
+    expect(FIREFOX_INSTALL_URL).toBe("https://family-guardian.co/firefox/latest.xpi");
+  });
+
+  it("Escaping", () => {
+    // a \ b " c  ->  a \\ b \" c
+    expect(regString('a\\b"c')).toBe('a\\\\b\\"c');
+    expect(regString('"')).toBe('\\"');
+    expect(regString("plain")).toBe("plain");
+  });
+
+  it("JSON parses after unescaping", () => {
+    const line = lines(buildSetupReg()).find((l) => l.startsWith('"ExtensionSettings"='));
+    expect(line).toBeDefined();
+    const raw = (line ?? "").slice('"ExtensionSettings"='.length);
+    expect(raw.startsWith('"') && raw.endsWith('"')).toBe(true);
+    const inner = raw.slice(1, -1);
+    expect(inner.split('\\"').join("")).not.toContain('"');
+    const unescaped = inner.split('\\"').join('"').split("\\\\").join("\\");
+    const parsed = JSON.parse(unescaped) as Record<string, Record<string, string>>;
+    expect(parsed).toEqual({
+      "guardian@family-guardian.co": {
+        installation_mode: "force_installed",
+        install_url: "https://family-guardian.co/firefox/latest.xpi",
+      },
+    });
+    expect(Object.keys(parsed["guardian@family-guardian.co"] ?? {})).toEqual(["installation_mode", "install_url"]);
+  });
+
+  it("Re-run rewrites the same values", () => {
+    const a = buildSetupReg();
+    expect(buildSetupReg()).toBe(a);
+    expect(a.slice(0, a.indexOf(`[${FIREFOX_KEY}]`))).toBe(CHROMIUM_TEXT);
+    for (const l of lines(a)) {
+      expect(l.startsWith("[-")).toBe(false);
+      expect(l.endsWith("=-")).toBe(false);
+    }
   });
 });

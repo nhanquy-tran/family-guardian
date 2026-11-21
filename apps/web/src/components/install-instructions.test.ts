@@ -46,10 +46,22 @@ describe("InstallInstructions", () => {
     expect(html).toContain("<ol");
   });
 
+  it("Firefox steps", () => {
+    const html = render();
+    for (const text of ["about:policies", "ExtensionSettings", "DisablePrivateBrowsing", "DisableSafeMode", "Firefox", "new code", "same child"]) {
+      expect(html, text).toContain(text);
+    }
+    const firefox = html.indexOf("Firefox");
+    expect(firefox).toBeGreaterThan(html.indexOf("FamilyGuardian-Setup.reg"));
+    expect(firefox).toBeLessThan(html.indexOf("FamilyGuardian-Remove.reg"));
+  });
+
   it("Remove leaves empty keys", () => {
     const html = render();
     expect(html).toContain("empty");
     expect(html).toContain("guest");
+    expect(html).toContain("whole");
+    expect(html).toContain("not only");
   });
 
   it("Page and home link exist", () => {

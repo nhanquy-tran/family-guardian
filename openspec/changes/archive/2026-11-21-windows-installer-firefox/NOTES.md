@@ -1,3 +1,8 @@
+## Summary
+- `FIREFOX_INSTALL_URL` set in `@fg/shared`; `reg.ts` gained `regString` and a Firefox block (setup writes `ExtensionSettings`, `DisablePrivateBrowsing`, `DisableSafeMode`; remove deletes those values). The Chromium text is unchanged.
+- `InstallInstructions` and the en/vi/zh `/setup` `restart` and `pair` steps mention Firefox.
+- Verified by `reg.test.ts` (full texts, prefix, escaping, JSON, re-run), `install-instructions.test.ts`, `setup-guide.test.tsx`, `extension.test.ts`. `npm run check` and `npm run build` pass.
+
 ## Owner steps
 - Before or with this deploy, commit the first signed Firefox release with `npm run firefox:release -w extension`. Merging #174 does not publish `latest.xpi`, and the install page tells parents to pair Firefox, so shipping the instructions first makes the forced install fail.
 - Smoke checklist step 9 (`docs/platform-notes.md`): Help > Troubleshoot Mode is greyed out after the setup `.reg`.

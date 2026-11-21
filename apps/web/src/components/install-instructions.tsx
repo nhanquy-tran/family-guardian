@@ -27,7 +27,7 @@ export function InstallInstructions(): JSX.Element {
           .
         </li>
         <li>Double-click the file, accept the User Account Control prompt and the Registry Editor warning.</li>
-        <li>Fully close and reopen Chrome, Edge and Brave.</li>
+        <li>Fully close and reopen Chrome, Edge, Brave and Firefox.</li>
         <li>
           Verify: open <span className={code}>chrome://policy</span>, <span className={code}>edge://policy</span> and{" "}
           <span className={code}>brave://policy</span> and click Reload policies. Check that{" "}
@@ -36,7 +36,16 @@ export function InstallInstructions(): JSX.Element {
           <span className={code}>BrowserGuestModeEnabled</span> show status OK. Family Guardian should appear on the
           extensions page as installed by your organisation, and a private window and a guest window should not open.
         </li>
-        <li>Then pair the extension with the code from the dashboard.</li>
+        <li>
+          Firefox: open <span className={code}>about:policies</span> and check that{" "}
+          <span className={code}>ExtensionSettings</span>, <span className={code}>DisablePrivateBrowsing</span> and{" "}
+          <span className={code}>DisableSafeMode</span> are listed. Family Guardian is installed by policy, and Help →
+          Troubleshoot Mode is greyed out.
+        </li>
+        <li>
+          Then pair the extension with the code from the dashboard. Firefox needs its own pairing: open Firefox and
+          enter a new code for the same child.
+        </li>
         <li>
           To remove: download and run{" "}
           <a href="/install/FamilyGuardian-Remove.reg" download className={LINK}>
@@ -44,7 +53,10 @@ export function InstallInstructions(): JSX.Element {
           </a>{" "}
           as administrator and restart the browsers. Remove deletes only the values Family Guardian set and leaves the
           policy keys behind, possibly empty, because other policies may live in them. Private windows and guest mode
-          work again afterwards; while the policy is active, guest mode is blocked.
+          work again afterwards; while the policy is active, guest mode is blocked. Remove deletes the whole Firefox{" "}
+          <span className={code}>ExtensionSettings</span> value and the whole forcelist entry{" "}
+          <span className={code}>1</span>, not only our entry: entries set by a family or another tool in them are
+          lost.
         </li>
       </ol>
     </div>

@@ -55,9 +55,23 @@ describe("setup guide page", () => {
     }
   });
 
+  it("Firefox in restart and pairing steps", () => {
+    const keysOf = (l: Locale) => Object.keys(msgs(l)).filter((k) => k.startsWith("setup.steps.")).sort();
+    const base = keysOf("en");
+    for (const l of LOCALES) {
+      const items = render(l).match(/<li\b[\s\S]*?<\/li>/g) ?? [];
+      const restart = items[STEP_KEYS.indexOf("restart")] ?? "";
+      const pair = items[STEP_KEYS.indexOf("pair")] ?? "";
+      for (const w of ["Firefox", "Chrome", "Edge", "Brave"]) expect(restart, `${l} restart ${w}`).toContain(w);
+      expect(msgs(l)["setup.steps.pair"], l).toContain("Firefox");
+      expect(pair, l).toContain(esc(msgs(l)["setup.steps.pair"] ?? ""));
+      expect(keysOf(l), l).toEqual(base);
+    }
+  });
+
   it("Same facts as the install page", () => {
     const source = readFileSync(resolve(__dirname, "../install-instructions.tsx"), "utf8");
-    const words = ["Chrome", "Edge", "Brave", "Standard", "Administrator"].filter((w) => source.includes(w));
+    const words = ["Chrome", "Edge", "Brave", "Firefox", "Standard", "Administrator"].filter((w) => source.includes(w));
     expect(words.length).toBeGreaterThan(0);
     for (const l of LOCALES) {
       const html = render(l);

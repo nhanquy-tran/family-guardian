@@ -95,8 +95,8 @@
       "code": "Lấy mã ghép nối cho laptop của con. Mã có hiệu lực 1 giờ.",
       "installer": "Trên laptop Windows của con, chạy tệp cài đặt .reg bằng quyền quản trị (administrator).",
       "standard": "Đảm bảo con dùng tài khoản Windows loại Standard (tiêu chuẩn), không phải Administrator (quản trị viên).",
-      "restart": "Đóng hẳn rồi mở lại Chrome, Edge và Brave.",
-      "pair": "Mở tiện ích và nhập mã ghép nối.",
+      "restart": "Đóng hẳn rồi mở lại Chrome, Edge, Brave và Firefox.",
+      "pair": "Mở tiện ích và nhập mã ghép nối. Firefox cần một mã mới riêng cho cùng một trẻ.",
       "dashboard": "Kiểm tra bảng điều khiển: laptop sẽ hiện trực tuyến sau vài phút."
     },
     "loginLink": "Đăng nhập",
