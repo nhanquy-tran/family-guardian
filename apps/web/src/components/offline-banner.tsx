@@ -1,11 +1,8 @@
 import { loadActiveOfflineAlerts, type BannerAlert } from "../lib/alerts/banner";
 import { loadSiteAccessLost } from "../lib/alerts/site-access-banner";
 import { createClient } from "../lib/supabase/server";
+import { LocalTime } from "./local-time";
 import { alertWarning } from "./ui";
-
-function formatUtc(iso: string): string {
-  return `${new Date(iso).toISOString().slice(0, 16).replace("T", " ")} UTC`;
-}
 
 export function OfflineBannerView({
   offline,
@@ -20,7 +17,7 @@ export function OfflineBannerView({
       {offline.map((a) => (
         <p key={a.id}>
           {a.devices?.children?.name ?? "A child"}&apos;s {a.devices?.browser} on {a.devices?.os} has not reported
-          since {formatUtc(a.incident_last_seen_at)}
+          since <LocalTime iso={a.incident_last_seen_at} />
         </p>
       ))}
       {siteAccessLost.map((line) => (
