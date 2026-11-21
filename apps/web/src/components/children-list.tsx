@@ -1,4 +1,5 @@
 import { ActionForm } from "./action-form";
+import { LocalTime } from "./local-time";
 import Link from "next/link";
 import type { ReactElement } from "react";
 import type { ChildRow } from "../lib/children";
@@ -67,8 +68,7 @@ export function ChildrenList({
               </ActionForm>
               {active ? (
                 <p>
-                  Pairing code <strong className="font-mono text-lg">{active.code}</strong>. Valid until{" "}
-                  {active.expiresAt}
+                  Pairing code <strong className="font-mono text-lg">{active.code}</strong>. Valid until <LocalTime iso={active.expiresAt} />
                 </p>
               ) : null}
               {pairError?.childId === child.id ? (
