@@ -40,15 +40,15 @@ A fixed `now` of `2026-11-17T10:00:00Z` is used in web tests.
 - **THEN** the results are `"Never"`, `"just now"`, `"just now"`, `"2 min ago"`, `"59 min ago"`, `"2 h ago"`, `"3 d ago"`
 
 ### Requirement: Device label
-`deviceLabel(device)` SHALL return the trimmed device name when it is not empty, else `"<Browser> on <os>"` where Browser is `Chrome`, `Edge`, `Brave` or `Other browser`.
+`deviceLabel(device)` SHALL return the trimmed device name when it is not empty, else `"<Browser> on <os>"` where Browser is `Chrome`, `Edge`, `Brave`, `Firefox` or `Other browser`.
 
 #### Scenario: Blank name falls back to default
 - **WHEN** `deviceLabel` is called with `{ name: "   ", browser: "brave", os: "Windows" }` (`status.test.ts`)
 - **THEN** the result is `"Brave on Windows"`
 
 #### Scenario: Name or default
-- **WHEN** `deviceLabel` is called with `{ name: "Lan's laptop", browser: "chrome", os: "Windows" }`, `{ name: null, browser: "edge", os: "Windows" }` and `{ name: null, browser: "other", os: "Windows" }` (`status.test.ts`)
-- **THEN** the results are `"Lan's laptop"`, `"Edge on Windows"` and `"Other browser on Windows"`
+- **WHEN** `deviceLabel` is called with `{ name: "Lan's laptop", browser: "chrome", os: "Windows" }`, `{ name: null, browser: "edge", os: "Windows" }`, `{ name: null, browser: "firefox", os: "Windows" }` and `{ name: null, browser: "other", os: "Windows" }` (`status.test.ts`)
+- **THEN** the results are `"Lan's laptop"`, `"Edge on Windows"`, `"Firefox on Windows"` and `"Other browser on Windows"`
 
 ### Requirement: Devices listed per child
 `listDevicesByChild(client)` SHALL query `children` with their `devices` (`id, name, browser, os, extension_version, last_seen_at, created_at`), ordered by child name, devices ordered by `created_at` ascending, and SHALL NOT select `token_hash`. On a query error it SHALL return `null`.
@@ -188,3 +188,11 @@ When a parent deletes their own device, no device row SHALL match its token hash
 - **WHEN** parent A deletes that device
 - **THEN** the service role finds zero `devices` rows with `token_hash = 'h-a'` and zero `usage_minutes` rows for that device id
 - **AND** family B's device still exists
+
+### Requirement: Devices page shows Firefox
+The device list SHALL show the browser of a `firefox` device as "Firefox".
+
+#### Scenario: Firefox device listed
+- **GIVEN** a child with one `chrome` and one `firefox` device (`device-list.test.ts`)
+- **WHEN** `DeviceList` is rendered
+- **THEN** the markup contains both `Chrome` and `Firefox`

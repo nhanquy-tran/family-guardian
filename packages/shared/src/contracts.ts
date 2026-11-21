@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { CATEGORIES } from "./categories";
+import { BROWSER_NAMES } from "./extension";
 
 export const MAX_HEARTBEAT_ENTRIES = 1440;
 export const MAX_BLOCKED_ATTEMPTS = 1000;
@@ -19,7 +20,7 @@ export const BlockedAttempt = z.object({
 export const HeartbeatRequest = z.object({
   entries: z.array(UsageEntry).max(MAX_HEARTBEAT_ENTRIES),
   currentDomain: z.string().max(253).nullable(),
-  browser: z.enum(["chrome", "edge", "brave", "other"]),
+  browser: z.enum(BROWSER_NAMES),
   extensionVersion: z.string().max(32),
   blocked: z.array(BlockedAttempt).max(MAX_BLOCKED_ATTEMPTS).optional(),
 });
@@ -27,7 +28,7 @@ export const HeartbeatRequest = z.object({
 export const HeartbeatEnvelope = z.object({
   entries: z.array(z.unknown()),
   currentDomain: z.string().max(253).nullable(),
-  browser: z.enum(["chrome", "edge", "brave", "other"]),
+  browser: z.enum(BROWSER_NAMES),
   extensionVersion: z.string().max(32),
   blocked: z.array(z.unknown()).optional(),
 });
