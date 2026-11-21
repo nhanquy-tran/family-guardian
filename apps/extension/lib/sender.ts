@@ -19,6 +19,7 @@ export interface FlushDeps {
   extensionVersion: string;
   currentDomain: string | null;
   keepAliveOnly: boolean;
+  siteAccess?: boolean;
   store: KeyValueStore;
   post: Post;
 }
@@ -43,6 +44,7 @@ async function send(
         browser: deps.browser,
         extensionVersion: deps.extensionVersion,
         ...(blocked.length > 0 ? { blocked } : {}),
+        ...(deps.siteAccess === undefined ? {} : { siteAccess: deps.siteAccess }),
       }),
     );
     const response = await deps.post(`${deps.baseUrl}/api/device/heartbeat`, {

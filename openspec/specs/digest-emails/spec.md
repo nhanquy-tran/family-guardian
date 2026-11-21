@@ -73,7 +73,7 @@ Each family SHALL have `timezone` (default `UTC`), `timezone_known` (default fal
 - **THEN** the first is computed as `UTC` and the second returns `null`
 
 ### Requirement: Digest content
-For each child of the family the digest SHALL list offline incidents of the child's devices that started in the period (browser and OS, from, to or "still offline", in the family timezone), total active time, the top 3 domains by time, and the focus score over the period (`computeFocusScore` with `homeworkDomainsFor`), then the dashboard link. It SHALL be plain text with no URL except the dashboard link.
+For each child of the family the digest SHALL list offline incidents that started in the period (browser and OS, from, to or "still offline", family timezone), a `Site access off:` block for lost-site-access incidents of the period (none, no block), total active time, the top 3 domains, and the focus score (`computeFocusScore` with `homeworkDomainsFor`), then the dashboard link. Plain text, no URL but the dashboard link.
 
 #### Scenario: Full child section
 - **GIVEN** child "Mia" with an incident from `11:40` to `12:10` on Edge and Windows, usage of 5 domains, homework settings, timezone `UTC`
@@ -99,6 +99,25 @@ For each child of the family the digest SHALL list offline incidents of the chil
 - **GIVEN** two families with children and incidents
 - **WHEN** the digest for family A is built
 - **THEN** no name, device or domain of family B appears and every query is filtered by A's child ids
+
+#### Scenario: Resolved and open incident
+File: `apps/web/src/lib/digest/content.test.ts`
+- **GIVEN** child "Mia" with a site-access incident from `13:00` to `13:30` on Firefox and Windows, and another started at `18:00` and not resolved, timezone `UTC`
+- **WHEN** `buildDigest` runs for a daily period
+- **THEN** Mia's section has `Site access off:` with lines `<Browser> on <OS>: from <start> to <end>` or `to still off`: `Firefox on Windows: from 13:00 to 13:30` and `Firefox on Windows: from 18:00 to still off`
+- **AND** with two children and only one incident, `Site access off:` appears once, in that child's section, and `DigestSource.listSiteAccessIncidents(childIds, start, end)` was called with both child ids
+
+#### Scenario: Listing fails
+File: `apps/web/src/lib/digest/send.test.ts`
+- **GIVEN** a due family and a source whose `listSiteAccessIncidents` rejects
+- **WHEN** `handleDigestSend` runs
+- **THEN** nothing is mailed, the claim is released and the response counts it as `failed` 1
+
+#### Scenario: Store reads the family's incidents in the period
+File: `apps/web/src/lib/digest/supabase-store.test.ts`
+- **GIVEN** a fake client with incidents of three devices, one started before the period, one inside it, one after it
+- **WHEN** `listSiteAccessIncidents(childIds, start, end)` runs, and then with a client that returns an error
+- **THEN** it returns only the incident inside the period with the child id, browser, OS, `startedAt` and `resolvedAt`, and the second call throws
 
 ### Requirement: Digest delivery
 `handleDigestSend` SHALL, for each family with a due period, claim `(family, frequency, period_start)` (skip if it exists), send the digest to every parent, keep the claim if at least one send succeeded or there are no recipients, and release it if all sends failed or building failed. One family failing SHALL NOT stop the others. Logs SHALL hold counts only.

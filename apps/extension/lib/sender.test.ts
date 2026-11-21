@@ -49,6 +49,30 @@ describe("flushQueue", () => {
     });
   });
 
+  it("siteAccess is sent only when the check answered", async () => {
+    for (const siteAccess of [true, false]) {
+      const { post, calls } = always(ok);
+      const fake = createStore({ queue: entries(1, 2) });
+      await flushQueue({
+        now: NOW,
+        token: "tok-1",
+        baseUrl: "https://fg.example",
+        browser: "edge",
+        extensionVersion: "0.2.0",
+        currentDomain: null,
+        keepAliveOnly: false,
+        siteAccess,
+        store: fake.store,
+        post,
+      });
+      expect(calls[0]?.body["siteAccess"]).toBe(siteAccess);
+      expect(() => HeartbeatRequest.parse(calls[0]?.body)).not.toThrow();
+    }
+    const { post, calls } = always(ok);
+    await run({ queue: entries(1, 2) }, post).result;
+    expect(calls[0]?.body).not.toHaveProperty("siteAccess");
+  });
+
   it("three chunks", async () => {
     const { post, calls } = always(ok);
     const { result, data } = run({ queue: entries(1, 3000) }, post);

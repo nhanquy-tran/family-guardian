@@ -62,7 +62,8 @@ function fake(opts: Opts) {
     if (opts.failTotals) throw new Error("totals failed");
     return Object.fromEntries(childIds.map((id) => [id, opts.prev?.[id] ?? 0]));
   });
-  const source: DigestSource = { listChildren, listIncidents, readUsage };
+  const listSiteAccessIncidents = vi.fn(async () => []);
+  const source: DigestSource = { listChildren, listIncidents, listSiteAccessIncidents, readUsage };
   return { source, listChildren, readUsage, totals };
 }
 

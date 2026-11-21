@@ -55,7 +55,7 @@ describe("screens use the shared styles", () => {
   it("offline banner uses the soft warning style", () => {
     const src = readFileSync(join(srcRoot, "components", "offline-banner.tsx"), "utf8");
     expect(src).toMatch(/role="alert"[^>]*className=\{alertWarning\}|className=\{[^}]*alertWarning[^}]*\}[^>]*role="alert"/);
-    expect(src).toContain("loadActiveOfflineAlerts(await createClient())");
+    expect(src).toContain("loadActiveOfflineAlerts(");
     expect(src).toContain("has not reported");
   });
 

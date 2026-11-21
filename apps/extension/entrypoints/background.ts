@@ -24,6 +24,7 @@ export default defineBackground({
             get: fetchGet,
             dnr: browser.declarativeNetRequest,
             alarms: browser.alarms,
+            permissions: browser.permissions,
             badge: resolveBadgeApi(browser as unknown as { action?: typeof browser.action; browserAction?: typeof browser.action }),
             baseUrl: baseUrl as string,
             extensionVersion: browser.runtime.getManifest().version,

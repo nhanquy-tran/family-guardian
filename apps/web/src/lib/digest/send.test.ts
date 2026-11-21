@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { DigestMessage } from "./content";
+import { buildDigest, type DigestMessage, type DigestSource } from "./content";
 import { handleDigestSend, type DigestFamilyRow, type DigestStore } from "./send";
+import type { DuePeriod } from "./schedule";
 
 const NOW = new Date("2026-11-18T08:00:00Z"); // send moment of a daily family with hour 8 on UTC
 const SECRET = "s3cret";
@@ -68,7 +69,7 @@ const message = (familyId: string): DigestMessage => ({
 type Fakes = {
   store: ReturnType<typeof fakeStore>;
   mail: ReturnType<typeof fakeMailer>;
-  build: ReturnType<typeof vi.fn<(f: DigestFamilyRow) => Promise<DigestMessage>>>;
+  build: ReturnType<typeof vi.fn<(f: DigestFamilyRow, p: DuePeriod) => Promise<DigestMessage>>>;
 };
 
 const fakes = (opts: StoreOpts = {}, mode: "ok" | "rejectAll" | "rejectFirst" = "ok", failBuildFor?: string): Fakes => ({
@@ -118,6 +119,25 @@ afterEach(() => {
 });
 
 describe("handleDigestSend", () => {
+  it("Listing fails", async () => {
+    const f = fakes();
+    const source: DigestSource = {
+      listChildren: async () => [{ id: "c-mia", name: "Mia", homeworkCategories: [], homeworkDomains: [] }],
+      listIncidents: async () => [],
+      listSiteAccessIncidents: async () => {
+        throw new Error("db down");
+      },
+      readUsage: async () => [],
+    };
+    f.build.mockImplementation((fam, period) =>
+      buildDigest({ familyId: fam.id, timezone: fam.timezone, period, appUrl: "https://app.example.test", source }),
+    );
+    const res = await run(f);
+    expect(f.mail.send).not.toHaveBeenCalled();
+    expect(f.store.releaseDigest).toHaveBeenCalledWith("fam-1", "daily", PERIOD_START);
+    expect(res).toEqual({ status: 200, body: counts(0, 0, 1) });
+  });
+
   it("Once per period with two parents", async () => {
     const f = fakes();
     const first = await run(f);

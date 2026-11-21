@@ -35,6 +35,18 @@ describe("rules contract allowed hours", () => {
 });
 
 describe("heartbeat contracts", () => {
+  it("Contract accepts and rejects", () => {
+    const body = { entries: [], currentDomain: null, browser: "edge", extensionVersion: "0.3.0" };
+    for (const schema of [HeartbeatRequest, HeartbeatEnvelope]) {
+      expect(schema.safeParse({ ...body, siteAccess: true }).success).toBe(true);
+      expect(schema.safeParse({ ...body, siteAccess: false }).success).toBe(true);
+      expect(schema.safeParse(body).success).toBe(true);
+      for (const bad of ["no", 0, null]) {
+        expect(schema.safeParse({ ...body, siteAccess: bad }).success, String(bad)).toBe(false);
+      }
+    }
+  });
+
   it("Envelope schema in shared package", () => {
     const body = { ...base, entries: [{ ...entry, seconds: 61 }] };
     expect(HeartbeatEnvelope.safeParse(body).success).toBe(true);
