@@ -18,15 +18,10 @@
 - **WHEN** `resolve_offline_alerts(p_now)` runs twice
 - **THEN** the incident's `resolved_at` equals `p_now` after the first run and is unchanged after the second
 
-#### Scenario: Earlier sibling or other child does not resolve
-- **GIVEN** an open incident (`incident_last_seen_at` `11:40`), a sibling device of the same child with `last_seen_at` `11:30`, and a device of another child with `last_seen_at` `11:55`
+#### Scenario: Sibling that does not cover leaves the incident open
+- **GIVEN** an open incident (`incident_last_seen_at` `11:40`), a sibling device of the same child with `last_seen_at` `11:30`, and a device of another child with `last_seen_at` `11:55`; and separately Chrome last seen 20 min before `p_now` and Firefox last seen 3 h before `p_now`, both with open incidents (`incident_last_seen_at` equal to their `last_seen_at`)
 - **WHEN** `resolve_offline_alerts(p_now)` runs
-- **THEN** the incident stays unresolved
-
-#### Scenario: Silent sibling does not resolve
-- **GIVEN** Chrome last seen 20 min before `p_now` and Firefox last seen 3 h before `p_now`, both with open incidents (`incident_last_seen_at` equal to their `last_seen_at`)
-- **WHEN** `resolve_offline_alerts(p_now)` runs
-- **THEN** neither incident is resolved
+- **THEN** the first incident stays unresolved, and neither the Chrome nor the Firefox incident is resolved
 
 #### Scenario: Find, claim and resolve in one run
 - **GIVEN** Firefox last seen 09:00 (covered by Chrome until then, so no incident), Chrome last seen 12:00, and `p_now` 12:15
