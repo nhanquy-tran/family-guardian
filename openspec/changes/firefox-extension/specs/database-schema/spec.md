@@ -14,4 +14,4 @@
 #### Scenario: Firefox migration only changes the check
 - **WHEN** `schema.test.ts` reads the `firefox` migration file in `supabase/migrations`
 - **THEN** it contains no `update`, `delete`, `truncate`, `grant` or `revoke` statement
-- **AND** it changes the `devices.browser` check
+- **AND** it drops and re-adds the check named `devices_browser_check` on `devices`, with `firefox` among the allowed values

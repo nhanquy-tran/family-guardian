@@ -21,8 +21,4 @@
 #### Scenario: Parsing
 - **WHEN** `parseBrowserName` is called with `"firefox"`, `"brave"`, `"netscape"`, `undefined` and `42` (`browser-info.test.ts`)
 - **THEN** the results are `firefox`, `brave`, `other`, `other`, `other`
-
-#### Scenario: Stored Firefox is sent
-- **GIVEN** a paired controller with `browser` `"firefox"` in the store (`controller.test.ts`)
-- **WHEN** the alarm fires
-- **THEN** the request body contains `browser` `"firefox"`
+- **AND** a paired controller with `browser` `"firefox"` in the store sends request body `browser` `"firefox"` when the alarm fires (`controller.test.ts`)
