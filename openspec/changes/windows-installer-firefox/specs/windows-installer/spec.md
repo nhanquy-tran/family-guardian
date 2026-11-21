@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Setup file sets force-install and disables private and guest mode
-`buildSetupReg()` SHALL, for each policy target, set `"<privateModeValue>"=dword:00000001` and `"BrowserGuestModeEnabled"=dword:00000000` under `[<key>]` and `"1"="<EXTENSION_ID>;<CHROME_WEB_STORE_UPDATE_URL>"` under `[<key>\ExtensionInstallForcelist]`, using the constants from `@fg/shared`. It SHALL then add the Firefox key `[HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Mozilla\Firefox]` with `"ExtensionSettings"` and `"DisablePrivateBrowsing"=dword:00000001`. It SHALL set no other values.
+`buildSetupReg()` SHALL, for each policy target, set `"<privateModeValue>"=dword:00000001` and `"BrowserGuestModeEnabled"=dword:00000000` under `[<key>]` and `"1"="<EXTENSION_ID>;<CHROME_WEB_STORE_UPDATE_URL>"` under `[<key>\ExtensionInstallForcelist]`. It SHALL then add `[HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Mozilla\Firefox]` with `"ExtensionSettings"`, `"DisablePrivateBrowsing"=dword:00000001` and `"DisableSafeMode"=dword:00000001`, in that order, and no other values.
 
 #### Scenario: Force-install entry for each browser
 - **WHEN** `buildSetupReg()` is called (`reg.test.ts`)
@@ -20,7 +20,7 @@
 
 #### Scenario: Nothing else is set
 - **WHEN** `buildSetupReg()` is called (`reg.test.ts`)
-- **THEN** it has exactly 7 key lines (starting with `[`), all under `HKEY_LOCAL_MACHINE\SOFTWARE\Policies\`, and exactly 11 value lines (starting with `"`)
+- **THEN** it has exactly 7 key lines (starting with `[`), all under `HKEY_LOCAL_MACHINE\SOFTWARE\Policies\`, and exactly 12 value lines (starting with `"`)
 - **AND** no line starts with `[-` and no value line ends with `=-`
 
 #### Scenario: Chrome, Edge and Brave lines are unchanged
@@ -57,12 +57,13 @@
   [HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Mozilla\Firefox]
   "ExtensionSettings"="{\"guardian@family-guardian.co\":{\"installation_mode\":\"force_installed\",\"install_url\":\"https://family-guardian.co/firefox/latest.xpi\"}}"
   "DisablePrivateBrowsing"=dword:00000001
+  "DisableSafeMode"=dword:00000001
 
   ```
   (the file ends with the last value line's `\r\n`, an empty line, then end of text; the test builds the expected text from the constants and a literal copy of the paths above)
 
 ### Requirement: Remove file deletes exactly the setup values
-`buildRemoveReg()` SHALL contain, for the same keys as the setup file, the deletion lines `"<privateModeValue>"=-`, `"BrowserGuestModeEnabled"=-` and `"1"=-` for the three Chromium browsers and `"ExtensionSettings"=-` and `"DisablePrivateBrowsing"=-` under the Firefox key, and nothing else. It SHALL NOT delete any key.
+`buildRemoveReg()` SHALL contain, for the same keys as the setup file, the deletion lines `"<privateModeValue>"=-`, `"BrowserGuestModeEnabled"=-` and `"1"=-` for the three Chromium browsers and `"ExtensionSettings"=-`, `"DisablePrivateBrowsing"=-` and `"DisableSafeMode"=-` under the Firefox key, and nothing else. It SHALL NOT delete any key.
 
 #### Scenario: Deletes the values set by setup
 - **WHEN** `buildSetupReg()` and `buildRemoveReg()` are called (`reg.test.ts`)
@@ -75,11 +76,11 @@
 
 #### Scenario: Firefox values are removed
 - **WHEN** `buildRemoveReg()` is called (`reg.test.ts`)
-- **THEN** the section under `[HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Mozilla\Firefox]` has exactly the two value lines `"ExtensionSettings"=-` and `"DisablePrivateBrowsing"=-`, in that order
+- **THEN** the section under `[HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Mozilla\Firefox]` has exactly the three value lines `"ExtensionSettings"=-`, `"DisablePrivateBrowsing"=-` and `"DisableSafeMode"=-`, in that order
 
 #### Scenario: Full expected remove file
 - **WHEN** `buildRemoveReg()` is called (`reg.test.ts`)
-- **THEN** the result equals exactly the setup text above with each value line replaced by `"<name>"=-` (private-mode name, `BrowserGuestModeEnabled` and `"1"` per Chromium browser; `ExtensionSettings` and `DisablePrivateBrowsing` for Firefox), the same key lines and blank lines, and CRLF endings
+- **THEN** the result equals exactly the setup text above with each value line replaced by `"<name>"=-` (private-mode name, `BrowserGuestModeEnabled` and `"1"` per Chromium browser; `ExtensionSettings`, `DisablePrivateBrowsing` and `DisableSafeMode` for Firefox), the same key lines and blank lines, and CRLF endings
 
 #### Scenario: No key is deleted
 - **WHEN** `buildRemoveReg()` is called (`reg.test.ts`)
@@ -104,7 +105,7 @@ The `/install` page SHALL render `InstallInstructions`, which shows download lin
 
 #### Scenario: Firefox steps
 - **WHEN** a test renders `InstallInstructions` (`install-instructions.test.ts`)
-- **THEN** the markup contains `about:policies`, `ExtensionSettings`, `DisablePrivateBrowsing` and "Firefox"
+- **THEN** the markup contains `about:policies`, `ExtensionSettings`, `DisablePrivateBrowsing`, `DisableSafeMode` and "Firefox"
 - **AND** it contains the text "new code" and "same child"
 - **AND** the first occurrence of "Firefox" is after the first occurrence of `FamilyGuardian-Setup.reg` and before `FamilyGuardian-Remove.reg`
 
@@ -112,6 +113,7 @@ The `/install` page SHALL render `InstallInstructions`, which shows download lin
 - **WHEN** a test renders `InstallInstructions` (`install-instructions.test.ts`)
 - **THEN** the markup states that Remove deletes only the values Family Guardian set and leaves the (possibly empty) policy keys, by containing the text "empty"
 - **AND** it states that guest mode is blocked, by containing the text "guest"
+- **AND** it states that Remove deletes the whole Firefox `ExtensionSettings` value and the Chromium forcelist entry `1`, not only the Family Guardian entry, by containing the text "whole" and "not only"
 
 #### Scenario: Page and home link exist
 - **WHEN** a test reads the file system (`install-instructions.test.ts`)

@@ -22,5 +22,5 @@ Each locale SHALL have `/<locale>/setup`, an ordered step-by-step guide for pare
 #### Scenario: Firefox in restart and pairing steps
 - **GIVEN** `SetupGuide` rendered for each locale with `getMessages(locale)`
 - **WHEN** `setup-guide.test.tsx` reads the `<li>` items for the restart and pairing steps
-- **THEN** the restart item contains `Firefox` and the same `Chrome`, `Edge` and `Brave` words as before
+- **THEN** the restart item contains `Firefox` and still contains the words `Chrome`, `Edge` and `Brave` (each at least once)
 - **AND** the pairing item equals the `setup.steps.pair` message, which contains `Firefox`, and `en.json`, `vi.json` and `zh.json` still have identical `setup.steps` keys
