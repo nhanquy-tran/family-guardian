@@ -8,13 +8,14 @@
 
 ## 3. Web: heartbeat
 - [ ] 3.1 Tests in `heartbeat.test.ts` and `supabase-store.test.ts`
-- [ ] 3.2 Pass `site_access` in the `updateDevice` patch (`?? true`); extend `HeartbeatStore` type and Supabase store
+- [ ] 3.2 Pass `site_access` in the `updateDevice` patch only when `siteAccess` is present; extend `HeartbeatStore` type (optional field) and Supabase store
 
 ## 4. Web: banner and digest
 - [ ] 4.1 Tests: `site-access-banner.test.ts`, `offline-banner.test.ts`, digest `content.test.ts`, `send.test.ts`, `supabase-store.test.ts`
-- [ ] 4.2 `siteAccessLostLines`, `loadSiteAccessLost`, extend `OfflineBanner`
+- [ ] 4.2 `siteAccessLostLines` (order child, browser, device name), `loadSiteAccessLost`; split `offline-banner.tsx` into a pure `OfflineBannerView({ offline, siteAccessLost })` and a thin async `OfflineBanner` that loads both lists and renders the view
 - [ ] 4.3 `listSiteAccessIncidents` in `DigestSource`, the Supabase store and `buildDigest`
 
 ## 5. Extension
-- [ ] 5.1 Tests in `sender.test.ts` and `controller.test.ts`
-- [ ] 5.2 `siteAccess` in `FlushDeps` and the request body; `permissions` dependency in the controller, wired in the background entrypoint with `<all_urls>`
+- [ ] 5.1 Tests in `sender.test.ts`, `controller.test.ts` and `background.test.ts` (wiring)
+- [ ] 5.2 `siteAccess` in `FlushDeps` and the request body; `permissions` dependency in the controller, wired in the background entrypoint with `<all_urls>`, run from the existing minute alarm
+- [ ] 5.3 Also check the API-origin permission and store `apiAccess` locally (not sent)

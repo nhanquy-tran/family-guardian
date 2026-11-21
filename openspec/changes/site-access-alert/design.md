@@ -3,12 +3,13 @@ ADR 0024 approves one yes/no heartbeat value for lost site access (amending ADR 
 
 ## Decisions
 - **Check**: `permissions.contains({ origins: ["<all_urls>"] })`, injected into the controller as `permissions` (Chromium `chrome.permissions`, Firefox `browser.permissions`; WXT's `browser` covers both). Checked on every alarm, before the flush, and sent in the same request. If the call rejects, omit `siteAccess` (unknown is not "lost"; avoids false alarms), log without detail.
-- **Wire**: `siteAccess: z.boolean().optional()` on `HeartbeatRequest` and `HeartbeatEnvelope`. A non-boolean value is an invalid envelope (`400`), like other envelope fields. Absent means true, so an old extension that lost nothing never alarms, and the server writes `true` when absent (an old extension replacing a new one clears the flag).
-- **Store**: `updateDevice` patch gains `site_access`. Written on every heartbeat, no extra call.
+- **Wire**: `siteAccess: z.boolean().optional()` on `HeartbeatRequest` and `HeartbeatEnvelope`. A non-boolean value is an invalid envelope (`400`), like other envelope fields. Absent means "unknown": the server leaves `site_access` out of the update, so the stored value is kept (the column default `true` covers old extensions). A failed check therefore neither opens nor closes an incident.
+- **Store**: `updateDevice` patch gains an optional `site_access`, written only when the heartbeat carries it, no extra call. The value in a keep-alive after `401` is ignored by the server: the token matched no device, so `handleHeartbeat` returns before `updateDevice`. The keep-alive scenario stays as a contract test only.
+- **API-origin check**: the controller also calls `permissions.contains({ origins: [apiOrigin + "/*"] })` on each alarm and stores the boolean locally (`apiAccess`) for the options page. It is not sent (ADR 0024 allows one value). A rejection keeps the previous value.
 - **Incidents by trigger**: an `after update of site_access` trigger on `devices` keeps `site_access_incidents` (`started_at`, `resolved_at`). One open incident per device (partial unique index). Time is the database `now()`, so no client clock is trusted. A repeated `false` changes nothing.
 - **Banner**: reads `devices.site_access = false` directly (RLS, column grant), no cron. Resolves on the next heartbeat because the heartbeat writes `true`.
 - **Digest**: new `DigestSource.listSiteAccessIncidents`; lines only when incidents exist. A failed listing fails the build, so the claim is released and the next run retries (same as `listIncidents`).
-- Layout file untouched: the existing `OfflineBanner` component renders both kinds.
+- Layout file untouched. `OfflineBanner` splits into a pure `OfflineBannerView({ offline, siteAccessLost })`, which tests render with `react-dom/server`, and a thin async `OfflineBanner` that creates the client, loads both lists (`loadActiveOfflineAlerts`, `loadSiteAccessLost`) and renders the view.
 
 ## Data model
 - `devices.site_access boolean not null default true`. Owner: service role writes; parents read via `grant select (site_access)`. Existing rows become `true`. No retention beyond the device row.
@@ -21,6 +22,7 @@ ADR 0024 approves one yes/no heartbeat value for lost site access (amending ADR 
 - ADR 0005 allowed-fields list is amended by ADR 0024 for exactly this value.
 
 ## Failure modes
+- **Residual risk: all host permissions withheld.** If the browser withholds every host permission, including our API origin, the heartbeat cannot reach the server and the device goes silent. No `siteAccess: false` arrives, so the parent sees no site-access line. They see the offline incident only when no other device of the child reports, because once #179 lands a silent device is not flagged while another one reports. This change cannot close that gap; the owner check in NOTES.md says whether it happens in real browsers, and the follow-up (out of scope) is CORS headers on the device routes for the extension origins, so heartbeats no longer need the API host permission.
 - Permission check throws: field omitted; heartbeat still sent.
 - Store write of `site_access` fails: the heartbeat fails with `500` as today; the extension retries next minute.
 - Trigger failure rolls back the device update (`500`), retried next minute; fails visibly, not silently.

@@ -1,18 +1,18 @@
 ## MODIFIED Requirements
 
 ### Requirement: Device status update
-Every authenticated request with a valid envelope SHALL update the device with `last_seen_at` set to the server's now, `browser` and `extension_version` from the body, and `site_access` set to the body's `siteAccess`, or `true` when the body has none, and nothing else. `currentDomain` SHALL NOT be stored anywhere. Store failures SHALL respond `500 { "error": "server_error" }`.
+Every authenticated request with a valid envelope SHALL update the device with `last_seen_at` set to the server's now, `browser` and `extension_version` from the body, and `site_access` set to the body's `siteAccess` only when the body has one (a body without it leaves `site_access` out of the update, and the column keeps its value, default `true`), and nothing else. `currentDomain` SHALL NOT be stored anywhere. Store failures SHALL respond `500 { "error": "server_error" }`.
 
 #### Scenario: Device updated
 - **GIVEN** a valid token
 - **WHEN** it sends a valid body with browser `edge`, extensionVersion `0.2.0` and currentDomain `youtube.com`
-- **THEN** `updateDevice` is called once with `"dev-1"` and exactly `{ last_seen_at: "2026-11-17T10:05:30.000Z", browser: "edge", extension_version: "0.2.0", site_access: true }`
+- **THEN** `updateDevice` is called once with `"dev-1"` and exactly `{ last_seen_at: "2026-11-17T10:05:30.000Z", browser: "edge", extension_version: "0.2.0" }`
 - **AND** no store call argument contains the value `youtube.com`
 
 #### Scenario: Site access stored as sent
 - **GIVEN** a valid token
 - **WHEN** it sends a valid body with `siteAccess` `false`, then one with `siteAccess` `true`, then one without it (`heartbeat.test.ts`)
-- **THEN** the `site_access` in the three `updateDevice` patches is `false`, `true`, `true`
+- **THEN** the `site_access` in the three `updateDevice` patches is `false`, `true`, and absent (the third patch has no `site_access` key)
 
 #### Scenario: Store failure
 - **GIVEN** the fake store's `upsertUsage` (then, in a second case, `updateDevice`) throws
@@ -37,11 +37,17 @@ File: `packages/shared/src/contracts.test.ts`
 - **WHEN** both schemas parse `{ entries: [], currentDomain: null, browser: "edge", extensionVersion: "0.3.0" }` with `siteAccess` `true`, `false`, absent, and then `"no"`, `0` and `null`
 - **THEN** the first three succeed and the last three fail, for both schemas
 
-#### Scenario: Wrong type is a bad request
+#### Scenario: Keep-alive value ignored on 401
 File: `apps/web/src/lib/device/heartbeat.test.ts`
-- **GIVEN** a valid token
-- **WHEN** it sends a valid body with `siteAccess` `"no"`
-- **THEN** the response is `400 { error: "invalid_request" }` and `upsertUsage` and `updateDevice` are never called
+- **GIVEN** a token that matches no device
+- **WHEN** it sends a valid body with `siteAccess` `false`
+- **THEN** the response is `401` and `updateDevice` is never called
+
+#### Scenario: Wrong type is a bad request, keep-alive value ignored
+File: `apps/web/src/lib/device/heartbeat.test.ts`
+- **GIVEN** a valid token, and a token that matches no device
+- **WHEN** the first sends a valid body with `siteAccess` `"no"`, and the second a valid body with `siteAccess` `false`
+- **THEN** the first gets `400 { error: "invalid_request" }`, the second `401`, and `upsertUsage` and `updateDevice` are never called
 
 ### Requirement: Store writes the site-access value
 `createHeartbeatStore(client).updateDevice` SHALL pass the whole patch, including `site_access`, to a single `devices` update filtered by the device id, and throw on a client error.
