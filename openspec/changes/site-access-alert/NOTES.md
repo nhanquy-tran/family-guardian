@@ -45,3 +45,8 @@ HIDDEN VERDICT: code
 - Verdict: code.
 - Evidence: offline-alerts spec says `<device>` is "name, else `<child>'s <browser> on <os>`", and a device "with no name" gets the fallback. The test passes `name: "   "`. Received `Blocking is off on    : site access was turned off`, so the banner shows an empty label. A whitespace-only name is not a usable name. `apps/web/src/lib/devices/status.ts:26` already treats names this way (`device.name?.trim()`). The cause is `apps/web/src/lib/alerts/site-access-banner.ts:22`: `r.name ?? ...` only falls back on null or undefined.
 - Proposed change: in `site-access-banner.ts`, use `const label = r.name?.trim() || \`${r.children?.name ?? "A child"}'s ${capitalize(r.browser)} on ${r.os}\`;`. Optionally sort by the trimmed name too (line 19).
+
+### Gate fix round 1
+- Merged `origin/main`; the only conflict was the coverage minimums in `vitest.config.ts` (kept this branch's higher values; coverage is 90.57% lines / 84% branches).
+- Code fix for the hidden-test verdict: `site-access-banner.ts` now falls back to `<child>'s <browser> on <os>` when the device name is blank (`r.name?.trim() || ...`), and sorts on the trimmed name. No tests changed.
+- `npm run check:ci` (1064 passed, 1 skipped) and `npm run build` both pass.
