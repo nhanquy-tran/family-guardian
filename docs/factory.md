@@ -124,7 +124,7 @@ The metrics comment of each agent step also lists the tool calls the agent was d
 
 Repo secrets: `CLAUDE_API_KEY` (required), `FACTORY_TOKEN` (recommended: fine-grained PAT on this repo with Contents, Issues, Pull requests read/write. Without it, PRs opened by the factory do not trigger CI and AI review; the build job still runs its own gates).
 
-Repo variables (optional): `FACTORY_SPEC_MODEL`, `FACTORY_BUILD_MODEL`, `FACTORY_REVIEW_MODEL` and `FACTORY_STEWARD_MODEL` (default `claude-sonnet-5-5`), `FACTORY_ARCHITECT_MODEL` (default `claude-opus-5-5`), `FACTORY_MAX_PER_NIGHT` (default 3), `FACTORY_MAX_PARALLEL` (scheduler, default 3), `FACTORY_MODE` (`light` or `full`, default `full`), `FACTORY_DEV_MAX_TURNS` (default 70, 50 in light mode).
+Repo variables (optional): `FACTORY_SPEC_MODEL`, `FACTORY_BUILD_MODEL`, `FACTORY_REVIEW_MODEL` and `FACTORY_STEWARD_MODEL` (default `claude-sonnet-5-5`), `FACTORY_ARCHITECT_MODEL` (default `claude-sonnet-5-5`, or `claude-opus-5-5` when the issue is labelled `security` or `privacy`), `FACTORY_MAX_PER_NIGHT` (default 3), `FACTORY_MAX_PARALLEL` (scheduler, default 3), `FACTORY_MODE` (`light` or `full`, default `full`), `FACTORY_DEV_MAX_TURNS` (default 70, 50 in light mode).
 
 Agents never get `FACTORY_TOKEN` in their shell: the workflow does the pushes, PRs and labels. Only the owner-triggered `@claude` job keeps it, with a tool allowlist.
 
