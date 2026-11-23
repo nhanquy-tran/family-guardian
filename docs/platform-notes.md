@@ -38,12 +38,13 @@ Facts about the platforms we build on that caused real defects or failures. Ever
 - `browser.action` does not exist in MV2: the badge uses `resolveBadgeApi` (`action ?? browserAction`). The background is a non-persistent event page; listeners are registered synchronously.
 - Minimum Firefox 140.0 (first desktop release with `data_collection_permissions`).
 - **Troubleshoot Mode starts Firefox with add-ons disabled** (Help > Troubleshoot Mode, or Shift at launch) and a Standard user can open it: the Firefox counterpart of the Chromium guest-mode hole (#17). Policy `DisableSafeMode=1` removes it. Policies are still read in that mode.
+- Firefox reads policies from `HKLM\SOFTWARE\Policies\Mozilla\Firefox`; verify them in `about:policies`.
 
 ### Smoke checklist (real Firefox on Windows, owner)
 
-1. Load the signed add-on; the pairing page opens. Pairing with a code works and the devices page shows "Firefox".
+1. Run the setup `.reg` (policy installs the add-on; until #174's first signed release is published, Firefox reports an install error for `latest.xpi`). The pairing page opens. Pairing with a code works and the devices page shows "Firefox".
 2. Browse a site: usage appears after a heartbeat; idle (no input) stops crediting time.
-3. Close Firefox: the device looks offline after a while (known, see #179).
+3. Close Firefox with no other browser of the child reporting: the device looks offline after a while. If Chrome or Edge of the same child is active, no alert fires (sibling rule).
 4. Block page: a blocked domain redirects to `blocked.html`, and the attempt is reported.
 5. A category limit that is used up blocks its sites; allowed hours outside the window block everything.
 6. Badge: with a limit near its end the badge shows the minutes left.
@@ -56,6 +57,8 @@ Facts about the platforms we build on that caused real defects or failures. Ever
 - The extension tracker credits no time across a gap over 120 s (`MAX_GAP_MS`): tests of time-based features need an alarm at least every 2 minutes.
 - Allowed hours: if the window start changes while the child is paused, the `h` in the paused redirect stays stale until the next edge (only rule presence is reconciled).
 - A laptop that is switched off looks exactly like a removed extension. Alerts must not fire every evening (throttle, wording). (#18)
+- An offline device is covered when another device of the same child reported more recently and within 15 minutes: no alert then (sibling rule).
+- A removed or disabled extension in one browser looks like a closed browser while another browser of the child reports, so offline alerts do not detect per-browser tampering. Force-install by policy (ADR 0002, 0024) is the control.
 - A server-side bug that returns 401 must not wipe every device: keep local data on 401 and recover on the next success. (#11)
 - Queues must never get stuck on one bad item or on size: validate items one by one, cap batch sizes, and give the client a distinct "split the batch" signal (413). (#10)
 
