@@ -152,7 +152,7 @@ Token: read-only views work without one (60 GitHub API calls per hour per IP, ab
 - One user-visible outcome per issue, small enough for one night.
 - Acceptance criteria as bullet points; the spec writer turns them into scenarios.
 - Name the area (`area:web`, `area:extension`, `area:infra`).
-- Put dependencies on their own line at the start of the body, `Depends on: #a, #b` (or `Depends on: none`); the scheduler reads it, together with the `Depends on` of the approved spec proposal. `on-hold` stops everything: the scheduler, the router and the build all skip an issue that carries it. Label `autopilot` to let the scheduler run the issue.
+- Put dependencies on their own line at the start of the body, `Depends on: #a, #b` (or `Depends on: none`); the scheduler reads it, together with the `Depends on` of the approved spec proposal. `on-hold` stops everything: the scheduler, the router and the build all skip an issue that carries it. The scheduler also skips an issue that an open or merged hand-made PR closes (`Closes #N`), and notes the PR on the state issue. Label `autopilot` to let the scheduler run the issue.
 
 ## Learn loop
 
@@ -168,4 +168,4 @@ GitHub's `schedule` event is best effort: runs can be delayed or dropped, most o
 
 ## Watchdog
 
-`Factory 5: watchdog` runs every 30 minutes: restarts stalled agent runs (max 2 restarts, then `needs-human`) and unblocks factory/spec PRs that conflict with main. Its run summary lists every action.
+`Factory 5: watchdog` runs every 30 minutes and on every push to main (when PRs start to conflict): restarts stalled agent runs (max 2 restarts, then `needs-human`) and unblocks factory/spec PRs that conflict with main. Its run summary lists every action.

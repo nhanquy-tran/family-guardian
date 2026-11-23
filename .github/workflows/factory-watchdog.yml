@@ -3,8 +3,11 @@ name: "Factory 5: watchdog"
 # Every 30 minutes: restart agent runs that made no progress for 30+ minutes once older than 60 minutes
 # (max 2 restarts, then needs-human), and unblock factory/spec PRs that conflict with main
 # (GitHub runs no PR workflows on conflicting PRs). See docs/way-of-working.md.
+# Also on every push to main: that is when PRs start to conflict, and the cron is often delayed by hours.
 
 on:
+  push:
+    branches: [main]
   schedule:
     - cron: "26,56 * * * *" # off :00/:30, where GitHub delays or drops most scheduled runs
   workflow_dispatch:

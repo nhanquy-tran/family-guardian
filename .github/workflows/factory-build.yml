@@ -116,7 +116,7 @@ jobs:
           claude_args: |
             --model ${{ env.MODEL }}
             --permission-mode default
-            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(cd:*),Bash(npx vitest:*),Bash(npm run typecheck:*),Bash(npm test:*),Bash(ls:*),Bash(mkdir:*)"
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(cd:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(grep:*),Bash(npx vitest:*),Bash(npm run typecheck:*),Bash(npm test:*),Bash(ls:*),Bash(mkdir:*)"
 
       - name: Transcript (test-writer)
         if: always() && steps.test_writer.outputs.execution_file != ''
@@ -206,7 +206,7 @@ jobs:
           claude_args: |
             --model ${{ env.MODEL }}
             --permission-mode default
-            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(cd:*),Bash(npm run:*),Bash(npm test:*),Bash(npx vitest:*),Bash(npx openspec:*),Bash(npm install:*),Bash(ls:*),Bash(date:*),Bash(git status:*),Bash(git diff:*),Bash(git rm:*)"
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(cd:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(grep:*),Bash(mkdir -p:*),Bash(npm run:*),Bash(npm test:*),Bash(npx vitest:*),Bash(npx openspec:*),Bash(npm install:*),Bash(ls:*),Bash(date:*),Bash(git status:*),Bash(git diff:*),Bash(git rm:*)"
             --disallowedTools "${{ steps.guardrails.outputs.deny }}"
 
       - name: Transcript (developer)
@@ -288,7 +288,7 @@ jobs:
           claude_args: |
             --model ${{ env.MODEL }}
             --permission-mode default
-            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(cd:*),Bash(npx vitest:*),Bash(npm run:*),Bash(git diff:*),Bash(git log:*),Bash(git status:*),Bash(git rm:*),Bash(ls:*)"
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(cd:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(grep:*),Bash(mkdir -p:*),Bash(npx vitest:*),Bash(npm run:*),Bash(git diff:*),Bash(git log:*),Bash(git status:*),Bash(git rm:*),Bash(ls:*)"
             --disallowedTools "Edit(acceptance/**),Write(acceptance/**),Edit(docs/architecture.md),Bash(git rm supabase/migrations:*)"
 
       - name: Transcript (debugger)
@@ -367,7 +367,7 @@ jobs:
           claude_args: |
             --model ${{ env.MODEL }}
             --permission-mode default
-            --allowedTools "Read,Glob,Grep,Edit,Write,Bash(cd:*),Bash(npx vitest run:*),Bash(git diff:*),Bash(git log:*),Bash(ls:*)"
+            --allowedTools "Read,Glob,Grep,Edit,Write,Bash(cd:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(grep:*),Bash(mkdir -p:*),Bash(npx vitest run:*),Bash(git diff:*),Bash(git log:*),Bash(ls:*)"
 
       - name: Keep only the verdict
         id: hidden_verdict_result
@@ -415,7 +415,7 @@ jobs:
           claude_args: |
             --model ${{ env.MODEL }}
             --permission-mode default
-            --allowedTools "Read,Glob,Grep,Write,Skill,Bash(cd:*),Bash(npx openspec:*),Bash(openspec:*),Bash(npx vitest run:*),Bash(ls:*),Bash(git diff:*),Bash(git log:*),Bash(git status:*)"
+            --allowedTools "Read,Glob,Grep,Write,Skill,Bash(cd:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(grep:*),Bash(mkdir -p:*),Bash(npx openspec:*),Bash(openspec:*),Bash(npx vitest run:*),Bash(ls:*),Bash(git diff:*),Bash(git log:*),Bash(git status:*)"
 
       - name: Transcript (verifier)
         if: always() && steps.verifier.outputs.execution_file != ''

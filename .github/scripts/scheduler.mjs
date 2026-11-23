@@ -4,7 +4,7 @@
 // Env: GH_TOKEN (owner PAT so label events trigger the router), GITHUB_REPOSITORY, MAX_PARALLEL, DRY_RUN.
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { dependsOn, parseRefs, stateOf } from "./scheduler-rules.mjs";
+import { coveredBy, dependsOn, parseRefs, stateOf } from "./scheduler-rules.mjs";
 
 const repo = process.env.GITHUB_REPOSITORY;
 const maxParallel = Number(process.env.MAX_PARALLEL || 3);
@@ -58,6 +58,9 @@ const autopilot = [...byNumber.values()].filter((i) => i.state === "OPEN" && i.l
 const isDone = (n) => byNumber.get(n)?.state === "CLOSED";
 const specApproved = (n) => isDone(n) || ["ready", "build-now", "in-progress", "in-review"].some((l) => byNumber.get(n)?.labelNames.includes(l));
 
+// Hand-made PRs (open or merged) that close an autopilot issue: the factory leaves those issues alone.
+const prs = ghJson("pr", "list", "--repo", repo, "--state", "all", "--limit", "100", "--json", "number,headRefName,state,body");
+
 let active = activeAgentRuns();
 // Areas of builds that run or have an unmerged PR: a second build there would conflict on rebase (#89).
 const busyTouches = new Set(
@@ -70,8 +73,10 @@ for (const issue of autopilot.sort((a, b) => a.number - b.number)) {
   const deps = dependsOn(issue.body, proposalFor(issue.number));
   const state = stateOf(issue.labelNames);
   let note = "";
+  const covering = ["new", "ready"].includes(state) ? coveredBy(issue.number, prs) : null;
 
-  if (state === "new") {
+  if (covering) note = `covered by PR #${covering}: no factory work started`;
+  else if (state === "new") {
     const waiting = deps.filter((d) => !specApproved(d));
     if (waiting.length) note = `waits for specs of ${waiting.map((d) => `#${d}`).join(", ")}`;
     else if (active >= maxParallel) note = "queued: parallel limit";

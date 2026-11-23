@@ -34,7 +34,7 @@ jobs:
           github_token: ${{ secrets.FACTORY_TOKEN || github.token }}
           claude_args: |
             --model ${{ vars.FACTORY_BUILD_MODEL || 'claude-sonnet-5-5' }}
-            --allowedTools "Read,Glob,Grep,Edit,Write,Bash(cd:*),Bash(npm run check),Bash(npm run build),Bash(npx vitest run:*),Bash(git status),Bash(git diff:*),Bash(git log:*),Bash(git add:*),Bash(git rm:*),Bash(git commit:*),Bash(git push),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(gh issue view:*),Bash(gh issue comment:*)"
+            --allowedTools "Read,Glob,Grep,Edit,Write,Bash(cd:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(grep:*),Bash(ls:*),Bash(mkdir -p:*),Bash(npm run check),Bash(npm run build),Bash(npx vitest run:*),Bash(git status),Bash(git diff:*),Bash(git log:*),Bash(git add:*),Bash(git rm:*),Bash(git commit:*),Bash(git push),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(gh issue view:*),Bash(gh issue comment:*)"
             --disallowedTools "Edit(.env*),Write(.env*),Edit(.github/**),Write(.github/**)"
       - name: Metrics (fixer)
         if: always()

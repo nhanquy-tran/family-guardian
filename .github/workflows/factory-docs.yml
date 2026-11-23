@@ -71,7 +71,7 @@ jobs:
           claude_args: |
             --model ${{ vars.FACTORY_REVIEW_MODEL || 'claude-sonnet-5-5' }}
             --permission-mode default
-            --allowedTools "Read,Glob,Grep,Edit(docs/**),Write(docs/**),Bash(cd:*),Bash(git log:*),Bash(git show:*)"
+            --allowedTools "Read,Glob,Grep,Edit(docs/**),Write(docs/**),Bash(cd:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(grep:*),Bash(ls:*),Bash(git log:*),Bash(git show:*)"
             --disallowedTools "Edit(docs/decisions/**),Write(docs/decisions/**),Edit(docs/docs-notes-applied.txt),Write(docs/docs-notes-applied.txt)"
       - name: Open docs PR
         id: pr

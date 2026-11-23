@@ -20,3 +20,12 @@ export function dependsOn(issueBody, proposal) {
     .filter(Boolean);
   return [...new Set(numbers)].sort((a, b) => a - b);
 }
+
+// An issue that a hand-made PR already closes must not get factory work as well (#154-#157 were specified twice).
+export function coveredBy(issue, prs) {
+  const closes = new RegExp(String.raw`\b(close[sd]?|fix(e[sd])?|resolve[sd]?)\s+#${issue}\b`, "i");
+  const pr = prs.find(
+    (p) => ["OPEN", "MERGED"].includes(p.state) && !/^(factory|spec)\//.test(p.headRefName) && closes.test(p.body || ""),
+  );
+  return pr ? pr.number : null;
+}
