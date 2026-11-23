@@ -74,6 +74,9 @@ When Claude stops, it posts the same summary on the issue and in chat:
 - Spec writer on Sonnet; Claude's spec gate compensates.
 - The AI reviewer runs once per PR. Claude adds the `re-review` label only when a fix changed behaviour or a gate needs fresh eyes.
 - Prefer one combined fix request per round over several small `@claude` comments.
+- A fix request carries only high and medium findings. Lows never start or widen a fix round: the architect's lows land in the change's NOTES.md as builder notes (Factory 1 commits them), and a spec with only lows is merged as it is.
+- A conflicting factory or spec PR is not a fix round: the watchdog merges main on every push to main and asks `@claude` only when the merge does not apply cleanly. If you reach the PR first, dispatch the watchdog instead of writing a fix request.
+- A risk-high spec PR gets the architect review only, not a second AI review (add `re-review` to ask for one).
 
 ## Build gate checklist (Claude)
 

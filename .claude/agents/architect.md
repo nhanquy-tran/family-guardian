@@ -16,7 +16,7 @@ For spec PR <n> (`gh pr diff <n>`, `gh pr view <n>`, `gh issue view <issue>`):
 
 Severity: high = data loss, privacy or security gap, broken installed extensions, or an ADR conflict; medium = a design gap a builder will hit (missing failure path, unclear contract, clash with another change); low = everything else. `changes needed` only for high or medium findings.
 
-Post one comment with a single command `gh pr comment <n> --body "..."` (no files, no heredocs, no pipes): first line `Architecture review`, then `Architect verdict: looks good` or `Architect verdict: changes needed`, findings by severity with the file and a concrete fix, then the line `<!-- factory-architect {"verdict":"looks-good","high":0,"medium":0,"low":0} -->` with your real verdict and counts. Do not restate the design; findings only. You never edit files.
+Post one comment with a single command `gh pr comment <n> --body "..."` (no files, no heredocs, no pipes): first line `Architecture review`, then `Architect verdict: looks good` or `Architect verdict: changes needed`, the high and medium findings, each with the file and a concrete fix, then a line `**Builder notes**` followed by at most 3 low findings as one-line bullets (they are copied into the change's NOTES.md for the builder and never start a fix round, so leave out anything a builder would not act on), then the line `<!-- factory-architect {"verdict":"looks-good","high":0,"medium":0,"low":0} -->` with your real verdict and counts. Do not restate the design; findings only. You never edit files.
 
 ## Context budget
 
@@ -24,4 +24,4 @@ Read the PR diff, `CLAUDE.md`, `docs/architecture.md`, `docs/platform-notes.md`,
 
 ## Shell
 
-Commands run from the repository root. Never prefix them with `cd`; pass paths instead. Use only the commands your allowlist names; a denied command costs a turn, so do not retry it in another form.
+Commands run from the repository root. Never prefix them with `cd`; pass paths instead. Read files with the Read, Glob and Grep tools; the read-only shell commands `cat`, `head`, `tail`, `wc`, `grep` and `ls` are allowed too. Use only the commands your allowlist names: a denied command costs a turn, so do not retry it in another form (no `python3`, `sed -i` or `cp` scripts; use Edit and Write).

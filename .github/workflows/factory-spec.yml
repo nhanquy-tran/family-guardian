@@ -66,7 +66,7 @@ jobs:
           claude_args: |
             --model ${{ vars.FACTORY_SPEC_MODEL || 'claude-sonnet-5-5' }}
             --permission-mode default
-            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(cd:*),Bash(gh issue view:*),Bash(npx openspec:*),Bash(openspec:*),Bash(ls:*),Bash(node .github/scripts/factory-eval.mjs:*)"
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(cd:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(grep:*),Bash(mkdir -p:*),Bash(gh issue view:*),Bash(npx openspec:*),Bash(openspec:*),Bash(ls:*),Bash(node .github/scripts/factory-eval.mjs:*)"
       - name: Metrics (spec-writer)
         if: always()
         continue-on-error: true
@@ -127,6 +127,7 @@ jobs:
             echo "number=${URL##*/}"
             echo "risk=${RISK:-normal}"
             echo "why=${RISK_WHY}"
+            echo "change=${CHANGE}"
           } >> "$GITHUB_OUTPUT"
       - name: Architect agent
         id: architect
@@ -148,15 +149,24 @@ jobs:
           claude_args: |
             --model ${{ vars.FACTORY_ARCHITECT_MODEL || 'claude-opus-5-5' }}
             --permission-mode default
-            --allowedTools "Read,Glob,Grep,Bash(cd:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*),Bash(gh pr comment:*),Bash(gh issue view:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(ls:*)"
+            --allowedTools "Read,Glob,Grep,Bash(cd:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(grep:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*),Bash(gh pr comment:*),Bash(gh issue view:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(ls:*)"
       - name: Architect verdict
         if: always() && steps.architect.outcome != 'skipped'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ steps.pr.outputs.number }}
+          CHANGE: ${{ steps.pr.outputs.change }}
         run: |
-          V=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments?per_page=100" --jq '[.[] | select(.body | test("factory-architect"))] | last | .body // ""' | grep -o '"verdict":"[a-z-]*"' | tail -1 | cut -d'"' -f4)
+          gh api "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments?per_page=100" --jq '[.[] | select(.body | test("factory-architect"))] | last | .body // ""' > /tmp/architect.md
+          V=$(grep -o '"verdict":"[a-z-]*"' /tmp/architect.md | tail -1 | cut -d'"' -f4)
+          # Lows never start a fix round (R4): they go to the change's NOTES.md for the builder, committed here.
+          NOTES=$(sed -n '/^#*[[:space:]]*\**Builder notes/,/factory-architect/p' /tmp/architect.md | sed '1d;$d' | sed '/^[[:space:]]*$/d')
+          if [ -n "$NOTES" ] && [ -n "$CHANGE" ] && [ -d "openspec/changes/$CHANGE" ]; then
+            printf '\n## Builder notes (architect review, PR #%s)\n\n%s\n' "$PR" "$NOTES" >> "openspec/changes/$CHANGE/NOTES.md"
+            git add "openspec/changes/$CHANGE/NOTES.md"
+            git commit -q -m "spec: architect builder notes (#${ISSUE})" && git push -q origin HEAD || echo "Could not push builder notes" >> "$GITHUB_STEP_SUMMARY"
+          fi
           gh label create architect-changes-needed --color D93F0B --description "Architect review asked for design changes (ADR 0022)" >/dev/null 2>&1 || true
           if [ "$V" = "changes-needed" ]; then gh pr edit "$PR" --add-label architect-changes-needed; fi
           if [ -z "$V" ]; then gh pr comment "$PR" --body "Architecture review: the architect agent posted no verdict (timeout or error). The spec gate reviews the design itself."; fi

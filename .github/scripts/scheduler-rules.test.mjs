@@ -1,5 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { dependsOn, stateOf } from "./scheduler-rules.mjs";
+import { coveredBy, dependsOn, stateOf } from "./scheduler-rules.mjs";
+
+describe("coveredBy", () => {
+  const pr = (over) => ({ number: 161, headRefName: "test/154-server-actions", state: "OPEN", body: "Closes #154", ...over });
+
+  it("finds an open or merged non-factory PR that closes the issue", () => {
+    expect(coveredBy(154, [pr({})])).toBe(161);
+    expect(coveredBy(154, [pr({ state: "MERGED", body: "Summary\n\nfixes #154 and more" })])).toBe(161);
+    expect(coveredBy(154, [pr({ body: "Resolves #154." })])).toBe(161);
+  });
+
+  it("ignores factory PRs, closed PRs, plain mentions and other issues", () => {
+    expect(coveredBy(154, [pr({ headRefName: "factory/154" }), pr({ headRefName: "spec/154" })])).toBeNull();
+    expect(coveredBy(154, [pr({ state: "CLOSED" })])).toBeNull();
+    expect(coveredBy(154, [pr({ body: "Follow-up to #154" })])).toBeNull();
+    expect(coveredBy(154, [pr({ body: "Closes #1540" })])).toBeNull();
+    expect(coveredBy(154, [pr({ body: null })])).toBeNull();
+  });
+});
 
 describe("stateOf", () => {
   it("treats on-hold as the state even when ready or build-now is also set", () => {

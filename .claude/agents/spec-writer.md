@@ -43,4 +43,4 @@ Read only: `CLAUDE.md`, `docs/platform-notes.md`, `docs/decisions/README.md` (op
 
 ## Shell
 
-Commands run from the repository root. Never prefix them with `cd`; pass paths instead (`npx vitest run apps/web/src/lib/x.test.ts`). Use only the commands your allowlist names; a denied command costs a turn, so do not retry it in another form.
+Commands run from the repository root. Never prefix them with `cd`; pass paths instead (`npx vitest run apps/web/src/lib/x.test.ts`). Read files with the Read, Glob and Grep tools; the read-only shell commands `cat`, `head`, `tail`, `wc`, `grep` and `ls` are allowed too. Use only the commands your allowlist names: a denied command costs a turn, so do not retry it in another form (no `python3`, `sed -i` or `cp` scripts; use Edit and Write).

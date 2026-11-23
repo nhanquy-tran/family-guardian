@@ -40,6 +40,11 @@ for WF in factory-spec.yml factory-build.yml; do
 done
 
 # 2. Conflicting factory/spec PRs: GitHub runs no PR workflows on them, so they stall silently.
+# Right after a push to main, GitHub reports mergeable as UNKNOWN until it recomputes; ask once, then wait.
+if [ "${GITHUB_EVENT_NAME:-}" = "push" ]; then
+  gh pr list --state open --limit 50 --json mergeable >/dev/null 2>&1
+  sleep 45
+fi
 git config user.name "family-guardian-factory"
 git config user.email "factory@users.noreply.github.com"
 gh pr list --state open --limit 50 --json number,headRefName,mergeable \
