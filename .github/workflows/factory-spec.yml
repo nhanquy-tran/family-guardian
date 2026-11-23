@@ -129,6 +129,7 @@ jobs:
             echo "why=${RISK_WHY}"
             echo "change=${CHANGE}"
           } >> "$GITHUB_OUTPUT"
+      # Sonnet by default, Opus for security and privacy issues (ADR 0022 amendment, replay of 3 past specs).
       - name: Architect agent
         id: architect
         if: steps.pr.outputs.risk == 'high'
@@ -147,7 +148,7 @@ jobs:
             Repository: ${{ github.repository }}. Spec PR number: ${{ steps.pr.outputs.number }}. Issue number: ${{ env.ISSUE }}.
             Risk reasons: ${{ steps.pr.outputs.why }}.
           claude_args: |
-            --model ${{ vars.FACTORY_ARCHITECT_MODEL || 'claude-opus-5-5' }}
+            --model ${{ vars.FACTORY_ARCHITECT_MODEL || ((contains(env.ISSUE_LABELS, 'security') || contains(env.ISSUE_LABELS, 'privacy')) && 'claude-opus-5-5' || 'claude-sonnet-5-5') }}
             --permission-mode default
             --allowedTools "Read,Glob,Grep,Bash(cd:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(grep:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*),Bash(gh pr comment:*),Bash(gh issue view:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(ls:*)"
       - name: Architect verdict
