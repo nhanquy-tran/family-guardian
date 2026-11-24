@@ -14,7 +14,7 @@
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "@fg/shared": "*",
-    "@supabase/supabase-js": "^2.119.0",
+    "@supabase/supabase-js": "^2.119.2",
     "@supabase/ssr": "^0.12.7"
   },
   "devDependencies": {
