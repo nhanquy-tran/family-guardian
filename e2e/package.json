@@ -16,7 +16,7 @@
     "@playwright/test": "^1.65.1",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.119.0",
-    "@types/node": "^22",
+    "@types/node": "^26",
     "tsx": "^4.23.15",
     "typescript": "^5"
   }
