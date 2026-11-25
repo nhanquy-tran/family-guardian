@@ -1,7 +1,16 @@
 name: E2E
 
 # Dashboard end-to-end tests and screenshots against a local Supabase stack (ADR 0021).
+# Also on PRs that change what the dashboard runs on: unit tests prove a proxy, this proves the real app
+# (pstack "Prove It Works"; #163 merged e2e flows that had never run). Not a required check: the gate reads it.
 on:
+  pull_request:
+    paths:
+      - "apps/web/**"
+      - "packages/shared/**"
+      - "supabase/**"
+      - "e2e/**"
+      - ".github/workflows/e2e.yml"
   schedule:
     - cron: "30 1 * * *"
   workflow_dispatch:

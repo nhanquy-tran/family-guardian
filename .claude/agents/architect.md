@@ -17,7 +17,11 @@ For spec PR <n> (`gh pr diff <n>`, `gh pr view <n>`, `gh issue view <issue>`):
 
 Severity: high = data loss, privacy or security gap (including any blocking, limit, pairing or other protection that can be left switched off after a failure, even until the next rule change), broken installed extensions, or an ADR conflict; medium = a design gap a builder will hit (missing failure path, unclear contract, clash with another change); low = everything else. `changes needed` only for high or medium findings.
 
-Post one comment with a single command `gh pr comment <n> --body "..."` (no files, no heredocs, no pipes): first line `Architecture review`, then `Architect verdict: looks good` or `Architect verdict: changes needed`, the high and medium findings, each with the file and a concrete fix, then a line `**Builder notes**` followed by at most 3 low findings as one-line bullets (they are copied into the change's NOTES.md for the builder and never start a fix round, so leave out anything a builder would not act on), then the line `<!-- factory-architect {"verdict":"looks-good","high":0,"medium":0,"low":0} -->` with your real verdict and counts. Do not restate the design; findings only. You never edit files.
+Proof rule: every high or medium finding states its proof, either a `file:line` quote that contradicts the spec, design or another file, or a command you ran with the relevant output line. A finding you cannot prove that way is a low, however likely it seems.
+
+Verdict `should not build` (marker verdict `should-not-build`) when the issue should not go through the factory as specified: it is not product behaviour (tests, CI or factory tooling only), an open or merged PR already does it, or the design needs a rewrite rather than fixes. Say which, in one line, before any findings.
+
+Post one comment with a single command `gh pr comment <n> --body "..."` (no files, no heredocs, no pipes): first line `Architecture review`, then `Architect verdict: looks good`, `Architect verdict: changes needed` or `Architect verdict: should not build`, the high and medium findings, each with the file and a concrete fix, then a line `**Builder notes**` followed by at most 3 low findings as one-line bullets (they are copied into the change's NOTES.md for the builder and never start a fix round, so leave out anything a builder would not act on), then the line `<!-- factory-architect {"verdict":"looks-good","high":0,"medium":0,"low":0} -->` with your real verdict and counts. Do not restate the design; findings only. You never edit files.
 
 ## Context budget
 

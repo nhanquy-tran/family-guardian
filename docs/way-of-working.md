@@ -77,6 +77,8 @@ When Claude stops, it posts the same summary on the issue and in chat:
 - A fix request carries only high and medium findings. Lows never start or widen a fix round: the architect's lows land in the change's NOTES.md as builder notes (Factory 1 commits them), and a spec with only lows is merged as it is.
 - A conflicting factory or spec PR is not a fix round: the watchdog merges main on every push to main and asks `@claude` only when the merge does not apply cleanly. If you reach the PR first, dispatch the watchdog instead of writing a fix request.
 - A risk-high spec PR gets the architect review only, not a second AI review (add `re-review` to ask for one).
+- A fix round opens only for proven findings: a `file:line` contradiction, a command output or a failing test. Unproven findings become builder notes.
+- An architect verdict `should not build` puts the issue `on-hold`. The gate closes the spec PR and tells the owner, or overrules it with reasons.
 
 ## Build gate checklist (Claude)
 
@@ -89,6 +91,8 @@ When Claude stops, it posts the same summary on the issue and in chat:
 - After a gate fix or `@claude` round, wait for "Evidence (latest push)" to update before adding `re-review`.
 - `## Test concerns` in NOTES.md (the developer's STOP rule) answered before merging.
 - Live check where possible (preview, or production after merge for migration PRs).
+- `E2E` is green when it ran (it runs on PRs touching `apps/web`, `packages/shared`, `supabase` or `e2e`). A red e2e is a gate finding, not flakiness, until a re-run shows otherwise.
+- A destructive migration (drop, truncate, delete, retype, rename) fails `check` until the owner adds `migration-approved`. Only the owner adds that label, never Claude or an agent.
 - If the evidence says `Archive: skipped`, the gate fixes what blocked it and runs `npx openspec archive <change> -y` on the branch before merging (#105 was merged unarchived, which blocked #99's MODIFIED delta). Replace any `TBD` Purpose it writes.
 - After merge: the nightly docs job (`factory-docs.yml`) applies `## Docs to update`; Claude reviews and merges its PR like any other.
 
@@ -99,5 +103,5 @@ When Claude stops, it posts the same summary on the issue and in chat:
 
 ## Records
 
-- Every Claude gate decision is a PR comment starting `Gate (Claude):` with the verdict and reasons, so the audit trail stays in GitHub (Zühlke rule 3: every gate leaves evidence).
+- Every Claude gate decision is a PR comment starting `Gate (Claude):` with the verdict and reasons, plus a line `Verified by me:` naming what Claude ran or read itself, each labelled measured, read or assumed, so the audit trail stays in GitHub (Zühlke rule 3: every gate leaves evidence).
 - Lessons go into [factory-learnings.md](factory-learnings.md).

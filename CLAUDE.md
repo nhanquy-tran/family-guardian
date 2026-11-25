@@ -31,6 +31,14 @@ Parental monitoring for kids' Windows laptops: a Chrome/Edge/Brave extension plu
 5. **Simplicity**: no new service, library or infrastructure without a reason; structural choices need an ADR.
 6. TypeScript strict, no `any`. Comments only for complex code.
 
+## Review rules (every reviewer, the gate and `/code-review`)
+
+- **High:** data or privacy leak beyond ADR 0005; a table without family-scoped RLS; a device route without the hashed token; a blocking, limit, pairing or other protection that can stay off after a failure; a broken installed extension (the contract must stay backward compatible); a weakened or deleted test.
+- **Medium:** a missing failure path (stores and calls fail closed or safe); a PostgREST read that relies on more than 1000 rows; something a new artifact needs that `npm run build` or CI does not build; a clash with another open change.
+- **Proof:** a high or medium names a `file:line` contradiction, a command output or a failing test. Otherwise it is low.
+- **Skip:** `openspec/changes/archive/**`, generated files, lockfiles. Low findings that do not change what gets built stay out of fix rounds.
+- **Irreversible:** a migration that drops, truncates, deletes, retypes or renames waits for the owner (`migration-approved`).
+
 ## Definition of done
 
 All scenarios tested, `npm run check` and `npm run build` pass, tasks ticked, NOTES.md lists docs to update.

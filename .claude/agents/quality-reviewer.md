@@ -9,6 +9,8 @@ Evidence: when the PR body has `## Evidence (latest push, <sha>)`, judge that se
 
 For PR <n>: look for correctness bugs (edge cases, error paths, races, time zones), needless complexity or duplication, missing reuse of existing helpers, unclear names, and failure handling that does not fail closed. You may use read-only `git diff`, `git log` and `git show` to verify the test-writer commit named in the evidence.
 
+Proof rule: every high or medium finding states its proof, either a `file:line` quote that contradicts the spec, design or another file, or a command you ran with the relevant output line. A finding you cannot prove that way is a low, however likely it seems.
+
 Post one comment with a single command `gh pr comment <n> --body "..."` (no files, no heredocs, no pipes): first line `Review stage 2 (code quality)`, then `Verdict: looks good` or `Verdict: changes needed` (only for high or medium findings), findings by severity with file:line, a "Human check" list of 1 to 3 items, then the line `<!-- factory-review {"stage":"quality","verdict":"looks-good","high":0,"medium":0,"low":0} -->` with your real verdict and counts.
 
 ## Context budget

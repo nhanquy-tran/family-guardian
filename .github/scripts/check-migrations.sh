@@ -15,4 +15,18 @@ for v in $NEW; do
     echo "::error::Migration $v is not newer than the latest on main ($LATEST_MAIN). Rename it with: date -u +%Y%m%d%H%M%S"; exit 1
   fi
 done
+# Irreversible writes wait for the owner: a new migration that drops, truncates, deletes, retypes or renames
+# needs the PR label migration-approved (labels are read now, so a re-run after labelling passes).
+NEW_FILES=$(git diff --name-only --diff-filter=A origin/main...HEAD -- supabase/migrations/)
+if [ -n "$NEW_FILES" ]; then
+  FOUND=$(node .github/scripts/destructive-sql.mjs $NEW_FILES)
+  if [ -n "$FOUND" ]; then
+    APPROVED=$(gh pr view "${PR:-}" --json labels -q ".labels[].name" 2>/dev/null | grep -cx migration-approved || true)
+    if [ "${APPROVED:-0}" -eq 0 ]; then
+      echo "::error::This migration loses data or breaks the running app. The owner adds the label migration-approved, then re-runs this check:"
+      echo "$FOUND"; exit 1
+    fi
+    echo "Destructive migration approved by the owner (label migration-approved):"; echo "$FOUND"
+  fi
+fi
 echo "Migrations OK (latest on main: ${LATEST_MAIN:-none}; new: ${NEW:-none})"

@@ -77,6 +77,8 @@ A `full-mode` label on an issue builds that issue in full mode. Use it for priva
 | `review-changes-needed` | The AI reviewer's latest verdict on the PR is "changes needed" (also the red `factory/review` status) | Factory 4 |
 | `risk-high` | The spec's risk tier is high: design template and architect review (ADR 0022) | Factory 1 |
 | `architect-changes-needed` | The architect asked for design changes; the spec gate has them fixed before merging | Factory 1 |
+| `architect-should-not-build` | The architect says the issue should not go through the factory as specified; the issue goes `on-hold` | Factory 1 |
+| `migration-approved` | The owner approves a destructive migration (drop, truncate, delete, retype, rename); without it `check` fails | Owner only |
 | `architecture` | The weekly architecture check report (one open at a time) | Factory 9 |
 | `test-arbitrated` | The debugger changed a test; the gate checks it | Factory 3 |
 | `re-review` | Run the AI review again on the latest push | Owner or Claude |
