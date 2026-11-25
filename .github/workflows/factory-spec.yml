@@ -170,6 +170,12 @@ jobs:
           fi
           gh label create architect-changes-needed --color D93F0B --description "Architect review asked for design changes (ADR 0022)" >/dev/null 2>&1 || true
           if [ "$V" = "changes-needed" ]; then gh pr edit "$PR" --add-label architect-changes-needed; fi
+          # "No is an acceptable answer": the issue waits for the gate or owner instead of a fix round.
+          if [ "$V" = "should-not-build" ]; then
+            gh label create architect-should-not-build --color 5319E7 --description "Architect: should not go through the factory as specified" >/dev/null 2>&1 || true
+            gh pr edit "$PR" --add-label architect-should-not-build
+            gh issue edit "$ISSUE" --add-label on-hold >/dev/null
+          fi
           if [ -z "$V" ]; then gh pr comment "$PR" --body "Architecture review: the architect agent posted no verdict (timeout or error). The spec gate reviews the design itself."; fi
           echo "Architect verdict: ${V:-none}" >> "$GITHUB_STEP_SUMMARY"
       - name: Metrics (architect)

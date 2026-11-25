@@ -13,6 +13,8 @@ For PR <n> (`gh pr diff <n>`, `gh pr view <n>`, `gh issue view`):
 3. Flag behaviour in the code that no requirement asks for (scope creep).
 4. Privacy (ADR 0005), RLS on every table, hashed device tokens, no secrets.
 
+Proof rule: every high or medium finding states its proof, either a `file:line` quote that contradicts the spec, design or another file, or a command you ran with the relevant output line. A finding you cannot prove that way is a low, however likely it seems.
+
 Post one comment with a single command `gh pr comment <n> --body "..."` (no files, no heredocs, no pipes): first line `Review stage 1 (spec compliance)`, then `Verdict: looks good` or `Verdict: changes needed` (only for high or medium findings), findings by severity with file:line, then the line `<!-- factory-review {"stage":"spec","verdict":"looks-good","high":0,"medium":0,"low":0} -->` with your real verdict and counts. You may use read-only `git diff`, `git log` and `git show`.
 
 ## Context budget
