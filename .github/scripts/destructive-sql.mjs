@@ -14,20 +14,31 @@ const PATTERNS = [
   /\brename\s+(column\s+\S+\s+)?to\b/i,
 ];
 
-// Function bodies ($$ ... $$ or $tag$ ... $tag$) run when called, not when the migration applies.
+const DOLLAR_BODY = /(\$[A-Za-z_]*\$)([\s\S]*?)\1/g;
+
+// A DO block runs when the migration applies, so its body (string contents too, for EXECUTE '...') is
+// scanned. Other dollar-quoted bodies belong to functions and procedures, which run only when called.
+function doBodies(sql) {
+  return [...sql.matchAll(/\bdo\s+(\$[A-Za-z_]*\$)([\s\S]*?)\1/gi)].map((m) => m[2]);
+}
+
 function stripCommentsAndStrings(sql) {
   return sql
-    .replace(/(\$[A-Za-z_]*\$)[\s\S]*?\1/g, "''")
+    .replace(DOLLAR_BODY, "''")
     .replace(/--[^\n]*/g, "")
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/'(?:[^']|'')*'/g, "''");
 }
 
-export function destructiveStatements(sql) {
-  return stripCommentsAndStrings(sql)
+const matching = (text) =>
+  text
     .split(";")
     .map((s) => s.trim())
     .filter((s) => s && PATTERNS.some((p) => p.test(s)));
+
+export function destructiveStatements(sql) {
+  const inDo = doBodies(sql).flatMap((body) => matching(body.replace(/--[^\n]*/g, "").replace(/'/g, " ")));
+  return [...matching(stripCommentsAndStrings(sql)), ...inDo];
 }
 
 if (process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/\\/g, "/").split("/").pop())) {

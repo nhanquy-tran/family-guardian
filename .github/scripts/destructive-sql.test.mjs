@@ -33,6 +33,12 @@ describe("destructiveStatements", () => {
     expect(destructiveStatements(sql)).toEqual([]);
   });
 
+  it("scans DO blocks, which run when the migration applies, including dynamic SQL", () => {
+    expect(destructiveStatements("do $$ begin drop table x; end $$;")).toHaveLength(1);
+    expect(destructiveStatements("DO $body$ begin execute 'truncate usage_minutes'; end $body$;")).toHaveLength(1);
+    expect(destructiveStatements("do $$ begin raise notice 'ok'; end $$;")).toEqual([]);
+  });
+
   it("returns the matched statement text", () => {
     expect(destructiveStatements("select 1;\nDELETE FROM t where a = 1;")).toEqual(["DELETE FROM t where a = 1"]);
   });
