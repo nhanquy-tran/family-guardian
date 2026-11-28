@@ -22,9 +22,9 @@
     "factory:core": "node -e \"require('fs').rmSync('.factory/core',{recursive:true,force:true})\" && git clone -q --depth 1 --branch v1 https://github.com/nhanquy-tran/ai-factory .factory/core"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.5.16",
-    "@fission-ai/openspec": "2.1.0",
-    "@vitest/coverage-v8": "^5.1.1",
+    "@electric-sql/pglite": "^0.6.0",
+    "@fission-ai/openspec": "2.2.0",
+    "@vitest/coverage-v8": "^5.1.2",
     "typescript": "^5",
     "vitest": "^5"
   },
