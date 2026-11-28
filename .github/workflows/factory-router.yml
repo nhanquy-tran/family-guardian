@@ -1,41 +1,16 @@
 name: "Factory 0: router"
 
-# Turns owner labels into factory runs. Agents always run under workflow_dispatch or schedule,
-# so the Claude action never applies its own issue-branch logic.
-#   needs-spec -> Factory 1 (write spec)
-#   build-now  -> Factory 3 (build this issue now instead of waiting for the night)
-
+# build-now -> build; needs-spec -> spec writer (only when features.spec_in_actions is on).
 on:
   issues:
     types: [labeled]
 
 permissions:
   actions: write
-  issues: write # to undo a build-now on an issue that is not ready
+  contents: read
+  issues: write
 
 jobs:
   route:
-    if: github.actor == github.repository_owner && contains(fromJson('["needs-spec","build-now"]'), github.event.label.name)
-    runs-on: ubuntu-latest
-    env:
-      GH_TOKEN: ${{ github.token }}
-      LABEL: ${{ github.event.label.name }}
-      ISSUE: ${{ github.event.issue.number }}
-      # A build needs an approved spec: ready, or a later state when rebuilding (in-review, needs-human).
-      READY: ${{ contains(github.event.issue.labels.*.name, 'ready') || contains(github.event.issue.labels.*.name, 'in-review') || contains(github.event.issue.labels.*.name, 'needs-human') }}
-      ON_HOLD: ${{ contains(github.event.issue.labels.*.name, 'on-hold') }}
-    steps:
-      - run: |
-          if [ "$ON_HOLD" = "true" ]; then
-            gh issue edit "$ISSUE" --repo "$GITHUB_REPOSITORY" --remove-label "$LABEL"
-            gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" --body "Factory: this issue is \`on-hold\`, so \`$LABEL\` started nothing. Remove \`on-hold\` first."
-            exit 0
-          fi
-          if [ "$LABEL" = "build-now" ] && [ "$READY" != "true" ]; then
-            gh issue edit "$ISSUE" --repo "$GITHUB_REPOSITORY" --remove-label build-now
-            gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" --body "Factory: \`build-now\` needs an approved spec first (label \`ready\`, set when the spec PR is merged). Nothing was started."
-            exit 0
-          fi
-          if [ "$LABEL" = "needs-spec" ]; then WF=factory-spec.yml; else WF=factory-build.yml; fi
-          gh workflow run "$WF" --repo "$GITHUB_REPOSITORY" --ref main -f issue="$ISSUE"
-          echo "Dispatched $WF for #$ISSUE"
+    if: github.event.label.name == 'build-now' || github.event.label.name == 'needs-spec'
+    uses: nhanquy-tran/ai-factory/.github/workflows/router.yml@v1

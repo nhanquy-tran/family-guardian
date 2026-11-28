@@ -29,3 +29,5 @@ Open an ADR only when your change touches its subject. All accepted unless noted
 | [0023](0023-coverage-ratchet.md) | Coverage minimums per area in `vitest.config.ts`, raised automatically and enforced in CI and the factory gate (`@vitest/coverage-v8`) | testing, CI, factory workflows |
 | [0024](0024-firefox-unlisted-amo-self-hosted.md) | Firefox: same extension, unlisted AMO-signed add-on hosted on our domain, force-installed by policy; lost site access reported as one yes/no heartbeat value | Firefox, install, store, permissions, anything the extension sends |
 | [0025](0025-site-access-incidents.md) | Site-access incidents per device, written by trigger, kept 90 days | site access alerts, digest, stored data |
+
+Factory decisions (0006, 0007, 0013–0015, 0017–0019, 0022, 0023) now continue in [nhanquy-tran/ai-factory docs/decisions](https://github.com/nhanquy-tran/ai-factory/tree/main/docs/decisions); these files stay as history.

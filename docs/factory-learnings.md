@@ -1,5 +1,9 @@
 # Factory learnings
 
+> **Moved (28 Nov 2026):** the factory now lives in [nhanquy-tran/ai-factory](https://github.com/nhanquy-tran/ai-factory) (issue #206). This repo keeps `.factory/config.yml`, `.factory/overlay/` and thin caller workflows pinned to `@v1`. Rows below that name `.github/scripts/` or `.claude/agents/` now refer to `scripts/` and `agents/` in that repo. The control pane is https://nhanquy-tran.github.io/ai-factory/.
+
+New factory and stack lessons go to `docs/learnings.md` in the factory repo; app lessons stay here.
+
 The factory's learn loop (Zühlke AI Factory: "every accepted result improves agents and knowledge"). Each entry records what went wrong or was caught late, and the rule it became. Agents read this file; rules that matter for every change are also copied into the agent role files in `.claude/agents/`.
 
 Add an entry whenever a human gate or a reviewer catches something an earlier step should have caught.

@@ -9,4 +9,4 @@ description: Add a Supabase SQL migration to this repo safely (naming, RLS, gran
 4. **Functions**: `security definer` only when needed, always `set search_path = ''`, then `revoke execute on function ... from public, anon, authenticated;` and grant to `service_role` if the server calls it. Prefer `security invoker` for read functions so RLS applies.
 5. **Cron / pg_net / Vault**: guard with an existence check so the PGlite harness still loads the file; verification happens on production after merge.
 6. **Tests**: add scenarios in `supabase/tests/<area>.test.ts` using `supabase/tests/harness.ts` (roles `authenticated`, `service_role`, two families to prove RLS isolation).
-7. Run `npx vitest run supabase/tests` and `bash .github/scripts/check-migrations.sh`.
+7. Run `npx vitest run supabase/tests` and `bash .factory/core/packs/nextjs-supabase/check-migrations.sh`.

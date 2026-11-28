@@ -1,7 +1,7 @@
 name: Claude on demand
 
-# Mention @claude in an issue or PR comment for ad-hoc help. Owner only (public repo).
-
+# Needs features.claude_fixer: true in .factory/config.yml. An owner's @claude comment on an issue or PR
+# starts the fixer (the watchdog also asks it to resolve conflicts when it is on).
 on:
   issue_comment:
     types: [created]
@@ -20,27 +20,7 @@ permissions:
 jobs:
   claude:
     if: contains(github.event.comment.body, '@claude') && github.event.comment.user.login == github.repository_owner
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-      - uses: anthropics/claude-code-action@v1
-        id: agent
-        timeout-minutes: 20
-        with:
-          anthropic_api_key: ${{ secrets.CLAUDE_API_KEY }}
-          github_token: ${{ secrets.FACTORY_TOKEN || github.token }}
-          claude_args: |
-            --model ${{ vars.FACTORY_BUILD_MODEL || 'claude-sonnet-5-5' }}
-            --allowedTools "Read,Glob,Grep,Edit,Write,Bash(cd:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(grep:*),Bash(ls:*),Bash(mkdir -p:*),Bash(npm run check),Bash(npm run build),Bash(npx vitest run:*),Bash(git status),Bash(git diff:*),Bash(git log:*),Bash(git add:*),Bash(git rm:*),Bash(git commit:*),Bash(git push),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(gh issue view:*),Bash(gh issue comment:*)"
-            --disallowedTools "Edit(.env*),Write(.env*),Edit(.github/**),Write(.github/**)"
-      - name: Metrics (fixer)
-        if: always()
-        continue-on-error: true
-        env:
-          EXEC_FILE: ${{ steps.agent.outputs.execution_file }}
-          NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
-          GH_TOKEN: ${{ github.token }}
-        run: bash .github/scripts/post-metrics.sh fixer "$NUMBER" "$EXEC_FILE"
+    uses: nhanquy-tran/ai-factory/.github/workflows/claude.yml@v1
+    with:
+      factory_ref: v1
+    secrets: inherit
