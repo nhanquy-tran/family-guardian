@@ -10,17 +10,17 @@
     "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@fg/shared": "*",
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.119.2",
     "next": "16.4.6",
     "react": "19.3.1",
-    "react-dom": "19.3.1",
-    "@fg/shared": "*",
-    "@supabase/supabase-js": "^2.119.0",
-    "@supabase/ssr": "^0.12.7"
+    "react-dom": "19.3.1"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "4.3.5",
     "@types/node": "^22",
-    "@types/react": "^19",
+    "@types/react": "^19.3.3",
     "@types/react-dom": "^19",
     "eslint": "^10",
     "eslint-config-next": "16.4.6",
