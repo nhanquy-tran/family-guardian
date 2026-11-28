@@ -15,7 +15,7 @@ Line coverage is 79%, but nothing measured it, so a factory PR could add unteste
 - **Where it runs**:
   - `npm run check:ci` (typecheck, lint, tests with coverage) runs in the required CI `check` job and in the factory gate.
   - `npm run check` stays without coverage for fast local runs.
-  - The CI job summary and the factory evidence comment show coverage by area (`.github/scripts/coverage-table.mjs`).
+  - The CI job summary and the factory evidence comment show coverage by area (`scripts/coverage-table.mjs` in [nhanquy-tran/ai-factory](https://github.com/nhanquy-tran/ai-factory); `.github/scripts/` before 28 Nov 2026).
 - **Scope**: TypeScript only. SQL and RLS are covered by the PGlite tests, and screens by e2e; neither shows up in these numbers.
 
 ## Consequences

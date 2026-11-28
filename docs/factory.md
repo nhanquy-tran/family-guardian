@@ -109,7 +109,7 @@ Deterministic checks run by the workflow, not by the agent that produced the wor
 
 | Eval | Where | Passes when |
 |---|---|---|
-| Spec structure | Factory 1, `.github/scripts/factory-eval.mjs spec` | proposal, design, tasks and spec files exist, every requirement has scenarios, every scenario has WHEN and THEN, `tasks.md` names a test file, `openspec validate --strict` passes |
+| Spec structure | Factory 1, `scripts/factory-eval.mjs spec` | proposal, design, tasks and spec files exist, every requirement has scenarios, every scenario has WHEN and THEN, `tasks.md` names a test file, `openspec validate --strict` passes |
 | Tests fail first | Factory 3, on the test-writer commit | the new test files run and fail before any implementation (not on a syntax error, not "no test files found") |
 | Scenario coverage | Factory 3, `factory-eval.mjs coverage` | every scenario title has a test named after it |
 | Same tests pass | Factory 3, after the developer | the test-writer's files pass, so tests vitest does not pick up cannot slip through |
@@ -117,8 +117,8 @@ Deterministic checks run by the workflow, not by the agent that produced the wor
 | Hidden test verdict | Factory 3, debugger in hidden-test mode, only when hidden tests fail | a proposal, not a gate: `HIDDEN VERDICT: code / test / spec / mixed` in NOTES.md and the evidence table; the gate decides |
 | OpenSpec verify | Factory 3, verifier agent | `VERIFY.md` starts with `VERIFY: PASS`; only then the change is archived into `openspec/specs/` |
 | Spec eval (latest push) | Factory 8, `factory-eval.mjs spec` on every push to a `spec/*` PR | updates one comment and fails the job when the eval fails, so `@claude` fix rounds are re-checked; flags a change that became high risk without an architect review |
-| Evidence (latest push) | Factory 8, `.github/scripts/refresh-evidence.mjs` on every push to a `factory/*` PR | not a gate: keeps the evidence current after gate fixes and `@claude` rounds; reviewers judge this section |
-| AI review verdict | Factory 4, `.github/scripts/review-verdict.sh` | the reviewer ends its comment with `<!-- factory-review {...} -->`; the workflow sets the `factory/review` commit status and the `review-changes-needed` label from it |
+| Evidence (latest push) | Factory 8, `scripts/refresh-evidence.mjs` on every push to a `factory/*` PR | not a gate: keeps the evidence current after gate fixes and `@claude` rounds; reviewers judge this section |
+| AI review verdict | Factory 4, `scripts/review-verdict.sh` | the reviewer ends its comment with `<!-- factory-review {...} -->`; the workflow sets the `factory/review` commit status and the `review-changes-needed` label from it |
 
 The router refuses `build-now` on an issue whose spec is not approved yet (no `ready`, `in-review` or `needs-human`): it removes the label and comments instead of starting a build that fails.
 
@@ -144,7 +144,7 @@ Security on a public repo: only the owner's labels and `@claude` comments trigge
 - **Health**: per issue, the time of each step (spec writer, AI review, fixes, spec gate, queue, test writer, developer, verifier, AI review, debugger and fixes, build gate), Claude agent time, retries and end-to-end time; tiles for the median end to end, Claude time, retries per issue and merges over an AI "changes needed".
 - **Workflow**: an interactive map of the factory (plan, spec, build, review, run) with every agent, eval, quality gate and decision gate. Click a step for what it does, when it passes, what happens otherwise and its retry limit; filter by kind; the numbers show open issues at that step now. The map is data in `app.js` (`FLOW`): update it when the factory changes.
 - **Issue timeline**: click an issue in Health or Cost for a Gantt chart of its steps. While it is open it updates itself every 5 seconds (30 without a token): it re-reads only that issue, its PRs, their comments and running factory runs, shows what is happening now (for example "Factory 3: build #87: Developer agent (2m)") and draws the running agent step as a growing bar. It also shows `Gate (Claude):` decisions as markers, the retries (extra spec or build runs, `@claude` fix rounds, job re-runs) and every activity and gate decision with its time and cost, newest first. The popup fits the window; only the activity list scrolls.
-- **Cost**: per issue and step, today, this week and total. After each agent step the workflows run `.github/scripts/post-metrics.sh`, which reads the action's `execution_file` and comments `Factory metrics: … <!-- factory-metrics {json} -->` on the issue (or PR for the reviewer). The dashboard reads those comments, trusting only the owner, collaborators and `github-actions[bot]`.
+- **Cost**: per issue and step, today, this week and total. After each agent step the workflows run `scripts/post-metrics.sh`, which reads the action's `execution_file` and comments `Factory metrics: … <!-- factory-metrics {json} -->` on the issue (or PR for the reviewer). The dashboard reads those comments, trusting only the owner, collaborators and `github-actions[bot]`.
 - **Actions** (need a token, each behind a confirmation): squash-merge a PR (shows the evidence table, CI checks, commit statuses and the AI review first, needs an explicit tick, worded as an override when the review is not "looks good"), add `needs-spec` or `build-now`, re-run failed jobs, comment.
 
 Where: GitHub Pages, deployed by `dashboard-pages.yml` on every push to `main` that touches the folder (one-time setup: Settings > Pages > Source: GitHub Actions). It also works locally: open `tools/factory-dashboard/index.html`, or serve the folder with any static server. `?repo=owner/name` points it at another repo.
@@ -168,7 +168,7 @@ The reviewer can always find something. A PR is ready for the human gate when it
 
 ## Schedules
 
-GitHub's `schedule` event is best effort: runs can be delayed or dropped, most often at :00 and :30 (none fired at all in the factory's first day). So the crons sit off those minutes (scheduler :11/:41, watchdog :26/:56, nightly build 15:13 UTC, docs 02:47 UTC, architecture check Monday 03:17 UTC), and both the scheduler and the watchdog run `.github/scripts/revive-schedules.mjs`. It reads each workflow's cron line and starts any time-based workflow that missed its last slot by more than 30 minutes. The scheduler also runs on every issue and PR event, so any activity revives the watchdog, the nightly build and the docs job.
+GitHub's `schedule` event is best effort: runs can be delayed or dropped, most often at :00 and :30 (none fired at all in the factory's first day). So the crons sit off those minutes (scheduler :11/:41, watchdog :26/:56, nightly build 15:13 UTC, docs 02:47 UTC, architecture check Monday 03:17 UTC), and both the scheduler and the watchdog run `scripts/revive-schedules.mjs`. It reads each workflow's cron line and starts any time-based workflow that missed its last slot by more than 30 minutes. The scheduler also runs on every issue and PR event, so any activity revives the watchdog, the nightly build and the docs job.
 
 ## Watchdog
 
