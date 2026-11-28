@@ -14,6 +14,7 @@ Parental monitoring for kids' Windows laptops: a Chrome/Edge/Brave extension plu
 | Area rules | `apps/web/CLAUDE.md`, `apps/extension/CLAUDE.md`, `supabase/CLAUDE.md`, `packages/shared/CLAUDE.md` |
 | Procedures | skills in `.claude/skills/` (`add-migration`, `add-device-route`, OpenSpec skills) |
 | Design (style guide, tokens, icon; every UI uses them) | `docs/design/` |
+| The AI factory (workflows, gates, agent prompts, control pane) | [nhanquy-tran/ai-factory](https://github.com/nhanquy-tran/ai-factory) at the version in `.factory/config.yml`; app settings in `.factory/config.yml`, app rules per agent in `.factory/overlay/`. Run `npm run factory:core` to get the prompts locally in `.factory/core/`. |
 
 ## Commands
 

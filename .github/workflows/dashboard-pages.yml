@@ -1,6 +1,6 @@
 name: Dashboard to GitHub Pages
 
-# Publishes the static factory control pane (tools/factory-dashboard) to GitHub Pages.
+# Publishes a redirect: the factory control pane moved to https://nhanquy-tran.github.io/ai-factory/.
 # One-time setup: Settings > Pages > Source: GitHub Actions.
 
 on:
@@ -31,10 +31,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: actions/configure-pages@v6
-      # Stamp the commit onto the CSS/JS links so a cached old app.js is never paired with a new index.html.
-      # The design tokens and icon live in docs/design; the deployed pane always uses those.
-      - run: cp docs/design/tokens.css docs/design/icon.svg tools/factory-dashboard/
-      - run: sed -i "s/?v=dev/?v=${GITHUB_SHA::7}/g" tools/factory-dashboard/index.html
       - uses: actions/upload-pages-artifact@v5
         with:
           path: tools/factory-dashboard

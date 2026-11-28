@@ -1,5 +1,7 @@
 # The AI factory
 
+> **Moved (28 Nov 2026):** the factory now lives in [nhanquy-tran/ai-factory](https://github.com/nhanquy-tran/ai-factory) (issue #206). This repo keeps `.factory/config.yml`, `.factory/overlay/` and thin caller workflows pinned to `@v1`. Paths below that name `.github/scripts/` or `.claude/agents/` now refer to `scripts/` and `agents/` in that repo. The control pane is https://nhanquy-tran.github.io/ai-factory/.
+
 How Family Guardian is built: people set the target and decide at the gates, agents do the work, often overnight. Modelled on the Zühlke AI Factory production model (eight elements, five rules, six maturity steps) using only open-source parts. Decision: [ADR 0006](decisions/0006-ai-factory.md), auth and cost: [ADR 0007](decisions/0007-factory-auth-and-cost.md).
 
 ## Flow of one change

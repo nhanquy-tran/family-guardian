@@ -1,0 +1,36 @@
+# AI factory settings for Family Guardian (see nhanquy-tran/ai-factory docs/adopting.md).
+factory: v1
+name: Family Guardian
+packs: [nextjs-supabase, extension-wxt]
+mode: light                      # FG ADR 0018; a `full-mode` issue label builds one issue in full mode
+commands:
+  check: npm run check:ci        # typecheck + lint + tests with coverage minimums (FG ADR 0023)
+  build: npm run build           # shared, web, extension (Chromium MV3) and Firefox (MV2)
+  typecheck: npm run typecheck
+  lint_fix: cd apps/web && npx eslint --fix .
+  prepare: npm run postinstall --workspace extension --if-present   # wxt prepare (FG #184)
+paths:
+  migrations: supabase/migrations
+  protected: [docs/, .github/, .factory/, .env]
+  append_only: []
+  sources: [apps, packages, supabase/functions]
+risk:
+  # FG risk-tier.mjs SENSITIVE: auth, pairing, tokens, stored or collected data, retention, the schema.
+  sensitive: [parent-auth, device-pairing, extension-pairing, device-management, activity-tracking, data-retention, privacy-policy, database-schema]
+models:
+  build: { provider: anthropic, model: claude-sonnet-5-5, min_balance_usd: 5 }
+  review: { provider: anthropic, model: claude-sonnet-5-5 }
+scheduler:
+  enabled: true
+  max_parallel: 3                # FACTORY_MAX_PARALLEL default in FG's factory-scheduler.yml
+  web_lanes: 3                   # FG had no lanes, only Touches overlap and max_parallel
+  min_queue: 0                   # autopilot writes specs itself, so no low-queue warning
+dashboard: { colour: "#2457d6" }
+features:
+  full_mode_label: true          # `full-mode` issue label (FG ADR 0018)
+  spec_in_actions: true          # factory-spec.yml and autopilot specs in the scheduler (FG ADR 0017)
+  watchdog: true                 # factory-watchdog.yml and revive-schedules (FG ADR 0015)
+  evidence: true                 # factory-evidence.yml (FG ADR 0017 addendum)
+  docs_job: true                 # factory-docs.yml (FG ADR 0017, 0019)
+  architecture_check: true       # factory-architecture.yml (FG ADR 0022)
+  claude_fixer: true             # claude.yml (FG ADR 0014)

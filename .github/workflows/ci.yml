@@ -22,22 +22,9 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - name: Migration versions unique and newer than main; destructive SQL needs the owner
-        if: github.event_name == 'pull_request'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR: ${{ github.event.pull_request.number }}
-        run: bash .github/scripts/check-migrations.sh
       - uses: ./.github/actions/setup
       - name: Typecheck, lint, tests with coverage minimums (ADR 0023)
         run: npm run check:ci
-      - name: Coverage by area
-        if: always() && hashFiles('coverage/coverage-summary.json') != ''
-        run: |
-          { echo "### Coverage by area"; echo; node .github/scripts/coverage-table.mjs; } >> "$GITHUB_STEP_SUMMARY"
-          if ! git diff --quiet vitest.config.ts; then
-            echo "::notice::Coverage rose above a minimum. Run npm run coverage and commit vitest.config.ts to raise it."
-          fi
       - name: Source-of-truth specs valid
         run: npx openspec validate --specs --strict --no-interactive
 
@@ -55,6 +42,13 @@ jobs:
           key: next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('apps/web/src/**', 'packages/shared/src/**') }}
           restore-keys: next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
       - run: npm run build
+
+  # Factory checks from nhanquy-tran/ai-factory: the spec gate on spec/* PRs, migration checks and the
+  # wiring check (pack nextjs-supabase) on PRs and factory-dispatched runs.
+  factory:
+    uses: nhanquy-tran/ai-factory/.github/workflows/checks.yml@v1
+    with:
+      factory_ref: v1
 
   secrets-scan:
     runs-on: ubuntu-latest

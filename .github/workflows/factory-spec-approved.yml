@@ -1,7 +1,5 @@
 name: "Factory 2: spec approved"
 
-# A merged `spec` PR is the human spec approval. Move the issue to `ready`.
-
 on:
   pull_request:
     types: [closed]
@@ -11,12 +9,5 @@ permissions:
 
 jobs:
   ready:
-    if: github.event.pull_request.merged && contains(github.event.pull_request.labels.*.name, 'spec')
-    runs-on: ubuntu-latest
-    env:
-      GH_TOKEN: ${{ github.token }}
-      BRANCH: ${{ github.event.pull_request.head.ref }}
-    steps:
-      - run: |
-          ISSUE="${BRANCH#spec/}"
-          gh issue edit "$ISSUE" --repo "${{ github.repository }}" --remove-label spec-review --add-label ready
+    if: github.event.pull_request.merged
+    uses: nhanquy-tran/ai-factory/.github/workflows/spec-approved.yml@v1

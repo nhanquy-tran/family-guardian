@@ -1,15 +1,15 @@
 name: "Factory 6: scheduler"
 
-# Starts specs and builds for `autopilot` issues in dependency order (Depends on / Touches lines),
-# at most FACTORY_MAX_PARALLEL agent jobs, and updates the "Factory state" issue (ADR 0017).
-
 on:
   schedule:
     - cron: "11,41 * * * *" # off :00/:30, where GitHub delays or drops most scheduled runs
   issues:
-    types: [closed, labeled]
+    types: [closed, labeled] # autopilot or ready; specs for autopilot issues need features.spec_in_actions
   pull_request:
     types: [closed]
+  workflow_run:
+    workflows: ["Factory 3: build"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       dry_run:
@@ -24,29 +24,12 @@ concurrency:
 permissions:
   contents: read
   issues: write
-  actions: write # revive-schedules.mjs starts workflows whose cron slot was skipped
+  actions: write
 
 jobs:
   schedule:
-    if: >-
-      github.event_name != 'issues' || github.event.action == 'closed' ||
-      contains(fromJson('["autopilot","ready"]'), github.event.label.name)
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-      - name: Schedule
-        env:
-          GH_TOKEN: ${{ secrets.FACTORY_TOKEN || github.token }}
-          MAX_PARALLEL: ${{ vars.FACTORY_MAX_PARALLEL || 3 }}
-          DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
-        run: node .github/scripts/scheduler.mjs | tee -a "$GITHUB_STEP_SUMMARY"
-      - name: Revive missed schedules
-        if: always()
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ github.token }}
-          DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
-        run: node .github/scripts/revive-schedules.mjs factory-scheduler.yml | tee -a "$GITHUB_STEP_SUMMARY"
+    if: github.event_name != 'issues' || github.event.action == 'closed' || github.event.label.name == 'autopilot' || github.event.label.name == 'ready'
+    uses: nhanquy-tran/ai-factory/.github/workflows/scheduler.yml@v1
+    with:
+      dry_run: ${{ inputs.dry_run || false }}
+      factory_ref: v1

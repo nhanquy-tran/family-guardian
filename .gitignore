@@ -17,3 +17,7 @@ next-env.d.ts
 family-guardian-extension-*.zip
 .worktrees/
 e2e/screenshots/
+
+# AI factory core, cloned at run time (npm run factory:core)
+.factory/core/
+.factory/tmp/
